@@ -1,0 +1,38 @@
+name: CI
+
+# CI tối thiểu cho Phase 1.5 / Nhóm 5.4. Chạy mỗi PR + push lên nhánh chính.
+# ⚠️ CHƯA verify được trên GitHub: repo hiện chưa có remote (xem master_task_list 5.4).
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sat-prep-web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Node >= 22: script test dùng `node --test "src/**/*.test.ts"`, glob
+          # trong --test chỉ hỗ trợ từ Node 21+. Local đang chạy Node 24.
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sat-prep-web/package-lock.json
+
+      # --legacy-peer-deps: xung đột peer React 19 vs lucide-react (đã biết).
+      - run: npm ci --legacy-peer-deps
+
+      # Hai cổng CHẶN (đang xanh): type-check + unit test (51 test).
+      - run: npx tsc --noEmit
+      - run: npm test
+
+      # Lint hiện CÒN lỗi nợ cũ (no-explicit-any ở *-data routes + 1 lỗi React
+      # purity). Để continue-on-error để KHÔNG đỏ giả; LẬT thành chặn sau khi
+      # dọn `any` ở Nhóm 4.3.
+      - run: npm run lint
+        continue-on-error: true

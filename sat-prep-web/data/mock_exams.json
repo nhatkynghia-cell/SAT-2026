@@ -1,0 +1,71 @@
+{
+  "exams": [
+    {
+      "id": "mock_sat_1",
+      "title": "SAT Practice Test 1 (Bản Chuẩn)",
+      "description": "Đề thi thử mô phỏng sát nhất độ khó của kỳ thi Digital SAT thực tế, phân loại đầy đủ các bẫy thường gặp.",
+      "total_time_minutes": 134,
+      "modules": [
+        {
+          "module_id": "rw_1",
+          "name": "Reading & Writing (Module 1)",
+          "time_minutes": 32,
+          "questions": [
+            {
+              "id": "q1",
+              "full_passage": "While many ancient civilizations relied on the alignment of the stars to govern their agricultural cycles, the Mayans developed an exceptionally complex calendar system. This system, known as the Haab', consisted of 365 days divided into 18 months of 20 days each, with a final short month of 5 days. Researchers argue that this level of precision indicates a deep understanding of astronomy that was unparalleled in its time.",
+              "practice_question": "Which finding, if true, would most directly undermine the researchers' claim about the Mayan understanding of astronomy?",
+              "choices": [
+                "A) The Haab' calendar was primarily used for religious ceremonies rather than agricultural planning.",
+                "B) Another civilization predating the Mayans possessed a calendar system with a remarkably similar 365-day structure.",
+                "C) The final 5-day month of the Haab' was considered unlucky and was associated with fasting and rituals.",
+                "D) The Mayans frequently adjusted the Haab' calendar by adding days to account for the slight inaccuracies in a 365-day year."
+              ],
+              "correct_choice": "B) Another civilization predating the Mayans possessed a calendar system with a remarkably similar 365-day structure.",
+              "explanation": "Câu hỏi yêu cầu tìm bằng chứng làm suy yếu quan điểm của các nhà nghiên cứu rằng kiến thức thiên văn của người Maya là 'không ai sánh kịp' (unparalleled) vào thời điểm đó. Nếu một nền văn minh khác có trước người Maya cũng sở hữu lịch 365 ngày tương tự (Đáp án B), điều đó chứng tỏ người Maya không phải là duy nhất hay đi trước thời đại về mặt này, từ đó phản bác trực tiếp lập luận của các nhà nghiên cứu.",
+              "difficulty": "Medium",
+              "trapRate": 45
+            },
+            {
+              "id": "q2",
+              "full_passage": "The works of Renaissance artist Artemisia Gentileschi often feature strong, suffering women from myth and the Bible—victims, suicides, warriors—and make a specialty of the Judith story. Her painting *Judith Slaying Holofernes* is noted for its visceral depiction of the event, diverging from the more passive portrayals by her male contemporaries. Some art historians attribute this raw intensity to her personal experiences with betrayal and the ensuing public trial.",
+              "practice_question": "As used in the text, what does the word \"visceral\" most nearly mean?",
+              "choices": [
+                "A) Intellectual and abstract",
+                "B) Deeply emotional and instinctive",
+                "C) Historically accurate and precise",
+                "D) Serene and idealized"
+              ],
+              "correct_choice": "B) Deeply emotional and instinctive",
+              "explanation": "Từ 'visceral' trong ngữ cảnh này dùng để mô tả một sự miêu tả thô ráp, mãnh liệt và mang tính bản năng về một sự kiện bạo lực, đối lập với sự miêu tả thụ động (passive) của các họa sĩ nam cùng thời. Do đó, 'Deeply emotional and instinctive' là nghĩa sát nhất.",
+              "difficulty": "Hard",
+              "trapRate": 72
+            }
+          ]
+        },
+        {
+          "module_id": "m_1",
+          "name": "Math (Module 1)",
+          "time_minutes": 35,
+          "questions": [
+            {
+              "id": "q3",
+              "full_passage": "",
+              "practice_question": "If $3x - 5 = 16$, what is the value of $6x + 2$?",
+              "choices": [
+                "A) 21",
+                "B) 42",
+                "C) 44",
+                "D) 14"
+              ],
+              "correct_choice": "C) 44",
+              "explanation": "Từ phương trình $3x - 5 = 16$, ta cộng 5 vào cả hai vế: $3x = 21$. Cần tìm $6x + 2$. Nhận thấy $6x$ gấp đôi $3x$, nên $6x = 2 \\times 21 = 42$. Do đó $6x + 2 = 42 + 2 = 44$.",
+              "difficulty": "Easy",
+              "trapRate": 12
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
