@@ -13,6 +13,8 @@ export interface PracticeQuestion {
   explanation: string;
   difficulty: string;
   trapRate: number;
+  /** skillId từ skill-taxonomy (task #9) — optional để các trang cũ không vỡ. */
+  skillId?: string;
 }
 
 interface CorePracticeUIProps {
@@ -73,7 +75,25 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
 
     // Prefetch câu kế ngay khi submit (user đang đọc giải thích) — 2.2.
     if (onSubmitted) onSubmitted();
-    
+
+    // Ghi nhận kết quả vào Mastery (task #9) — chỉ khi câu có skillId.
+    // Fire-and-forget như /api/cau-sai: không chặn UI, lỗi chỉ log.
+    if (questionData.skillId) {
+      try {
+        await fetch("/api/mastery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            skillId: questionData.skillId,
+            isCorrect: isAnsCorrect,
+            difficulty: questionData.difficulty,
+          })
+        });
+      } catch (e) {
+        console.error("Failed to record mastery", e);
+      }
+    }
+
     if (!isAnsCorrect) {
       try {
         await fetch("/api/cau-sai", {

@@ -14,6 +14,8 @@ interface MathLesson {
   explanation: string;
   difficulty: string;
   trapRate: number;
+  /** skillId từ skill-taxonomy (task #9) — optional, do API gắn kèm. */
+  skillId?: string;
 }
 
 interface ChatMessage {
@@ -123,6 +125,20 @@ export default function MathPage() {
 
     const isAnsCorrect = selectedAnswer.trim()[0].toUpperCase() === lessonData.correct_choice.trim()[0].toUpperCase();
     setIsCorrect(isAnsCorrect);
+
+    // Ghi nhận kết quả vào Mastery (task #9) — chỉ khi câu có skillId.
+    // Fire-and-forget: không chặn UI, lỗi chỉ log.
+    if (lessonData.skillId) {
+      fetch("/api/mastery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          skillId: lessonData.skillId,
+          isCorrect: isAnsCorrect,
+          difficulty: lessonData.difficulty,
+        })
+      }).catch((e) => console.error("Failed to record mastery", e));
+    }
 
     if (isBossEncounter) {
       if (isAnsCorrect) {

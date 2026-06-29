@@ -80,6 +80,29 @@ export function applyAnswerReward(
   };
 }
 
+/**
+ * Phần thưởng cho 1 BÀI (thi thử / thi thật / lượt ôn từ vựng): server nhân
+ * SỐ CÂU ĐÚNG với đơn giá CỐ ĐỊNH theo độ khó (lấy lại từ ANSWER_REWARD).
+ * Client chỉ gửi SỐ ĐẾM + độ khó — KHÔNG gửi số xu/XP → không thể bơm tùy ý.
+ */
+export function applyExamReward(
+  state: EconomyState,
+  correctCount: number,
+  difficulty: Difficulty
+): RewardResult {
+  const count = Number.isInteger(correctCount) && correctCount > 0 ? correctCount : 0;
+  if (count === 0) return { state, granted: { coins: 0, xp: 0 } };
+
+  const rate = ANSWER_REWARD[difficulty];
+  const coins = rate.coins * count;
+  const xp = rate.xp * count;
+
+  return {
+    state: { ...state, coins: state.coins + coins, xp: state.xp + xp },
+    granted: { coins, xp },
+  };
+}
+
 export interface SpendResult {
   ok: boolean;
   state: EconomyState;

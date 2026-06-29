@@ -1,10 +1,59 @@
 import { NextResponse } from 'next/server';
 import { getFromBank, saveToBank, poolSize, MIN_POOL } from '@/lib/question-bank';
 import { checkBudget, recordGlobalCost } from '@/lib/ai-cost';
+import { getCurrentUser } from '@/lib/auth';
+import { checkQuota, recordUsage, type AiTier } from '@/lib/ai-quota';
+
+/**
+ * Map (moduleType, topic) → skillId chuẩn trong skill-taxonomy (task #9 Mastery).
+ * Reading/Writing map cứng theo module; Toán (math + desmos) match theo từ khóa
+ * chủ đề vì topic là chuỗi tự do từ UI. Trả undefined nếu không khớp skill nào.
+ */
+function resolveSkillId(moduleType: string, topic: string): string | undefined {
+  const t = (topic || '').toLowerCase();
+
+  if (moduleType === 'vocab') return 'rw.vocab';
+  if (moduleType === 'literature') return 'rw.literature';
+
+  // desmos là công cụ Toán → vẫn quy về skill Toán như math.
+  if (moduleType === 'math' || moduleType === 'desmos') {
+    // Geometry & Trigonometry
+    if (/geo|hình|lượng giác|trig|đường tròn|circle|tam giác|triangle|thể tích|volume/.test(t)) {
+      if (/lượng giác|trig/.test(t)) return 'geo.trig';
+      if (/đường tròn|circle/.test(t)) return 'geo.circles';
+      if (/thể tích|volume/.test(t)) return 'geo.volume';
+      return 'geo.triangles';
+    }
+    // Advanced Math
+    if (/advanced|nâng cao|bậc hai|quadratic|parabol|đỉnh|vertex|mũ|exponential|đa thức|polynomial|căn|radical/.test(t)) {
+      if (/mũ|exponential/.test(t)) return 'advanced.exponential';
+      if (/đa thức|polynomial/.test(t)) return 'advanced.polynomials';
+      if (/căn|radical/.test(t)) return 'advanced.radicals';
+      return 'advanced.quadratic';
+    }
+    // Data Analysis
+    if (/data|số liệu|thống kê|statistic|xác suất|probability|phần trăm|percent|tỉ lệ|tỷ lệ|ratio|rate|tốc độ/.test(t)) {
+      if (/xác suất|probability/.test(t)) return 'data.probability';
+      if (/phần trăm|percent/.test(t)) return 'data.percentages';
+      if (/tỉ lệ|tỷ lệ|ratio|rate|tốc độ/.test(t)) return 'data.ratios';
+      return 'data.statistics';
+    }
+    // Heart of Algebra (mặc định cho Toán)
+    if (/hệ phương trình|system/.test(t)) return 'algebra.systems';
+    if (/bất phương trình|inequal/.test(t)) return 'algebra.inequalities';
+    if (/hàm số|function|đồ thị|graph/.test(t)) return 'algebra.linear_fn';
+    return 'algebra.linear_eq';
+  }
+
+  return undefined;
+}
 
 export async function POST(req: Request) {
   try {
     const { moduleType, topic, prefer = 'auto' } = await req.json();
+
+    // Gắn skillId cho câu hỏi (mọi nguồn: bank lẫn AI) để client POST /api/mastery.
+    const skillId = resolveSkillId(moduleType, topic);
 
     // CHIẾN LƯỢC LAI (implementation_plan.md §9.4):
     // Ưu tiên lấy câu từ Question Bank khi pool đã đủ lớn → cắt chi phí OpenAI.
@@ -12,7 +61,7 @@ export async function POST(req: Request) {
     if (prefer !== 'ai' && poolSize(moduleType) >= MIN_POOL) {
       const cached = getFromBank(moduleType, topic);
       if (cached) {
-        return NextResponse.json({ ...cached, _source: 'bank' });
+        return NextResponse.json({ ...cached, skillId, _source: 'bank' });
       }
     }
 
@@ -22,7 +71,7 @@ export async function POST(req: Request) {
       // Nếu không có key mà bank còn câu nào khớp module → dùng tạm (degrade mềm).
       const fallback = getFromBank(moduleType, topic);
       if (fallback) {
-        return NextResponse.json({ ...fallback, _source: 'bank' });
+        return NextResponse.json({ ...fallback, skillId, _source: 'bank' });
       }
       return NextResponse.json({ error: "Chưa cấu hình OPENAI_API_KEY" }, { status: 500 });
     }
@@ -32,11 +81,30 @@ export async function POST(req: Request) {
     if (!checkBudget().allowed) {
       const fallback = getFromBank(moduleType, topic);
       if (fallback) {
-        return NextResponse.json({ ...fallback, _source: 'bank', _degraded: 'budget' });
+        return NextResponse.json({ ...fallback, skillId, _source: 'bank', _degraded: 'budget' });
       }
       return NextResponse.json(
         { error: "Hệ thống AI tạm đạt giới hạn vận hành trong ngày. Vui lòng thử lại sau.", budgetExceeded: true },
         { status: 503 }
+      );
+    }
+
+    // Enforce quota freemium TRƯỚC khi gọi OpenAI (cùng engine với /api/chat,
+    // task 5.2). Chỉ tính khi THỰC SỰ gọi AI — câu lấy từ Question Bank ở trên
+    // KHÔNG tốn token nên đã return sớm, không chạm tới đây.
+    const user = await getCurrentUser();
+    // TODO(Phase 2): lấy tier thật từ subscription. Tạm coi mọi user là 'free'.
+    const tier: AiTier = 'free';
+    const quota = await checkQuota(user.id, tier);
+    if (!quota.allowed) {
+      return NextResponse.json(
+        {
+          error: `Bạn đã dùng hết ${quota.limit} lượt sinh câu hỏi AI hôm nay. Nâng cấp Premium để luyện tập không giới hạn nhé!`,
+          quotaExceeded: true,
+          used: quota.used,
+          limit: quota.limit,
+        },
+        { status: 429 }
       );
     }
 
@@ -170,6 +238,13 @@ QUY TẮC JSON y hệt các phần trên. Tiếng Anh cho câu hỏi, Tiếng Vi
       'gpt-4o-mini'
     ).catch((e) => console.error('recordGlobalCost:', e));
 
+    // Ghi nhận 1 lượt gọi AI vào quota của user (chỉ khi thật sự gọi OpenAI).
+    recordUsage(
+      user.id,
+      responseData.usage?.prompt_tokens ?? 0,
+      responseData.usage?.completion_tokens ?? 0
+    ).catch((e) => console.error('recordUsage:', e));
+
     const data = JSON.parse(content);
     
     // Áp dụng thuật toán cleanAiText để chuẩn hóa LaTeX
@@ -189,7 +264,7 @@ QUY TẮC JSON y hệt các phần trên. Tiếng Anh cho câu hỏi, Tiếng Vi
       console.error('Không lưu được vào question bank:', e)
     );
 
-    return NextResponse.json({ ...data, _source: 'ai' });
+    return NextResponse.json({ ...data, skillId, _source: 'ai' });
 
   } catch (error: any) {
     console.error("Generate practice error:", error);

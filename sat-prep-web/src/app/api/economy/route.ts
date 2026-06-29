@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { loadEconomy, saveEconomy } from '@/lib/economy-store';
 import {
   applyAnswerReward,
+  applyExamReward,
   applySpend,
   applySpin,
   type Difficulty,
@@ -14,6 +15,7 @@ import {
  * GET  → trạng thái kinh tế hiện tại { coins, xp, inventory, lastSpinDate }.
  * POST → thực thi 1 HÀNH ĐỘNG; server quyết phần thưởng rồi persist (HMAC).
  *   { action: 'answer', isCorrect, difficulty, streak }
+ *   { action: 'exam',   correctCount, difficulty }
  *   { action: 'spend',  amount, itemId? }
  *   { action: 'spin' }
  *
