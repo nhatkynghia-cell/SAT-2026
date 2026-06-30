@@ -254,16 +254,27 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
           {hintsRevealed === 1 && (
             <div>
               <button onClick={() => handleRevealHint(2)} className="text-sm text-purple-400 hover:text-purple-300 underline font-bold">
-                🔮 Giải mã Bẫy/Desmos? (Mất 20 Xu)
+                🔮 Loại bớt 1 đáp án sai? (Mất 20 Xu)
               </button>
               {hintError && <p className="text-red-400 text-xs mt-1">{hintError}</p>}
             </div>
           )}
-          {hintsRevealed === 2 && (
-            <div className="bg-[#2e1065] p-3 rounded border border-purple-500/50 text-purple-200 text-sm">
-              <strong>🔮 Gợi ý VIP: </strong> Rất nhiều học sinh chọn sai vì mắc bẫy phân tâm. Hãy đọc kỹ phần giải thích chi tiết sau khi nộp bài!
-            </div>
-          )}
+          {hintsRevealed === 2 && (() => {
+            // Gợi ý cấp 2 = LOẠI TRỪ: tiết lộ bẫy của MỘT đáp án SAI (không lộ đáp
+            // án đúng) → dạy kỹ năng process-of-elimination trước khi nộp. Dùng
+            // choice_analysis (Nhóm 7 #9); câu cũ trong bank thiếu field → fallback.
+            const firstTrap = questionData.choice_analysis?.find(c => !c.is_correct);
+            return (
+              <div className="bg-[#2e1065] p-3 rounded border border-purple-500/50 text-purple-200 text-sm">
+                <strong>🔮 Gợi ý loại trừ: </strong>
+                {firstTrap ? (
+                  <span>Có thể loại <b>đáp án {firstTrap.choice_letter}</b> — {firstTrap.analysis} Giờ cân nhắc các đáp án còn lại nhé!</span>
+                ) : (
+                  <span>Rất nhiều học sinh chọn sai vì mắc bẫy phân tâm. Hãy loại các đáp án mâu thuẫn với dữ kiện đề trước, rồi đọc kỹ phần còn lại.</span>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
       
