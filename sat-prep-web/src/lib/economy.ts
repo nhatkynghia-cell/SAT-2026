@@ -300,3 +300,90 @@ export function resolvePvpFight(
     granted: { coins, xp },
   };
 }
+
+/**
+ * ============================================================================
+ *  PvP ANTI-FAUCET — rank server-authoritative + cap trận/ngày
+ * ============================================================================
+ *  Lỗ hổng đã biết (review 2026-07-01): rank chỉ ở client → server không kiểm
+ *  được targetRank hợp lệ; không cooldown → account giỏi script ăn jackpot 15000
+ *  xu vô hạn. Hai chốt (THUẦN, ráp vào route sau khi DB có cột):
+ *    1. RANK VALIDITY: chỉ cho đánh ĐÚNG đối thủ kế trên (targetRank === rank-1).
+ *       → phải leo 11→10→…→1 tuần tự, KHÔNG nhảy thẳng rank 1; thắng mới lên hạng,
+ *         không re-farm hạng đã qua.
+ *    2. CAP/NGÀY: tối đa PVP_MAX_FIGHTS_PER_DAY trận-tính-điểm/ngày (reset sang
+ *       ngày mới theo `today` server cấp — cùng mẫu user_ai_usage.date).
+ *  Rank: 11 = Tân Binh (mặc định), càng NHỎ càng cao, 1 = đỉnh (hết đối thủ).
+ * ============================================================================
+ */
+
+/** Trần số trận PvP tính-điểm mỗi ngày (chống farm xu lặp). */
+export const PVP_MAX_FIGHTS_PER_DAY = 10;
+
+export interface PvpAttemptCheck {
+  allowed: boolean;
+  reason?: string;
+  /** Số trận còn lại trong ngày SAU khi đã reset theo ngày (chưa trừ trận này). */
+  fightsRemaining: number;
+}
+
+/** Số trận đã đánh HÔM NAY, có reset nếu lastFightDate khác today. */
+function fightsTodayEffective(fightsToday: number, lastFightDate: string, today: string): number {
+  if (lastFightDate !== today) return 0;
+  return Number.isInteger(fightsToday) && fightsToday > 0 ? fightsToday : 0;
+}
+
+/**
+ * Kiểm tra 1 lượt thách đấu có hợp lệ không (TRƯỚC khi xét cổng năng lực).
+ * Thuần — nhận state PvP server qua tham số, không I/O.
+ */
+export function checkPvpAttempt(
+  currentRank: number,
+  targetRank: number,
+  fightsToday: number,
+  lastFightDate: string,
+  today: string
+): PvpAttemptCheck {
+  const used = fightsTodayEffective(fightsToday, lastFightDate, today);
+  const remaining = Math.max(0, PVP_MAX_FIGHTS_PER_DAY - used);
+
+  // Chỉ được đánh đối thủ KẾ TRÊN. targetRank phải >= 1 (rank 0 không có đối thủ).
+  if (!Number.isInteger(targetRank) || targetRank < 1 || targetRank !== currentRank - 1) {
+    return {
+      allowed: false,
+      reason: 'Chỉ được thách đấu đối thủ kế tiếp trong bảng xếp hạng. Hãy leo tuần tự!',
+      fightsRemaining: remaining,
+    };
+  }
+
+  if (remaining <= 0) {
+    return {
+      allowed: false,
+      reason: `Hôm nay bạn đã đấu đủ ${PVP_MAX_FIGHTS_PER_DAY} trận. Quay lại vào ngày mai nhé!`,
+      fightsRemaining: 0,
+    };
+  }
+
+  return { allowed: true, fightsRemaining: remaining };
+}
+
+export interface PvpCounter {
+  fightsToday: number;
+  lastFightDate: string;
+}
+
+/**
+ * Bộ đếm trận MỚI sau khi đánh 1 trận tính-điểm (đã qua checkPvpAttempt + cổng
+ * năng lực). Reset về ngày mới nếu cần rồi +1. Gọi cho CẢ thắng lẫn thua (mỗi
+ * lượt resolve đều tính vào cap).
+ */
+export function bumpPvpCounter(fightsToday: number, lastFightDate: string, today: string): PvpCounter {
+  const used = fightsTodayEffective(fightsToday, lastFightDate, today);
+  return { fightsToday: used + 1, lastFightDate: today };
+}
+
+/** Hạng MỚI sau 1 trận: thắng → leo 1 bậc (rank giảm, sàn 1); thua → giữ nguyên. */
+export function nextPvpRank(currentRank: number, won: boolean): number {
+  if (!won) return currentRank;
+  return Math.max(1, currentRank - 1);
+}

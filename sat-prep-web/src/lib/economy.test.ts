@@ -10,6 +10,10 @@ import {
   resolvePvpFight,
   PVP_COMBAT_SCALE,
   PVP_MIN_POWER_RATIO,
+  checkPvpAttempt,
+  bumpPvpCounter,
+  nextPvpRank,
+  PVP_MAX_FIGHTS_PER_DAY,
   ANSWER_REWARD,
   QUEST_REWARD,
   DEFAULT_ECONOMY,
@@ -201,4 +205,57 @@ test('resolvePvpFight: lực cao hơn → xác suất thắng cao hơn (winProb 
 test('resolvePvpFight: KHÔNG ăn thưởng âm/biến dạng (reward kẹp >= 0, làm tròn xuống)', () => {
   const r = resolvePvpFight(fresh(), pvpInput(80, 300, -50, 12.9), () => 0);
   assert.deepEqual(r.granted, { coins: 0, xp: 12 });
+});
+
+// ─── PvP ANTI-FAUCET: rank validity + cap/ngày ─────────────────────────────
+
+const TODAY = '2026-07-01';
+
+test('checkPvpAttempt: CHỈ cho đánh đối thủ kế trên (targetRank === rank-1)', () => {
+  // rank 11 → chỉ được đánh 10.
+  assert.equal(checkPvpAttempt(11, 10, 0, '', TODAY).allowed, true);
+  // Nhảy thẳng rank 1 (jackpot) từ rank 11 → CHẶN (chống faucet).
+  const skip = checkPvpAttempt(11, 1, 0, '', TODAY);
+  assert.equal(skip.allowed, false);
+  assert.match(skip.reason!, /tuần tự|kế tiếp/i);
+  // Đánh hạng đã qua / thấp hơn → chặn.
+  assert.equal(checkPvpAttempt(5, 8, 0, '', TODAY).allowed, false);
+});
+
+test('checkPvpAttempt: targetRank không hợp lệ (0, âm, không nguyên) → chặn', () => {
+  assert.equal(checkPvpAttempt(1, 0, 0, '', TODAY).allowed, false);   // rank 1 hết đối thủ
+  assert.equal(checkPvpAttempt(3, -1, 0, '', TODAY).allowed, false);
+  assert.equal(checkPvpAttempt(3, 1.5, 0, '', TODAY).allowed, false);
+});
+
+test('checkPvpAttempt: hết cap/ngày → chặn; còn cap → cho', () => {
+  // Đã đánh đủ trần hôm nay → chặn.
+  const full = checkPvpAttempt(11, 10, PVP_MAX_FIGHTS_PER_DAY, TODAY, TODAY);
+  assert.equal(full.allowed, false);
+  assert.equal(full.fightsRemaining, 0);
+  assert.match(full.reason!, new RegExp(`${PVP_MAX_FIGHTS_PER_DAY}`));
+  // Còn 1 lượt → cho đánh.
+  const last = checkPvpAttempt(11, 10, PVP_MAX_FIGHTS_PER_DAY - 1, TODAY, TODAY);
+  assert.equal(last.allowed, true);
+  assert.equal(last.fightsRemaining, 1);
+});
+
+test('checkPvpAttempt: bộ đếm RESET sang ngày mới (lastFightDate khác today)', () => {
+  // Hôm qua đánh kịch trần, nhưng hôm nay là ngày mới → coi như 0 trận.
+  const r = checkPvpAttempt(11, 10, PVP_MAX_FIGHTS_PER_DAY, '2026-06-30', TODAY);
+  assert.equal(r.allowed, true);
+  assert.equal(r.fightsRemaining, PVP_MAX_FIGHTS_PER_DAY);
+});
+
+test('bumpPvpCounter: +1 trong ngày; reset về 1 khi sang ngày mới', () => {
+  assert.deepEqual(bumpPvpCounter(3, TODAY, TODAY), { fightsToday: 4, lastFightDate: TODAY });
+  // Ngày khác → đếm lại từ 1.
+  assert.deepEqual(bumpPvpCounter(9, '2026-06-30', TODAY), { fightsToday: 1, lastFightDate: TODAY });
+});
+
+test('nextPvpRank: thắng leo 1 bậc (rank giảm), sàn 1; thua giữ nguyên', () => {
+  assert.equal(nextPvpRank(11, true), 10);
+  assert.equal(nextPvpRank(2, true), 1);
+  assert.equal(nextPvpRank(1, true), 1);   // đã đỉnh, không xuống 0
+  assert.equal(nextPvpRank(7, false), 7);  // thua giữ hạng
 });
