@@ -1,16 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { useGamification } from '@/context/GamificationContext';
 import { useToast } from '@/context/ToastContext';
-import { CorePracticeUI } from '@/components/CorePracticeUI';
+import { CorePracticeUI, type PracticeQuestion } from '@/components/CorePracticeUI';
 
 export default function TowerPage() {
-  const { addReward } = useGamification();
   const { showToast } = useToast();
   const [currentFloor, setCurrentFloor] = useState(1);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [questionData, setQuestionData] = useState<any>(null);
+  const [questionData, setQuestionData] = useState<PracticeQuestion | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
 
@@ -18,20 +16,17 @@ export default function TowerPage() {
     setIsLoading(true);
     setQuestionData(null);
     try {
-      const difficulty = floor > 20 ? 'Hard' : floor > 10 ? 'Medium' : 'Easy';
-      const trap = Math.min(10 + floor * 5, 95);
-      
-      const res = await fetch('/api/generate-practice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ moduleType: 'math', topic: `Tower Floor ${floor} - Survival`, difficulty, trapRate: trap })
-      });
-      
+      // Server tự chọn skill + độ khó theo MASTERY thật của user (adaptive) và
+      // sinh câu qua generate-practice. Câu trả về mang skillId thật → ghi mastery
+      // đúng skill (xem /api/tower/question).
+      const res = await fetch(`/api/tower/question?floor=${floor}`);
+
       if (res.ok) {
         const data = await res.json();
         setQuestionData(data);
       } else {
-        showToast("Thất bại khi gọi quái vật (API Error).", 'error');
+        const err = await res.json().catch(() => ({}));
+        showToast(err?.error ?? "Thất bại khi gọi quái vật (API Error).", 'error');
         setIsPlaying(false);
       }
     } catch (e) {
@@ -63,7 +58,7 @@ export default function TowerPage() {
       {!isPlaying && !isGameOver && (
         <div className="text-center p-12 bg-[#0e1117] rounded-xl border border-[#334155]">
           <div className="text-6xl mb-6">⛩️</div>
-          <p className="text-gray-300 mb-8 max-w-lg mx-auto">Chế độ Roguelike: Đối mặt với các câu hỏi do AI tạo ra với độ khó (Trap Rate) tăng dần qua mỗi tầng. Trả lời đúng sẽ được leo tiếp và nhận thưởng. Trả lời sai sẽ lập tức rớt đài!</p>
+          <p className="text-gray-300 mb-8 max-w-lg mx-auto">Chế độ Roguelike: AI triệu hồi câu hỏi nhắm đúng kỹ năng Toán yếu nhất của bạn, độ khó tăng dần khi leo cao. Trả lời đúng để leo tiếp và nhận thưởng — mỗi tầng vượt qua cũng là một điểm yếu được rèn. Trả lời sai là lập tức rớt đài!</p>
           <button onClick={startRun} className="bg-red-600 hover:bg-red-500 text-white font-black text-xl px-12 py-4 rounded-full shadow-[0_0_20px_rgba(220,38,38,0.5)] transition-transform hover:scale-105">
             BƯỚC VÀO THÁP
           </button>
@@ -99,9 +94,9 @@ export default function TowerPage() {
             <div className="relative">
               {/* Overlay logic xử lý CorePracticeUI onSubmit để quyết định leo tầng hay rớt */}
               <div className="bg-[#0e1117] p-6 rounded-xl border border-[#3b82f6] shadow-lg mb-6">
-                <p className="text-blue-300 font-bold mb-4">Mẹo: Độ khó bẫy hiện tại là {Math.min(10 + currentFloor * 5, 95)}%.</p>
-                <CorePracticeUI 
-                  questionData={questionData} 
+                <p className="text-blue-300 font-bold mb-4">⚔️ Quái vật tầng {currentFloor} được triệu hồi theo đúng điểm yếu của bạn — độ khó tăng dần khi leo cao.</p>
+                <CorePracticeUI
+                  questionData={questionData as PracticeQuestion}
                   isLoading={isLoading}
                   onAnswer={(isCorrect) => {
                     if (!isCorrect) {

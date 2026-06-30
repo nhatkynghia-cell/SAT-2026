@@ -4,11 +4,12 @@ import { useGamification } from '@/context/GamificationContext';
 export default function JourneyPage() {
   const { level } = useGamification();
 
+  // Ngưỡng theo THANG KỸ NĂNG (level = số skill tinh thông + 1), không còn Level phẳng.
   const STEPS = [
     { title: "Giai Đoạn 1: Tân Sinh Nhập Môn", desc: "Nắm vững ngữ pháp cơ bản và các phép toán nền tảng.", reqLevel: 1 },
-    { title: "Giai Đoạn 2: Trui Rèn Kỹ Năng", desc: "Học chiến thuật xử lý các dạng bài khó, luyện đọc lướt.", reqLevel: 10 },
-    { title: "Giai Đoạn 3: Vượt Vũ Môn", desc: "Thi thử full-length liên tục, tối ưu hóa thời gian.", reqLevel: 30 },
-    { title: "Giai Đoạn 4: Đăng Quang", desc: "Đạt 1500+ thực tế, vinh danh trên bảng vàng.", reqLevel: 60 }
+    { title: "Giai Đoạn 2: Trui Rèn Kỹ Năng", desc: "Học chiến thuật xử lý các dạng bài khó, luyện đọc lướt.", reqLevel: 4 },
+    { title: "Giai Đoạn 3: Vượt Vũ Môn", desc: "Thi thử full-length liên tục, tối ưu hóa thời gian.", reqLevel: 8 },
+    { title: "Giai Đoạn 4: Đăng Quang", desc: "Đạt 1500+ thực tế, vinh danh trên bảng vàng.", reqLevel: 13 }
   ];
 
   return (

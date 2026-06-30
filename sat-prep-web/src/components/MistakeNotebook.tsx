@@ -17,6 +17,30 @@ type Mistake = {
 
 type Mode = 'browse' | 'review';
 
+/**
+ * Tab chuyển chế độ — KHAI BÁO NGOÀI component cha. Nếu định nghĩa bên trong
+ * render của MistakeNotebook, mỗi lần render tạo một type component MỚI → React
+ * remount (mất state, nhấp nháy). Đưa ra ngoài + truyền props là cách đúng.
+ */
+function ModeTabs({ mode, onChange }: { mode: Mode; onChange: (m: Mode) => void }) {
+  return (
+    <div className="flex gap-2 mb-6">
+      <button
+        onClick={() => onChange('browse')}
+        className={`text-sm px-4 py-1.5 rounded transition-colors ${mode === 'browse' ? 'bg-blue-600 text-white' : 'bg-[#1e293b] text-[#94a3b8] hover:bg-[#334155]'}`}
+      >
+        📚 Xem tất cả
+      </button>
+      <button
+        onClick={() => onChange('review')}
+        className={`text-sm px-4 py-1.5 rounded transition-colors ${mode === 'review' ? 'bg-blue-600 text-white' : 'bg-[#1e293b] text-[#94a3b8] hover:bg-[#334155]'}`}
+      >
+        🔁 Ôn tập đến hạn
+      </button>
+    </div>
+  );
+}
+
 export function MistakeNotebook() {
   const [mode, setMode] = useState<Mode>('browse');
   const [mistakes, setMistakes] = useState<Mistake[]>([]);
@@ -44,7 +68,10 @@ export function MistakeNotebook() {
       });
   }, []);
 
+  // Tải câu sai khi đổi chế độ. `load` set isLoading=true đồng bộ — đây là
+  // trigger fetch hợp lệ (sync state với nguồn ngoài), không phải cascading render.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load(mode);
   }, [mode, load]);
 
@@ -68,23 +95,6 @@ export function MistakeNotebook() {
     setRevealed(false);
   };
 
-  const ModeTabs = () => (
-    <div className="flex gap-2 mb-6">
-      <button
-        onClick={() => setMode('browse')}
-        className={`text-sm px-4 py-1.5 rounded transition-colors ${mode === 'browse' ? 'bg-blue-600 text-white' : 'bg-[#1e293b] text-[#94a3b8] hover:bg-[#334155]'}`}
-      >
-        📚 Xem tất cả
-      </button>
-      <button
-        onClick={() => setMode('review')}
-        className={`text-sm px-4 py-1.5 rounded transition-colors ${mode === 'review' ? 'bg-blue-600 text-white' : 'bg-[#1e293b] text-[#94a3b8] hover:bg-[#334155]'}`}
-      >
-        🔁 Ôn tập đến hạn
-      </button>
-    </div>
-  );
-
   if (isLoading) {
     return <div className="my-6 text-white text-center">Đang tải sổ tay ôn tập...</div>;
   }
@@ -94,7 +104,7 @@ export function MistakeNotebook() {
     if (mistakes.length === 0) {
       return (
         <div className="my-6">
-          <ModeTabs />
+          <ModeTabs mode={mode} onChange={setMode} />
           <div className="text-center text-gray-400 py-8">
             <h2 className="text-[22px] font-bold text-white mb-3">🎉 Không còn câu nào đến hạn ôn!</h2>
             <p>{reviewedCount > 0 ? `Bạn vừa ôn xong ${reviewedCount} câu. Tuyệt vời!` : 'Hãy quay lại sau khi có câu đến lịch ôn nhé.'}</p>
@@ -106,7 +116,7 @@ export function MistakeNotebook() {
     const m = mistakes[currentIndex];
     return (
       <div className="my-6">
-        <ModeTabs />
+        <ModeTabs mode={mode} onChange={setMode} />
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-[22px] font-bold text-white">🔁 Ôn tập câu sai</h2>
           <span className="text-sm text-gray-400 bg-[#1e293b] px-3 py-1 rounded-full">
@@ -168,7 +178,7 @@ export function MistakeNotebook() {
   if (mistakes.length === 0) {
     return (
       <div className="my-6">
-        <ModeTabs />
+        <ModeTabs mode={mode} onChange={setMode} />
         <div className="text-center text-gray-400">
           <h2 className="text-[24px] font-bold text-white mb-4">📂 SỔ TAY ÔN TẬP CÂU SAI</h2>
           <p>Bạn chưa có câu trả lời sai nào. Hãy tiếp tục ôn luyện nhé!</p>
@@ -188,7 +198,7 @@ export function MistakeNotebook() {
 
   return (
     <div className="my-6">
-      <ModeTabs />
+      <ModeTabs mode={mode} onChange={setMode} />
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <h2 className="text-[24px] font-bold text-white">
           📂 SỔ TAY ÔN TẬP CÂU SAI

@@ -1,39 +1,26 @@
 'use client';
 
-import { useState } from 'react';
 import { useGamification } from '@/context/GamificationContext';
 import { BadgeSystem } from '@/components/BadgeSystem';
 import { AITutoring } from '@/components/AITutoring';
 import { MistakeNotebook } from '@/components/MistakeNotebook';
 
 export default function Home() {
-  const { 
-    level, currentXp, maxXp, coins, shields, maxPower, 
-    levelUpAlert, clearLevelUpAlert,
+  const {
+    level, masteredCount, totalNodes, coins, shields, maxPower,
     soundEnabled, setSoundEnabled,
     focusMode, setFocusMode,
     hideBanner, setHideBanner,
     learningMode
   } = useGamification();
-  
 
-  const xpPercent = Math.min(100, (currentXp / maxXp) * 100);
 
-  // Temporary fix for Next.js missing dynamic CSS imports via dynamic JSX
-  const levelUpEffect = levelUpAlert ? (
-    <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center bg-black/50" onClick={clearLevelUpAlert}>
-      <div className="bg-[#1b2533] p-8 rounded-2xl border-4 border-[#fbbf24] shadow-[0_0_50px_#fbbf24] text-center animate-bounce cursor-pointer">
-        <div className="text-6xl mb-4">🎉</div>
-        <h2 className="text-3xl font-black text-white mb-2">CHÚC MỪNG!</h2>
-        <p className="text-xl text-[#fbbf24]">Bạn đã thăng cấp lên Level {level}!</p>
-        <p className="text-sm text-gray-400 mt-4">(Bấm để tiếp tục)</p>
-      </div>
-    </div>
-  ) : null;
+  // Thanh tiến trình giờ phản ánh ĐỘ PHỦ KỸ NĂNG (số skill đã tinh thông),
+  // KHÔNG còn XP phẳng (§10 — bỏ Level phẳng).
+  const masteryPercent = totalNodes > 0 ? Math.min(100, (masteredCount / totalNodes) * 100) : 0;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 relative">
-      {levelUpEffect}
 
       {/* CÁC NÚT ĐIỀU KHIỂN GIAO DIỆN (GÓC PHẢI) */}
       <div className="flex justify-end gap-6 items-center mb-4">
@@ -79,9 +66,9 @@ export default function Home() {
                 <div className="hud-row">
                   <div style={{ fontSize: "11px", color: "#e2e8f0", width: "50px" }}><b>Lv.{level}</b></div>
                   <div style={{ flex: 1, background: "#1e293b", height: "4px", borderRadius: "2px", overflow: "hidden", marginRight: "5px" }}>
-                    <div style={{ background: "#ef4444", width: `${xpPercent}%`, height: "100%", transition: "width 0.5s ease" }}></div>
+                    <div style={{ background: "#ef4444", width: `${masteryPercent}%`, height: "100%", transition: "width 0.5s ease" }}></div>
                   </div>
-                  <div style={{ fontSize: "9px", color: "#94a3b8", width: "45px", textAlign: "right" }}>{currentXp}/{maxXp}</div>
+                  <div style={{ fontSize: "9px", color: "#94a3b8", width: "45px", textAlign: "right" }}>{masteredCount}/{totalNodes}</div>
                 </div>
                 <div className="hud-row">
                   <div style={{ fontSize: "11px", color: "#a5b4fc", width: "50px" }}><b>MP</b></div>
@@ -104,7 +91,7 @@ export default function Home() {
 
             <div className="hud-row" style={{ justifyContent: "flex-start", gap: "4px" }}>
               <span className="tag-pill" style={{ background: "rgba(59,130,246,0.2)", color: "#60a5fa", border: "1px solid #3b82f6" }}>
-                {level >= 100 ? "Thần Thoại Học Thuật" : level >= 60 ? "Đỉnh Phong Thủ Khoa" : level >= 30 ? "Đại Pháp Sư SAT" : level >= 15 ? "Kiếm Khách SAT" : "Tân Sinh"}
+                {level >= 15 ? "Thần Thoại Học Thuật" : level >= 11 ? "Đỉnh Phong Thủ Khoa" : level >= 7 ? "Đại Pháp Sư SAT" : level >= 4 ? "Kiếm Khách SAT" : "Tân Sinh"}
               </span>
               <span className="tag-pill" style={{ background: "rgba(168,85,247,0.2)", color: "#c084fc", border: "1px solid #a855f7" }}>🏆 Tân thủ học thuật</span>
               <span className="tag-pill" style={{ background: "rgba(239,68,68,0.2)", color: "#f87171", border: "1px solid #ef4444" }}>⚔️ {maxPower >= 2000 ? "Chúa Tể Sức Mạnh" : maxPower >= 1000 ? "Chiến Thần Hủy Diệt" : maxPower >= 500 ? "Đòn Đánh Chí Mạng" : maxPower >= 300 ? "Kẻ Phá Vỡ Giới Hạn" : maxPower >= 100 ? "Sức Mạnh Đánh Thức" : "Sức Mạnh Cấp 1"}</span>

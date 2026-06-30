@@ -87,3 +87,78 @@ export function recommendNext(
     reason,
   };
 }
+
+/**
+ * ============================================================================
+ *  THÁP VÔ TẬN (Tower) — chọn skill + độ khó cho từng tầng
+ * ============================================================================
+ *  Mục tiêu kép: GÂY NGHIỆN (giữ người chơi trong "flow") + VẪN HỌC (câu rơi
+ *  đúng vùng phát triển gần, ghi mastery đúng skill).
+ *
+ *  • Độ khó = NỀN ZPD theo mastery + ÁP LỰC theo tầng (càng cao càng khó), cap Hard.
+ *    → học sinh yếu khởi đầu bằng câu thắng được (chống rage-quit) nhưng trần vẫn
+ *      dâng theo tầng; học sinh giỏi vào Hard ngay (không nhàm).
+ *  • Skill = XOAY VÒNG trong nhóm skill YẾU NHẤT theo số tầng → mỗi tầng một chủ đề
+ *      khác (đỡ nhàm) mà vẫn dồn vào điểm yếu cần luyện.
+ * ============================================================================
+ */
+
+/** Thang độ khó 3 bậc — dùng để cộng "áp lực tầng" lên nền ZPD. */
+const DIFFICULTY_LADDER: Difficulty[] = ['Easy', 'Medium', 'Hard'];
+
+/** Số skill yếu nhất đưa vào vòng xoay mỗi run Tower (đa dạng chủ đề). */
+export const TOWER_SKILL_WINDOW = 5;
+
+/**
+ * Độ khó câu hỏi cho 1 tầng Tower: nền ZPD theo mastery, cộng áp lực tầng.
+ *   floor 1-8  → +0   (khởi động, giữ flow)
+ *   floor 9-16 → +1
+ *   floor 17+  → +2
+ * Kết quả kẹp trong [Easy..Hard].
+ */
+export function towerDifficulty(masteryScore: number, floor: number): Difficulty {
+  const base = DIFFICULTY_LADDER.indexOf(selectDifficulty(masteryScore)); // 0..2
+  const pressure = floor <= 8 ? 0 : floor <= 16 ? 1 : 2;
+  const idx = Math.min(DIFFICULTY_LADDER.length - 1, base + pressure);
+  return DIFFICULTY_LADDER[idx];
+}
+
+export interface TowerPick {
+  skillId: string;
+  label: string;
+  moduleType: string;
+  masteryScore: number;
+  difficulty: Difficulty;
+}
+
+/**
+ * Chọn skill + độ khó cho 1 tầng Tower (math-only — Tower là "Math Survival").
+ * Xoay vòng trong nhóm skill yếu nhất (ưu tiên chưa thành thạo) theo số tầng.
+ * Trả null nếu không có skill math nào (summary rỗng).
+ */
+export function pickTowerSkill(
+  skills: MasterySummary['skills'],
+  floor: number
+): TowerPick | null {
+  const mathSkills = skills.filter((s) => s.moduleType === 'math');
+  if (mathSkills.length === 0) return null;
+
+  // Ưu tiên skill CHƯA thành thạo; nếu đã thạo hết thì ôn duy trì trên toàn bộ.
+  const notMastered = mathSkills.filter((s) => !s.mastered);
+  const ranked = [...(notMastered.length > 0 ? notMastered : mathSkills)];
+
+  // Yếu nhất trước; cùng score thì ít luyện hơn trước (độ phủ) — như recommendNext.
+  ranked.sort((a, b) => a.score - b.score || a.attempts - b.attempts);
+
+  // Cửa sổ skill yếu nhất rồi xoay theo tầng → mỗi tầng một chủ đề khác.
+  const window = ranked.slice(0, Math.min(TOWER_SKILL_WINDOW, ranked.length));
+  const pick = window[(floor - 1) % window.length];
+
+  return {
+    skillId: pick.id,
+    label: pick.label,
+    moduleType: pick.moduleType,
+    masteryScore: pick.score,
+    difficulty: towerDifficulty(pick.score, floor),
+  };
+}

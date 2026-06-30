@@ -3,9 +3,17 @@
 import { useState, useEffect } from 'react';
 import { useGamification } from '@/context/GamificationContext';
 
+interface VocabWord {
+  id: string;
+  box: number;
+  word: string;
+  meaning: string;
+  example: string;
+}
+
 export default function VocabPage() {
-  const { addReward, updateQuestProgress } = useGamification();
-  const [words, setWords] = useState<any[]>([]);
+  const { handleExamComplete, updateQuestProgress } = useGamification();
+  const [words, setWords] = useState<VocabWord[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,7 +44,8 @@ export default function VocabPage() {
       });
       
       if (isRemembered) {
-        addReward(20, 5); // Thưởng khi nhớ từ
+        // Nhớ 1 từ = 1 câu Easy (server thưởng {coins:5, xp:20}) (§9.1).
+        void handleExamComplete(1, 'Easy');
       }
       
       updateQuestProgress('q2', 1);
@@ -93,7 +102,7 @@ export default function VocabPage() {
                   {words[currentIndex].meaning}
                 </p>
                 <p className="text-gray-300 italic max-w-lg mx-auto">
-                  "{words[currentIndex].example}"
+                  &quot;{words[currentIndex].example}&quot;
                 </p>
               </div>
             )}

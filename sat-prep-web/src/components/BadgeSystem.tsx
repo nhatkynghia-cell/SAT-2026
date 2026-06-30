@@ -6,11 +6,11 @@ import { cn } from '@/lib/utils';
 
 // Static Data for UI mockup (Logic sẽ được nối với DB ở Phase 2)
 const BADGES = [
-  { id: "b_1", title: "Tân Binh Xuất Thế", req_desc: "Cần đạt Cấp 5", icon: "🥉", category: "Tu Vi" },
-  { id: "b_2", title: "Kiếm Khách SAT", req_desc: "Cần đạt Cấp 15", icon: "🗡️", category: "Tu Vi" },
-  { id: "b_3", title: "Đại Pháp Sư SAT", req_desc: "Cần đạt Cấp 30", icon: "🧙‍♂️", category: "Tu Vi" },
-  { id: "b_4", title: "Đỉnh Phong Thủ Khoa", req_desc: "Cần đạt Cấp 60", icon: "👑", category: "Tu Vi" },
-  { id: "b_5", title: "Thần Thoại Học Thuật", req_desc: "Cần đạt Cấp 100", icon: "🌟", category: "Tu Vi" },
+  { id: "b_1", title: "Tân Binh Xuất Thế", req_desc: "Tinh thông 1 kỹ năng", icon: "🥉", category: "Tu Vi" },
+  { id: "b_2", title: "Kiếm Khách SAT", req_desc: "Tinh thông 3 kỹ năng", icon: "🗡️", category: "Tu Vi" },
+  { id: "b_3", title: "Đại Pháp Sư SAT", req_desc: "Tinh thông 6 kỹ năng", icon: "🧙‍♂️", category: "Tu Vi" },
+  { id: "b_4", title: "Đỉnh Phong Thủ Khoa", req_desc: "Tinh thông 10 kỹ năng", icon: "👑", category: "Tu Vi" },
+  { id: "b_5", title: "Thần Thoại Học Thuật", req_desc: "Tinh thông 14 kỹ năng", icon: "🌟", category: "Tu Vi" },
   
   { id: "l_1", title: "Sức Mạnh Đánh Thức", req_desc: "Cần 100 Lực chiến", icon: "🔥", category: "Lực Chiến" },
   { id: "l_2", title: "Kẻ Phá Vỡ Giới Hạn", req_desc: "Cần 300 Lực chiến", icon: "⚔️", category: "Lực Chiến" },

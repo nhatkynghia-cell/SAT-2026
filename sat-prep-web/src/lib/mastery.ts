@@ -1,5 +1,6 @@
 import { loadMastery, saveMastery } from './mastery-store';
 import { ALL_SKILLS, isValidSkill, getDomainOfSkill, SKILL_TREE, type Subject } from './skill-taxonomy';
+import { bumpDomainGateProgress } from './gate-exam';
 
 /**
  * ============================================================================
@@ -81,6 +82,17 @@ export async function recordAnswer(
   };
 
   store.skills[skillId] = updated;
+
+  // Gộp đếm câu đúng tích lũy cho cooldown thi lại VÀO CÙNG lần ghi này (tránh
+  // race read-modify-write thứ 2 trên cùng dòng user_mastery). `store.skills`
+  // round-trip cả `__gates__` nên bump trực tiếp ở đây là an toàn.
+  if (isCorrect) {
+    const domain = getDomainOfSkill(skillId);
+    if (domain) {
+      bumpDomainGateProgress(store.skills as Record<string, unknown>, domain.id);
+    }
+  }
+
   await saveMastery(userId, store);
   return updated;
 }

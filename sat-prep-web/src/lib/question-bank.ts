@@ -29,7 +29,7 @@ export interface BankEntry {
   id: string;          // hash nội dung (dùng để dedup)
   moduleType: string;
   topic: string;
-  data: any;           // object câu hỏi y như client cần (giữ nguyên hợp đồng)
+  data: unknown;       // object câu hỏi y như client cần (giữ nguyên hợp đồng)
   createdAt: string;
   usageCount: number;
 }
@@ -50,8 +50,9 @@ function loadBank(): BankFile {
 }
 
 /** Hash định danh 1 câu hỏi theo module + nội dung (để dedup). */
-function entryId(moduleType: string, data: any): string {
-  const core = `${moduleType}::${data?.practice_question ?? ''}::${data?.full_passage ?? ''}`;
+function entryId(moduleType: string, data: unknown): string {
+  const d = data as Record<string, unknown>;
+  const core = `${moduleType}::${d?.practice_question ?? ''}::${d?.full_passage ?? ''}`;
   return crypto.createHash('sha256').update(core, 'utf-8').digest('hex').slice(0, 16);
 }
 
@@ -64,9 +65,16 @@ export function poolSize(moduleType: string): number {
  * Lấy ngẫu nhiên 1 câu từ bank khớp moduleType (ưu tiên đúng topic nếu có).
  * Trả về `data` của câu đó, hoặc null nếu không có câu nào khớp.
  * (Không tăng usageCount ở đây để tránh ghi file mỗi lần đọc; usage tính ở route.)
+ *
+ * `difficulty` (tùy chọn): chỉ lấy câu đúng mức độ (Easy/Medium/Hard) — phục vụ
+ * adaptive (Tower/Gate). Khi không truyền → lấy bất kỳ mức nào (hành vi cũ).
+ * Nếu lọc theo difficulty mà không còn câu nào → trả null để route fallback sang AI.
  */
-export function getFromBank(moduleType: string, topic?: string): any | null {
-  const all = loadBank().questions.filter((q) => q.moduleType === moduleType);
+export function getFromBank(moduleType: string, topic?: string, difficulty?: string): unknown | null {
+  let all = loadBank().questions.filter((q) => q.moduleType === moduleType);
+  if (difficulty) {
+    all = all.filter((q) => (q.data as Record<string, unknown>)?.difficulty === difficulty);
+  }
   if (all.length === 0) return null;
 
   const matchTopic = topic ? all.filter((q) => q.topic === topic) : [];
@@ -80,7 +88,7 @@ export function getFromBank(moduleType: string, topic?: string): any | null {
  * Lưu 1 câu AI mới sinh vào bank (dedup theo hash nội dung). An toàn concurrency
  * nhờ khóa file. Trả về true nếu thực sự thêm mới, false nếu đã tồn tại.
  */
-export async function saveToBank(moduleType: string, topic: string, data: any): Promise<boolean> {
+export async function saveToBank(moduleType: string, topic: string, data: unknown): Promise<boolean> {
   const id = entryId(moduleType, data);
   let release;
   try {

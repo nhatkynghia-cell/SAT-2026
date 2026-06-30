@@ -7,24 +7,27 @@ import { useToast } from '@/context/ToastContext';
 export default function DesmosPage() {
   const { showToast } = useToast();
   const [currentTopic, setCurrentTopic] = useState<string | null>(null);
+  const [currentSkillId, setCurrentSkillId] = useState<string | null>(null);
   const [questionData, setQuestionData] = useState<PracticeQuestion | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   // Câu đã prefetch cho lượt kế (2.2) — giữ promise (có thể in-flight) + topic.
   const prefetchedRef = useRef<{ topic: string; promise: Promise<PracticeQuestion | null> } | null>(null);
 
+  // Mỗi chủ đề Desmos map đúng 1 skillId Toán (kỹ thuật đồ thị áp cho skill đó)
+  // → gửi tường minh để ghi mastery chính xác, không phụ thuộc suy luận từ khóa.
   const categories = [
-    { name: "Hệ Phương Trình Bậc Nhất", desc: "Sử dụng Desmos tìm giao điểm hai đường thẳng." },
-    { name: "Parabola & Điểm Đỉnh", desc: "Tìm min/max, vertex bằng đồ thị cực nhanh." },
-    { name: "Bẫy Hằng Số K", desc: "Sử dụng thanh trượt (slider) k để biện luận số nghiệm." }
+    { name: "Hệ Phương Trình Bậc Nhất", desc: "Sử dụng Desmos tìm giao điểm hai đường thẳng.", skillId: "algebra.systems" },
+    { name: "Parabola & Điểm Đỉnh", desc: "Tìm min/max, vertex bằng đồ thị cực nhanh.", skillId: "advanced.quadratic" },
+    { name: "Bẫy Hằng Số K", desc: "Sử dụng thanh trượt (slider) k để biện luận số nghiệm.", skillId: "algebra.systems" }
   ];
 
   // Fetch thuần — chỉ trả data, không đụng state. Dùng chung load + prefetch.
-  const fetchQuestion = async (topic: string): Promise<PracticeQuestion | null> => {
+  const fetchQuestion = async (topic: string, skillId?: string): Promise<PracticeQuestion | null> => {
     try {
       const res = await fetch('/api/generate-practice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ moduleType: 'desmos', topic })
+        body: JSON.stringify({ moduleType: 'desmos', topic, skillId })
       });
       if (res.ok) return await res.json();
       return null;
@@ -35,13 +38,15 @@ export default function DesmosPage() {
   };
 
   // Prefetch sau submit (user đang đọc giải thích) → cost-safe, guard chống gọi 2 lần.
-  const prefetchNext = (topic: string) => {
+  const prefetchNext = (topic: string, skillId?: string) => {
     if (prefetchedRef.current) return;
-    prefetchedRef.current = { topic, promise: fetchQuestion(topic) };
+    prefetchedRef.current = { topic, promise: fetchQuestion(topic, skillId) };
   };
 
-  const handleGenerateQuestion = async (topic: string) => {
+  const handleGenerateQuestion = async (topic: string, skillId?: string) => {
     setCurrentTopic(topic);
+    if (skillId !== undefined) setCurrentSkillId(skillId);
+    const effectiveSkillId = skillId ?? currentSkillId ?? undefined;
     setIsLoading(true);
     setQuestionData(null);
 
@@ -49,7 +54,7 @@ export default function DesmosPage() {
     prefetchedRef.current = null;
     const data = prefetched && prefetched.topic === topic
       ? await prefetched.promise
-      : await fetchQuestion(topic);
+      : await fetchQuestion(topic, effectiveSkillId);
 
     if (data) {
       setQuestionData(data);
@@ -79,9 +84,9 @@ export default function DesmosPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {categories.map((cat, idx) => (
-                <div 
-                  key={idx} 
-                  onClick={() => handleGenerateQuestion(cat.name)}
+                <div
+                  key={idx}
+                  onClick={() => handleGenerateQuestion(cat.name, cat.skillId)}
                   className="bg-[#0e1117] border border-[#262730] p-6 rounded-xl hover:border-[#a855f7] hover:shadow-[0_0_15px_rgba(168,85,247,0.2)] cursor-pointer transition-all group"
                 >
                   <h3 className="text-xl font-bold text-white mb-2 group-hover:text-[#c084fc]">{cat.name}</h3>
@@ -98,8 +103,8 @@ export default function DesmosPage() {
               <span className="text-gray-400 text-sm">Chủ đề hiện tại:</span>
               <h2 className="text-xl font-bold text-[#c084fc]">{currentTopic}</h2>
             </div>
-            <button 
-              onClick={() => { setCurrentTopic(null); setQuestionData(null); }}
+            <button
+              onClick={() => { setCurrentTopic(null); setCurrentSkillId(null); setQuestionData(null); }}
               className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm transition-colors"
             >
               ⬅️ Quay lại danh mục
@@ -124,8 +129,8 @@ export default function DesmosPage() {
                 <CorePracticeUI
                   questionData={questionData as PracticeQuestion}
                   isLoading={isLoading}
-                  onNext={() => handleGenerateQuestion(currentTopic)}
-                  onSubmitted={() => prefetchNext(currentTopic)}
+                  onNext={() => handleGenerateQuestion(currentTopic, currentSkillId ?? undefined)}
+                  onSubmitted={() => prefetchNext(currentTopic, currentSkillId ?? undefined)}
                 />
               )}
             </div>

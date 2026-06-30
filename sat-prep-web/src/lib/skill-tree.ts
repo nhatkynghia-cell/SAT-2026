@@ -1,4 +1,5 @@
 import type { MasterySummary } from './mastery';
+import type { GateProgress } from './gate-exam';
 
 /**
  * ============================================================================
@@ -47,11 +48,15 @@ export interface SkillNode {
   lockedBy?: string[];
 }
 
+export type GateStatus = 'not_required' | 'available' | 'locked' | 'passed' | 'cooldown';
+
 export interface DomainProgress {
   id: string;
   label: string;
   avgScore: number;
-  satisfied: boolean; // đã đạt ngưỡng mở khóa chương phụ thuộc?
+  satisfied: boolean;
+  gateStatus: GateStatus;
+  correctSinceFail?: number;
 }
 
 export interface SkillTreeView {
@@ -79,16 +84,45 @@ function domainAverages(summary: MasterySummary): Map<string, { label: string; a
 }
 
 /** Dựng toàn bộ trạng thái Skill Tree từ mastery hiện tại. */
-export function buildSkillTree(summary: MasterySummary): SkillTreeView {
+export function buildSkillTree(
+  summary: MasterySummary,
+  gates: Record<string, GateProgress> = {}
+): SkillTreeView {
   const avgs = domainAverages(summary);
 
-  // Chương nào đã "đạt tiên quyết" (avg >= ngưỡng).
-  const satisfied = new Map<string, boolean>();
+  // Chương đạt ngưỡng mastery avg (điều kiện CẦN để thi cổng).
+  const meetsThreshold = new Map<string, boolean>();
   for (const [id, v] of avgs) {
-    satisfied.set(id, v.avg >= DOMAIN_UNLOCK_THRESHOLD);
+    meetsThreshold.set(id, v.avg >= DOMAIN_UNLOCK_THRESHOLD);
   }
 
-  // Chương nào đang MỞ KHÓA (mọi tiên quyết đã đạt).
+  // Chương nào không cần gate (không có chương phụ thuộc nào nhìn vào nó).
+  const hasDependent = new Set<string>();
+  for (const prereqs of Object.values(DOMAIN_PREREQS)) {
+    for (const p of prereqs) hasDependent.add(p);
+  }
+
+  // Gate status từng chương.
+  function getGateStatus(domainId: string): GateStatus {
+    if (!hasDependent.has(domainId)) return 'not_required';
+    const gate = gates[domainId];
+    if (gate?.passed) return 'passed';
+    if (!meetsThreshold.get(domainId)) return 'locked';
+    if (!gate) return 'available';
+    // ⚠️ 10 = RETRY_CORRECT_NEEDED (gate-exam.ts). KHÔNG import được vì module
+    // này phải thuần để node:test chạy (import value chéo .ts gãy runner). Đổi 2 nơi.
+    if (gate.correctSinceFail >= 10) return 'available';
+    return 'cooldown';
+  }
+
+  // "satisfied" = avg đạt ngưỡng VÀ gate passed (hoặc domain không cần gate).
+  const satisfied = new Map<string, boolean>();
+  for (const [id] of avgs) {
+    const gs = getGateStatus(id);
+    satisfied.set(id, meetsThreshold.get(id)! && (gs === 'passed' || gs === 'not_required'));
+  }
+
+  // Chương nào đang MỞ KHÓA (mọi tiên quyết đã satisfied).
   function domainUnlocked(domainId: string): { unlocked: boolean; lockedBy: string[] } {
     const prereqs = DOMAIN_PREREQS[domainId] ?? [];
     const missing = prereqs.filter((p) => !satisfied.get(p));
@@ -118,18 +152,25 @@ export function buildSkillTree(summary: MasterySummary): SkillTreeView {
       state,
     };
     if (state === 'locked') {
-      // Đổi domainId tiên quyết thành nhãn chương cho dễ hiểu.
       node.lockedBy = lockedBy.map((id) => avgs.get(id)?.label ?? id);
     }
     return node;
   });
 
-  const domains: DomainProgress[] = [...avgs.entries()].map(([id, v]) => ({
-    id,
-    label: v.label,
-    avgScore: v.avg,
-    satisfied: satisfied.get(id) ?? false,
-  }));
+  const domains: DomainProgress[] = [...avgs.entries()].map(([id, v]) => {
+    const gs = getGateStatus(id);
+    const domain: DomainProgress = {
+      id,
+      label: v.label,
+      avgScore: v.avg,
+      satisfied: satisfied.get(id) ?? false,
+      gateStatus: gs,
+    };
+    if (gs === 'cooldown') {
+      domain.correctSinceFail = gates[id]?.correctSinceFail ?? 0;
+    }
+    return domain;
+  });
 
   const masteredCount = nodes.filter((n) => n.state === 'mastered').length;
 

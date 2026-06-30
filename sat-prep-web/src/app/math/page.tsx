@@ -3,6 +3,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useGamification } from '@/context/GamificationContext';
 import { useToast } from '@/context/ToastContext';
+import { SKILL_TREE } from '@/lib/skill-taxonomy';
+
+// 4 domain Toán + skill con, lấy thẳng từ skill-taxonomy (single source of truth).
+// Mỗi skill con map đúng 1 skillId → mastery phủ đủ 13 skill Toán (nền cho Skill Tree).
+const MATH_DOMAINS = SKILL_TREE.filter((d) => d.subject === 'math');
 
 interface MathLesson {
   concept_name: string;
@@ -24,9 +29,10 @@ interface ChatMessage {
 }
 
 export default function MathPage() {
-  const { userStats, inventory, spendCoins, handlePracticeAnswer, toggleBookmark, bookmarkedQuestions } = useGamification();
+  const { userStats, inventory, spendCoins, handlePracticeAnswer } = useGamification();
   const { showToast } = useToast();
   const [currentTopic, setCurrentTopic] = useState<string | null>(null);
+  const [currentSkillId, setCurrentSkillId] = useState<string | null>(null);
   const [lessonData, setLessonData] = useState<MathLesson | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -50,26 +56,19 @@ export default function MathPage() {
   // + topic để chỉ dùng khi khớp chủ đề và không gọi OpenAI lần 2.
   const prefetchedRef = useRef<{ topic: string; promise: Promise<MathLesson | null> } | null>(null);
 
-  const categories = [
-    { name: "Heart of Algebra (Đại số cốt lõi)", desc: "Hệ phương trình, phương trình tuyến tính, bất phương trình." },
-    { name: "Problem Solving & Data", desc: "Thống kê, xác suất, phần trăm, tỉ lệ." },
-    { name: "Advanced Math (Toán nâng cao SAT)", desc: "Hàm số mũ, đa thức, phương trình bậc hai." },
-    { name: "Geometry & Trigonometry", desc: "Hình học không gian, lượng giác, đường tròn." }
-  ];
-
-  const hasItem = (itemId: string) => inventory.some(i => (typeof i === 'string' ? i === itemId : (i as any).itemId === itemId));
-  const removeConsumable = (itemId: string) => {
+  const hasItem = (itemId: string) => inventory.some(i => (typeof i === 'string' ? i === itemId : (i as { itemId?: string }).itemId === itemId));
+  const removeConsumable = (_itemId: string) => {
     // Note: Simulated usage.
   };
 
   // Fetch thuần — chỉ trả data, không đụng React state. Dùng chung cho cả load
-  // trực tiếp lẫn prefetch (2.2).
-  const fetchLesson = async (topic: string): Promise<MathLesson | null> => {
+  // trực tiếp lẫn prefetch (2.2). skillId tường minh giúp ghi mastery đúng skill con.
+  const fetchLesson = async (topic: string, skillId?: string): Promise<MathLesson | null> => {
     try {
       const res = await fetch('/api/generate-practice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ moduleType: 'math', topic })
+        body: JSON.stringify({ moduleType: 'math', topic, skillId })
       });
       if (res.ok) return await res.json();
       return null;
@@ -82,13 +81,15 @@ export default function MathPage() {
   // Prefetch câu kế khi user vừa submit (đang đọc giải thích / chat) → bấm "Tải
   // bài tiếp theo" hiện ngay. Chỉ chạy SAU submit nên không phí token: gần như
   // chắc chắn user sẽ qua câu kế. Guard tránh gọi OpenAI lần 2 nếu đã có sẵn.
-  const prefetchNext = (topic: string) => {
+  const prefetchNext = (topic: string, skillId?: string) => {
     if (prefetchedRef.current) return;
-    prefetchedRef.current = { topic, promise: fetchLesson(topic) };
+    prefetchedRef.current = { topic, promise: fetchLesson(topic, skillId) };
   };
 
-  const handleGenerateLesson = async (topic: string) => {
+  const handleGenerateLesson = async (topic: string, skillId?: string) => {
     setCurrentTopic(topic);
+    if (skillId !== undefined) setCurrentSkillId(skillId);
+    const effectiveSkillId = skillId ?? currentSkillId ?? undefined;
     setIsLoading(true);
     setLessonData(null);
     setIsSubmitted(false);
@@ -96,7 +97,9 @@ export default function MathPage() {
     setChatHistory([]);
     setActiveSkills({desmos: false, focus: false});
 
-    // 15% chance of Boss Encounter
+    // 15% chance of Boss Encounter. Math.random ở đây nằm trong event handler
+    // (gọi từ onClick/skip), KHÔNG phải thân render → an toàn, không bất định.
+    // eslint-disable-next-line react-hooks/purity
     const isBoss = Math.random() < 0.15;
     setIsBossEncounter(isBoss);
     if (isBoss) {
@@ -109,7 +112,7 @@ export default function MathPage() {
     prefetchedRef.current = null;
     const data = prefetched && prefetched.topic === topic
       ? await prefetched.promise
-      : await fetchLesson(topic);
+      : await fetchLesson(topic, effectiveSkillId);
 
     if (data) {
       setLessonData(data);
@@ -151,19 +154,20 @@ export default function MathPage() {
         const newHp = Math.max(0, bossHp - damage);
         setBossHp(newHp);
         if (newHp === 0) {
-          handlePracticeAnswer(true, 150, 50); // Extra rewards for boss
+          // Hạ boss = câu khó → thưởng theo độ khó 'Hard' (server quyết số xu/XP).
+          void handlePracticeAnswer(true, 'Hard');
         }
       } else {
         // Lose heart
         setPlayerHearts(prev => prev - 1);
       }
     } else {
-      handlePracticeAnswer(isAnsCorrect, 50, 10);
+      void handlePracticeAnswer(isAnsCorrect, lessonData.difficulty);
     }
 
     // Prefetch câu kế ngay khi submit (user đang đọc giải thích) → "Tải bài
     // tiếp theo" hiện tức thì.
-    if (currentTopic) prefetchNext(currentTopic);
+    if (currentTopic) prefetchNext(currentTopic, currentSkillId ?? undefined);
   };
 
   const handleUseHeal = () => {
@@ -287,16 +291,26 @@ export default function MathPage() {
       
       {!currentTopic ? (
         <div className="bg-[#1b2533] border border-[#3b82f6] rounded-xl p-6 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
-          <h2 className="text-2xl font-bold text-[#60a5fa] mb-4">1. Lựa Chọn Chủ Đề Toán Học</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {categories.map((cat, idx) => (
-              <div 
-                key={idx} 
-                onClick={() => handleGenerateLesson(cat.name)}
-                className="bg-[#0e1117] border border-[#262730] p-6 rounded-xl hover:border-[#3b82f6] hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] cursor-pointer transition-all group"
-              >
-                <h3 className="text-xl font-bold text-white mb-2 group-hover:text-[#60a5fa]">{cat.name}</h3>
-                <p className="text-gray-400 text-sm">{cat.desc}</p>
+          <h2 className="text-2xl font-bold text-[#60a5fa] mb-2">1. Lựa Chọn Chủ Đề Toán Học</h2>
+          <p className="text-gray-400 text-sm mb-6">Chọn đúng dạng bài bạn muốn luyện — hệ thống ghi nhận mức thành thạo riêng cho từng kỹ năng.</p>
+          <div className="space-y-6">
+            {MATH_DOMAINS.map((domain) => (
+              <div key={domain.id}>
+                <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
+                  <span className="w-1.5 h-5 bg-[#3b82f6] rounded-full inline-block" />
+                  {domain.label}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {domain.skills.map((skill) => (
+                    <div
+                      key={skill.id}
+                      onClick={() => handleGenerateLesson(skill.label, skill.id)}
+                      className="bg-[#0e1117] border border-[#262730] p-4 rounded-xl hover:border-[#3b82f6] hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] cursor-pointer transition-all group"
+                    >
+                      <h4 className="text-base font-bold text-gray-100 group-hover:text-[#60a5fa]">{skill.label}</h4>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
@@ -308,8 +322,8 @@ export default function MathPage() {
               <span className="text-gray-400 text-sm">Chủ đề hiện tại:</span>
               <h2 className="text-xl font-bold text-[#60a5fa]">{currentTopic}</h2>
             </div>
-            <button 
-              onClick={() => { setCurrentTopic(null); setLessonData(null); }}
+            <button
+              onClick={() => { setCurrentTopic(null); setCurrentSkillId(null); setLessonData(null); }}
               className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded text-sm transition-colors"
             >
               ⬅️ Quay lại danh mục

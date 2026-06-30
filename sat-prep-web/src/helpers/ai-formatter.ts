@@ -13,7 +13,7 @@ export function cleanAiText(text: string): string {
   // Lưu ý regex dùng flag /g để thay thế toàn bộ, xử lý cả string chứa escape backslash
   cleaned = cleaned.replace(/\\\((.*?)\\\)/g, '$$$1$$');
   // Nếu AI trả về 1 backslash (đã bị parse JSON thành ký tự trần)
-  cleaned = cleaned.replace(/\(\s*(.*?)\s*\)/g, (match, p1) => {
+  cleaned = cleaned.replace(/\(\s*(.*?)\s*\)/g, (match) => {
     // Chỉ thay thế nếu bên trong nhìn giống công thức toán học (chứa số, biến, hoặc ký hiệu)
     // Cách an toàn hơn là thay chính xác \ ( và \ )
     return match; // Bỏ qua regex lỏng lẻo này, dùng regex cứng ở dưới

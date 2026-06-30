@@ -19,8 +19,8 @@ export default function PetsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
           { id: "pet_1", name: "Cú Thông Thái", icon: "🦉", buff: "+10% XP khi học Reading", unlockLevel: 1 },
-          { id: "pet_2", name: "Sói Cô Độc", icon: "🐺", buff: "+20% sát thương PvP", unlockLevel: 5 },
-          { id: "pet_3", name: "Rồng Lửa", icon: "🐉", buff: "+50% Vàng nhận được", unlockLevel: 15 }
+          { id: "pet_2", name: "Sói Cô Độc", icon: "🐺", buff: "+20% sát thương PvP", unlockLevel: 3 },
+          { id: "pet_3", name: "Rồng Lửa", icon: "🐉", buff: "+50% Vàng nhận được", unlockLevel: 6 }
         ].map((pet, idx) => {
           const isLocked = level < pet.unlockLevel;
           const isActive = activePet === pet.id || (activePet === null && idx === 0 && !isLocked); // Default to first if none equipped

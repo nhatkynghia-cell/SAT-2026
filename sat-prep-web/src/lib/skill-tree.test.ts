@@ -55,13 +55,22 @@ test('chương phụ thuộc bị KHÓA khi Đại số chưa đạt ngưỡng',
   assert.ok(adv?.lockedBy && adv.lockedBy.length > 0, 'phải nêu chương tiên quyết');
 });
 
-test('chương phụ thuộc MỞ KHÓA khi Đại số đạt ngưỡng', () => {
-  // Đại số avg >= ngưỡng → advanced_math mở.
+test('chương phụ thuộc MỞ KHÓA khi Đại số đạt ngưỡng VÀ gate passed', () => {
+  // Đại số avg >= ngưỡng + gate passed → advanced_math mở.
+  const gates = { algebra: { passed: true, lastAttempt: '2026-01-01', score: 5, correctSinceFail: 0 } };
+  const view = buildSkillTree(fakeSummary({
+    'algebra.linear_eq': { score: DOMAIN_UNLOCK_THRESHOLD + 10, attempts: 6 },
+    'advanced.quadratic': { score: 0, attempts: 0 },
+  }), gates);
+  assert.equal(view.nodes.find((x) => x.id === 'advanced.quadratic')?.state, 'available');
+});
+
+test('chương phụ thuộc VẪN KHÓA khi Đại số đạt ngưỡng nhưng gate chưa pass', () => {
   const view = buildSkillTree(fakeSummary({
     'algebra.linear_eq': { score: DOMAIN_UNLOCK_THRESHOLD + 10, attempts: 6 },
     'advanced.quadratic': { score: 0, attempts: 0 },
   }));
-  assert.equal(view.nodes.find((x) => x.id === 'advanced.quadratic')?.state, 'available');
+  assert.equal(view.nodes.find((x) => x.id === 'advanced.quadratic')?.state, 'locked');
 });
 
 test('avg chương tính trên TẤT CẢ skill của chương (kể cả skill chưa làm = 0)', () => {

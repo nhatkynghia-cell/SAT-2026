@@ -27,12 +27,9 @@ jobs:
       # --legacy-peer-deps: xung đột peer React 19 vs lucide-react (đã biết).
       - run: npm ci --legacy-peer-deps
 
-      # Hai cổng CHẶN (đang xanh): type-check + unit test (51 test).
+      # Ba cổng CHẶN (đang xanh): type-check + unit test (92 test) + lint.
       - run: npx tsc --noEmit
       - run: npm test
 
-      # Lint hiện CÒN lỗi nợ cũ (no-explicit-any ở *-data routes + 1 lỗi React
-      # purity). Để continue-on-error để KHÔNG đỏ giả; LẬT thành chặn sau khi
-      # dọn `any` ở Nhóm 4.3.
+      # Lint đã sạch (0 error, 0 warning) sau khi dọn nợ `any` + React-purity.
       - run: npm run lint
-        continue-on-error: true

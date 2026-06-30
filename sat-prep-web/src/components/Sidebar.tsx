@@ -12,6 +12,7 @@ const MENU_GROUPS = [
     title: '🏠 TỔNG QUAN & LỘ TRÌNH',
     items: [
       { name: '✨ Ôn Luyện Hằng Ngày', path: '/' },
+      { name: '🌳 Cây Năng Lực SAT', path: '/skill-tree' },
       { name: '📊 Nhật Ký Trưởng Thành', path: '/dashboard' },
     ]
   },
@@ -49,7 +50,7 @@ const MENU_GROUPS = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { learningMode, setLearningMode, subject, setSubject, focusMode } = useGamification();
+  const { learningMode, setLearningMode, subject, setSubject, focusMode, incrementQuestionKey } = useGamification();
   const [expandedGroups, setExpandedGroups] = useState<number[]>([0]);
 
   if (focusMode) return null;
@@ -97,8 +98,8 @@ export function Sidebar() {
                   <option>Math (Toán học)</option>
                 </select>
               </div>
-              <button 
-                onClick={useGamification().incrementQuestionKey}
+              <button
+                onClick={incrementQuestionKey}
                 className="w-full bg-[#262730] hover:bg-[#333] border border-[#404353] hover:border-[#3b82f6] text-[#e2e8f0] px-4 py-2 rounded text-sm transition-colors text-left flex items-center gap-2"
               >
                 🔄 Đổi câu hỏi khác

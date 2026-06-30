@@ -2,24 +2,50 @@
 
 import { useState, useEffect } from 'react';
 import { useGamification } from '@/context/GamificationContext';
-import { CorePracticeUI, PracticeQuestion } from '@/components/CorePracticeUI';
 import ReactMarkdown from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 
+interface ExamQuestion {
+  id: string;
+  full_passage?: string;
+  practice_question: string;
+  choices: string[];
+  correct_choice: string;
+}
+interface ExamModule {
+  name: string;
+  time_minutes: number;
+  questions: ExamQuestion[];
+}
+interface FullExam {
+  id: string;
+  title: string;
+  description: string;
+  total_time_minutes: number;
+  modules: ExamModule[];
+}
+interface ScoreData {
+  correct: number;
+  total: number;
+  estimatedScore: number;
+  xpReward: number;
+  coinsReward: number;
+}
+
 export default function MockExamsPage() {
-  const { addReward, updateQuestProgress } = useGamification();
-  const [exams, setExams] = useState<any[]>([]);
-  const [selectedExam, setSelectedExam] = useState<any>(null);
-  
+  const { handleExamComplete, updateQuestProgress } = useGamification();
+  const [exams, setExams] = useState<FullExam[]>([]);
+  const [selectedExam, setSelectedExam] = useState<FullExam | null>(null);
+
   const [isExamStarted, setIsExamStarted] = useState(false);
   const [currentModuleIndex, setCurrentModuleIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  
+
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isFinished, setIsFinished] = useState(false);
-  const [scoreData, setScoreData] = useState<any>(null);
+  const [scoreData, setScoreData] = useState<ScoreData | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
 
   // Load danh sách đề thi
@@ -32,18 +58,7 @@ export default function MockExamsPage() {
       .catch(err => console.error("Failed to load exams", err));
   }, []);
 
-  // Timer logic
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isExamStarted && !isFinished && timeLeft > 0) {
-      timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
-    } else if (timeLeft === 0 && isExamStarted && !isFinished) {
-      handleNextModule(); // Tự động nộp module khi hết giờ
-    }
-    return () => clearInterval(timer);
-  }, [isExamStarted, isFinished, timeLeft]);
-
-  const handleStartExam = (exam: any) => {
+  const handleStartExam = (exam: FullExam) => {
     setSelectedExam(exam);
     setIsExamStarted(true);
     setCurrentModuleIndex(0);
@@ -62,6 +77,7 @@ export default function MockExamsPage() {
   const currentQuestion = currentModule?.questions[currentQuestionIndex];
 
   const handleNextQuestion = () => {
+    if (!currentModule) return;
     if (currentQuestionIndex < currentModule.questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
     }
@@ -73,23 +89,14 @@ export default function MockExamsPage() {
     }
   };
 
-  const handleNextModule = () => {
-    if (currentModuleIndex < selectedExam.modules.length - 1) {
-      setCurrentModuleIndex(prev => prev + 1);
-      setCurrentQuestionIndex(0);
-      setTimeLeft(selectedExam.modules[currentModuleIndex + 1].time_minutes * 60);
-    } else {
-      finishExam();
-    }
-  };
-
   const finishExam = () => {
+    if (!selectedExam) return;
     setIsFinished(true);
     let correct = 0;
     let total = 0;
-    
-    selectedExam.modules.forEach((mod: any) => {
-      mod.questions.forEach((q: any) => {
+
+    selectedExam.modules.forEach((mod: ExamModule) => {
+      mod.questions.forEach((q: ExamQuestion) => {
         total++;
         const userAns = answers[q.id];
         if (userAns && userAns.trim()[0].toUpperCase() === q.correct_choice.trim()[0].toUpperCase()) {
@@ -103,12 +110,39 @@ export default function MockExamsPage() {
     const estimatedScore = Math.floor(400 + ratio * 1200);
     const xpReward = correct * 50;
     const coinsReward = correct * 10;
-    
+
     setScoreData({ correct, total, estimatedScore, xpReward, coinsReward });
-    addReward(xpReward, coinsReward);
-    
+    // 🔴 Server quyết thưởng: thi thử = độ khó Medium × số câu đúng (§9.1).
+    void handleExamComplete(correct, 'Medium');
+
     updateQuestProgress('q3', 1);
   };
+
+  const handleNextModule = () => {
+    if (!selectedExam) return;
+    if (currentModuleIndex < selectedExam.modules.length - 1) {
+      setCurrentModuleIndex(prev => prev + 1);
+      setCurrentQuestionIndex(0);
+      setTimeLeft(selectedExam.modules[currentModuleIndex + 1].time_minutes * 60);
+    } else {
+      finishExam();
+    }
+  };
+
+  // Timer: đặt SAU handleNextModule/finishExam để không tham chiếu hàm trước khi
+  // khai báo. Auto-nộp module khi hết giờ — đây là phản ứng với thời gian (nguồn
+  // ngoài) đạt 0, một trường hợp setState-in-effect hợp lệ.
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isExamStarted && !isFinished && timeLeft > 0) {
+      timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+    } else if (timeLeft === 0 && isExamStarted && !isFinished) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      handleNextModule();
+    }
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExamStarted, isFinished, timeLeft]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -171,7 +205,7 @@ export default function MockExamsPage() {
             Quay lại Đấu Trường
           </button>
         </div>
-      ) : (
+      ) : currentModule && currentQuestion ? (
         <div className="bg-[#1b2533] rounded-xl border border-[#262730] shadow-xl overflow-hidden flex flex-col min-h-[600px]">
           {/* Top Bar */}
           <div className="bg-[#0e1117] p-4 flex justify-between items-center border-b border-[#262730]">
@@ -248,7 +282,7 @@ export default function MockExamsPage() {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

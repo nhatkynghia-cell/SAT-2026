@@ -15,7 +15,7 @@ const SECRET_KEY: string = (() => {
 })();
 
 // Hàm sắp xếp key của Object (để đảm bảo JSON stringify luôn ra cùng 1 chuỗi)
-function sortKeys(obj: any): any {
+function sortKeys(obj: unknown): unknown {
   if (obj === null || typeof obj !== 'object') {
     return obj;
   }
@@ -23,14 +23,14 @@ function sortKeys(obj: any): any {
     return obj.map(sortKeys);
   }
   const sortedKeys = Object.keys(obj).sort();
-  const result: { [key: string]: any } = {};
+  const result: { [key: string]: unknown } = {};
   for (const key of sortedKeys) {
-    result[key] = sortKeys(obj[key]);
+    result[key] = sortKeys((obj as Record<string, unknown>)[key]);
   }
   return result;
 }
 
-function generateSignature(data: any): string {
+function generateSignature(data: Record<string, unknown>): string {
   const dataCopy = { ...data };
   delete dataCopy.signature; // Bỏ field signature khi tính toán
 

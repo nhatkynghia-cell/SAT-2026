@@ -1,8 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { attemptUpgrade, getForgeCost, Tier, Equipment } from '@/helpers/forge';
-import { calculateFightResult, getPvpRankName, PVP_OPPONENTS } from '@/helpers/pvp';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
+import { attemptUpgrade, getForgeCost, Equipment } from '@/helpers/forge';
+import { PVP_OPPONENTS } from '@/helpers/pvp';
 
 export type InventoryItem = string | Equipment;
 
@@ -13,12 +13,14 @@ export interface BadgeState {
 }
 
 // Static Badge Database
+// ⚠️ Ngưỡng theo THANG KỸ NĂNG mới (level = số skill tinh thông + 1, tối đa ~19),
+// KHÔNG còn Level phẳng 1-200 (§10). req_desc mô tả theo số chương/skill.
 export const BADGE_CATALOG = [
-  { id: "b_1", title: "Tân Binh Xuất Thế", req_desc: "Cần đạt Cấp 5", icon: "🥉", category: "Tu Vi", check: (state: BadgeState) => state.level >= 5 },
-  { id: "b_2", title: "Kiếm Khách SAT", req_desc: "Cần đạt Cấp 15", icon: "🗡️", category: "Tu Vi", check: (state: BadgeState) => state.level >= 15 },
-  { id: "b_3", title: "Đại Pháp Sư SAT", req_desc: "Cần đạt Cấp 30", icon: "🧙‍♂️", category: "Tu Vi", check: (state: BadgeState) => state.level >= 30 },
-  { id: "b_4", title: "Đỉnh Phong Thủ Khoa", req_desc: "Cần đạt Cấp 60", icon: "👑", category: "Tu Vi", check: (state: BadgeState) => state.level >= 60 },
-  { id: "b_5", title: "Thần Thoại Học Thuật", req_desc: "Cần đạt Cấp 100", icon: "🌟", category: "Tu Vi", check: (state: BadgeState) => state.level >= 100 },
+  { id: "b_1", title: "Tân Binh Xuất Thế", req_desc: "Tinh thông 1 kỹ năng", icon: "🥉", category: "Tu Vi", check: (state: BadgeState) => state.level >= 2 },
+  { id: "b_2", title: "Kiếm Khách SAT", req_desc: "Tinh thông 3 kỹ năng", icon: "🗡️", category: "Tu Vi", check: (state: BadgeState) => state.level >= 4 },
+  { id: "b_3", title: "Đại Pháp Sư SAT", req_desc: "Tinh thông 6 kỹ năng", icon: "🧙‍♂️", category: "Tu Vi", check: (state: BadgeState) => state.level >= 7 },
+  { id: "b_4", title: "Đỉnh Phong Thủ Khoa", req_desc: "Tinh thông 10 kỹ năng", icon: "👑", category: "Tu Vi", check: (state: BadgeState) => state.level >= 11 },
+  { id: "b_5", title: "Thần Thoại Học Thuật", req_desc: "Tinh thông 14 kỹ năng", icon: "🌟", category: "Tu Vi", check: (state: BadgeState) => state.level >= 15 },
   
   { id: "l_1", title: "Sức Mạnh Đánh Thức", req_desc: "Cần 100 Lực chiến", icon: "🔥", category: "Lực Chiến", check: (state: BadgeState) => state.maxPower >= 100 },
   { id: "l_2", title: "Kẻ Phá Vỡ Giới Hạn", req_desc: "Cần 300 Lực chiến", icon: "⚔️", category: "Lực Chiến", check: (state: BadgeState) => state.maxPower >= 300 },
@@ -66,10 +68,21 @@ export interface PracticeQuestionState {
   bookmarkedQuestions: string[];
 }
 
+export interface Quest {
+  id: string;
+  name: string;
+  desc: string;
+  progress: number;
+  target: number;
+  xp: number;
+  coins: number;
+  claimed?: boolean;
+}
+
 export interface QuestsState {
-  daily: any[];
-  weekly: any[];
-  monthly: any[];
+  daily: Quest[];
+  weekly: Quest[];
+  monthly: Quest[];
 }
 
 type GamificationState = {
@@ -81,9 +94,12 @@ type GamificationState = {
   unlockedBadges: string[];
   
   // Helpers & Legacy getters để các Component không bị gãy (Crash-proof)
+  // ⚠️ Level KHÔNG còn phẳng (§10): level DẪN XUẤT từ masteredCount (số skill
+  // đã tinh thông), KHÔNG từ XP. Giữ tên biến `level` cho các trang gate đọc.
   level: number;
   currentXp: number;
-  maxXp: number;
+  masteredCount: number;
+  totalNodes: number;
   coins: number;
   shields: number;
   maxPower: number;
@@ -96,24 +112,24 @@ type GamificationState = {
   bookmarkedQuestions: string[];
 
   // Actions
-  addReward: (xp: number, coins: number) => void;
+  // 🔴 Economy server-authoritative (§9.1): coins/xp do SERVER quyết. Các hàm
+  // grant (answer/exam) là ASYNC — số thưởng lấy từ response server, client
+  // KHÔNG tự cộng. Các hàm spend gate trên coins đã đồng bộ rồi POST 'spend'.
+  handlePracticeAnswer: (isCorrect: boolean, difficulty: string) => Promise<{ xpGiven: number, coinsGiven: number, comboMultiplier: number }>;
+  handleExamComplete: (correctCount: number, difficulty: string) => Promise<{ coins: number, xp: number }>;
   incrementCorrectAnswers: () => void;
-  handlePracticeAnswer: (isCorrect: boolean, baseRewardXp: number, baseRewardCoins: number) => { xpGiven: number, coinsGiven: number, comboMultiplier: number };
-  spinDailyWheel: () => { success: boolean, message: string, rewardType: string };
+  spinDailyWheel: () => Promise<{ success: boolean, message: string, rewardType: string }>;
   buyItem: (itemId: string, price: number) => boolean;
   spendCoins: (amount: number) => boolean;
   toggleBookmark: (questionId: string) => void;
   upgradeItem: (instanceId: string) => { success: boolean, message: string };
-  fightPvP: () => { success: boolean, message: string, won: boolean };
+  fightPvP: () => Promise<{ success: boolean, message: string, won: boolean }>;
   equipPet: (petId: string) => void;
-  
+
   // Quest Actions
   updateQuestProgress: (questId: string, amount: number) => void;
-  claimQuest: (questId: string) => void;
-  
-  levelUpAlert: boolean;
-  clearLevelUpAlert: () => void;
-  
+  claimQuest: (questId: string) => Promise<void>;
+
   // UI States
   soundEnabled: boolean;
   setSoundEnabled: (v: boolean) => void;
@@ -152,20 +168,34 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     daily: [], weekly: [], monthly: []
   });
 
-  const [unlockedBadges, setUnlockedBadges] = useState<string[]>([]);
-  const [levelUpAlert, setLevelUpAlert] = useState(false);
+  // Badge: DẪN XUẤT từ level/coins/maxPower (không phải state riêng) → dùng
+  // useMemo thay useEffect+setState (tránh cascading render, React purity).
+  // (khai báo useMemo đặt SAU userStats; xem bên dưới phần derive)
+  // Tiến trình kỹ năng (nguồn dẫn xuất `level`). masteredCount từ /api/skill-tree.
+  const [skillProgress, setSkillProgress] = useState<{ masteredCount: number; totalNodes: number }>({
+    masteredCount: 0,
+    totalNodes: 0,
+  });
   const [isLoaded, setIsLoaded] = useState(false);
-  
+
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load from Local API on mount
+  // Load on mount: nền từ /api/save-data (streak/inventory/quests), nhưng
+  // coins/xp/lastSpinDate LẤY TỪ /api/economy (server-authoritative), level
+  // DẪN XUẤT từ /api/skill-tree (masteredCount). Fetch song song.
   useEffect(() => {
     async function loadData() {
       try {
-        const res = await fetch('/api/load-data');
-        if (res.ok) {
-          const parsed = await res.json();
-          
+        const [saveRes, ecoRes, treeRes] = await Promise.all([
+          fetch('/api/load-data'),
+          fetch('/api/economy'),
+          fetch('/api/skill-tree'),
+        ]);
+
+        // 1) Nền: save-data (streak, inventory, quests, pvp, maxPower, pet...)
+        if (saveRes.ok) {
+          const parsed = await saveRes.json();
+
           // Defensive Hydration
           if (parsed.user_stats) {
             setUserStats(prev => ({ ...prev, ...parsed.user_stats }));
@@ -173,8 +203,6 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
             // Hỗ trợ ngược (Backward compatibility) nếu json cũ phẳng
             setUserStats(prev => ({
               ...prev,
-              level: parsed.level ?? prev.level,
-              xp: parsed.currentXp ?? prev.xp,
               coins: parsed.coins ?? prev.coins,
               shield: parsed.shields ?? prev.shield,
               streak: parsed.practiceStreak ?? prev.streak,
@@ -182,20 +210,39 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
               correctAnswersCountToday: parsed.correctAnswersCountToday ?? prev.correctAnswersCountToday,
               pvpRank: parsed.pvpRank ?? prev.pvpRank,
               pvpWinStreak: parsed.pvpWinStreak ?? prev.pvpWinStreak,
-              lastSpinDate: parsed.lastSpinDate ?? prev.lastSpinDate,
               activePet: parsed.activePet ?? prev.activePet
             }));
           }
 
           if (parsed.inventory) setInventory(parsed.inventory);
-          
+
           if (parsed.practice_question) {
             setPracticeQuestion(prev => ({ ...prev, ...parsed.practice_question }));
           } else if (parsed.bookmarkedQuestions) {
             setPracticeQuestion(prev => ({ ...prev, bookmarkedQuestions: parsed.bookmarkedQuestions }));
           }
-          
+
           if (parsed.quests) setQuests(parsed.quests);
+        }
+
+        // 2) Economy server-authoritative: ghi đè coins/xp/lastSpinDate.
+        if (ecoRes.ok) {
+          const eco = await ecoRes.json();
+          setUserStats(prev => ({
+            ...prev,
+            coins: eco.coins ?? prev.coins,
+            xp: eco.xp ?? prev.xp,
+            lastSpinDate: eco.lastSpinDate ?? prev.lastSpinDate,
+          }));
+        }
+
+        // 3) Level dẫn xuất từ masteredCount (số skill đã tinh thông).
+        if (treeRes.ok) {
+          const tree = await treeRes.json();
+          const masteredCount = tree.masteredCount ?? 0;
+          const totalNodes = tree.totalNodes ?? 0;
+          setSkillProgress({ masteredCount, totalNodes });
+          setUserStats(prev => ({ ...prev, level: masteredCount + 1 }));
         }
       } catch (e) {
         console.error("Failed to load state from API", e);
@@ -243,34 +290,15 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
   const [subject, setSubject] = useState('Reading & Writing (Đọc hiểu)');
   const [questionKey, setQuestionKey] = useState(0);
 
-  const getMaxXp = (lvl: number) => {
-    if (lvl < 10) return 1000;
-    if (lvl < 20) return 2000;
-    return 5000;
-  };
-
-  const addReward = (xpToAdd: number, coinsToAdd: number) => {
-    setUserStats(prev => {
-      let newXp = prev.xp + xpToAdd;
-      let newLevel = prev.level;
-      let didLevelUp = false;
-
-      while (newXp >= getMaxXp(newLevel)) {
-        newXp -= getMaxXp(newLevel);
-        newLevel += 1;
-        didLevelUp = true;
-      }
-
-      if (didLevelUp) setLevelUpAlert(true);
-
-      return {
-        ...prev,
-        level: newLevel,
-        xp: newXp,
-        coins: prev.coins + coinsToAdd,
-        maxPower: didLevelUp ? prev.maxPower + 25 : prev.maxPower
-      };
-    });
+  // Đồng bộ coins/xp/lastSpinDate từ EconomyState mà server trả về sau mỗi
+  // mutation. 🔴 Client KHÔNG tự cộng số tiền — luôn lấy con số từ server.
+  const syncEconomy = (eco: { coins?: number; xp?: number; lastSpinDate?: string | null }) => {
+    setUserStats(prev => ({
+      ...prev,
+      coins: eco.coins ?? prev.coins,
+      xp: eco.xp ?? prev.xp,
+      lastSpinDate: eco.lastSpinDate ?? prev.lastSpinDate,
+    }));
   };
 
   const incrementCorrectAnswers = () => {
@@ -278,58 +306,96 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     updateQuestProgress('q1', 1);
   };
 
-  const handlePracticeAnswer = (isCorrect: boolean, baseRewardXp: number, baseRewardCoins: number) => {
-    if (isCorrect) {
-      let newStreak = userStats.streak + 1;
-      const comboMultiplier = newStreak >= 5 ? 1.5 : 1.0;
-      const xpGiven = Math.floor(baseRewardXp * comboMultiplier);
-      const coinsGiven = Math.floor(baseRewardCoins * comboMultiplier);
-      
-      setUserStats(prev => ({ ...prev, streak: newStreak }));
-      addReward(xpGiven, coinsGiven);
-      incrementCorrectAnswers();
-      
-      return { xpGiven, coinsGiven, comboMultiplier };
-    } else {
+  // 🔴 Server-authoritative (§9.1): client gửi {isCorrect, difficulty, streak},
+  // SERVER tra ANSWER_REWARD + combo rồi trả coins/xp. Client KHÔNG gửi số tiền.
+  const handlePracticeAnswer = async (isCorrect: boolean, difficulty: string) => {
+    if (!isCorrect) {
       setUserStats(prev => ({ ...prev, streak: 0 }));
       return { xpGiven: 0, coinsGiven: 0, comboMultiplier: 1.0 };
     }
+
+    const newStreak = userStats.streak + 1;
+    const comboMultiplier = newStreak >= 5 ? 1.5 : 1.0;
+    setUserStats(prev => ({ ...prev, streak: newStreak }));
+    incrementCorrectAnswers();
+
+    try {
+      const res = await fetch('/api/economy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'answer', isCorrect: true, difficulty, streak: newStreak }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.state) syncEconomy(data.state);
+        const granted = data.granted ?? { coins: 0, xp: 0 };
+        return { xpGiven: granted.xp, coinsGiven: granted.coins, comboMultiplier };
+      }
+    } catch (e) {
+      console.error('Failed to grant answer reward', e);
+    }
+    return { xpGiven: 0, coinsGiven: 0, comboMultiplier };
   };
 
-  const spinDailyWheel = () => {
-    const today = new Date().toISOString().split('T')[0];
-    if (userStats.lastSpinDate === today) {
-      return { success: false, message: "Hôm nay bạn đã quay rồi. Hãy quay lại vào ngày mai!", rewardType: "none" };
+  // Phần thưởng cho 1 BÀI (thi thử/thi thật/lượt ôn từ vựng): server nhân
+  // correctCount × đơn giá theo độ khó. Client chỉ gửi số đếm + độ khó.
+  const handleExamComplete = async (correctCount: number, difficulty: string) => {
+    try {
+      const res = await fetch('/api/economy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'exam', correctCount, difficulty }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.state) syncEconomy(data.state);
+        return data.granted ?? { coins: 0, xp: 0 };
+      }
+    } catch (e) {
+      console.error('Failed to grant exam reward', e);
     }
+    return { coins: 0, xp: 0 };
+  };
 
-    setUserStats(prev => ({ ...prev, lastSpinDate: today }));
-    
-    const roll = Math.random() * 100;
-    
-    if (roll < 80) {
-      const randomCoins = Math.floor(Math.random() * 151) + 50;
-      setUserStats(prev => ({ ...prev, coins: prev.coins + randomCoins }));
-      return { success: true, message: `Thần tài gõ cửa! Nhận được ${randomCoins} Xu!`, rewardType: "coins" };
-    } else if (roll < 95) {
-      setInventory(prev => [...prev, { instanceId: `eq_${Date.now()}`, itemId: "da_cuong_hoa", name: "Đá Cường Hóa", tier: "Đồng", level: 1, icon: "🪨", isBound: true }]);
-      return { success: true, message: "May mắn! Nhận được 1 Đá Cường Hóa Lò Rèn!", rewardType: "item" };
-    } else {
-      const skins = ITEM_CATALOG.filter(item => item.type === "skin" || item.type === "equipment");
-      const randomSkin = skins[Math.floor(Math.random() * skins.length)];
-      setInventory(prev => [...prev, randomSkin.id]);
-      return { success: true, message: `BÙNG NỔ! Trúng cực phẩm: ${randomSkin.name} ${randomSkin.icon}!`, rewardType: "epic" };
+  const spinDailyWheel = async () => {
+    // Random CHẠY Ở SERVER (§9.6) — client không tự quyết kết quả.
+    try {
+      const res = await fetch('/api/economy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'spin' }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.state) syncEconomy(data.state);
+        const r = data.result;
+        if (data.success && r) {
+          // Đồng bộ item ẢO vào inventory hiển thị (server đã ghi vào túi của nó).
+          if (r.type === 'item') {
+            setInventory(prev => [...prev, { instanceId: `eq_${Date.now()}`, itemId: 'da_cuong_hoa', name: 'Đá Cường Hóa', tier: 'Đồng', level: 1, icon: '🪨', isBound: true }]);
+          } else if (r.type === 'epic' && r.itemId) {
+            setInventory(prev => [...prev, r.itemId]);
+          }
+          return { success: true, message: r.message, rewardType: r.type };
+        }
+        return { success: false, message: r?.message ?? 'Hôm nay bạn đã quay rồi. Quay lại vào ngày mai!', rewardType: 'none' };
+      }
+    } catch (e) {
+      console.error('Failed to spin', e);
     }
+    return { success: false, message: 'Lỗi kết nối, vui lòng thử lại sau.', rewardType: 'none' };
   };
 
   const buyItem = (itemId: string, price: number) => {
     if (userStats.coins >= price) {
       setUserStats(prev => {
-        let newState = { ...prev, coins: prev.coins - price };
+        const newState = { ...prev, coins: prev.coins - price };
         if (itemId.includes("shield")) newState.shield += 1;
         if (itemId.includes("power")) newState.maxPower += 10;
         return newState;
       });
-      
+      postSpend(price);
+
       setInventory(prev => [...prev, itemId]);
       
       if (itemId.includes("da_cuong_hoa")) {
@@ -341,9 +407,28 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     return false;
   };
 
+  // 🔴 Trừ xu qua server (§9.1): optimistic deduct cục bộ để UI phản hồi ngay +
+  // giữ chữ ký sync (boolean), rồi POST 'spend' và đồng bộ lại coins từ server.
+  // Spend KHÔNG phải vector cheat (chỉ tiêu được xu đang có) nên optimistic an toàn.
+  const postSpend = (amount: number) => {
+    fetch('/api/economy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'spend', amount }),
+    })
+      .then(async (res) => {
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.state) syncEconomy(data.state);
+        }
+      })
+      .catch((e) => console.error('Failed to spend coins', e));
+  };
+
   const spendCoins = (amount: number) => {
     if (userStats.coins >= amount) {
       setUserStats(prev => ({ ...prev, coins: prev.coins - amount }));
+      postSpend(amount);
       return true;
     }
     return false;
@@ -371,7 +456,8 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     }
     
     setUserStats(prev => ({ ...prev, coins: prev.coins - costCoins }));
-    
+    postSpend(costCoins);
+
     const result = attemptUpgrade(item.tier, item.level, false);
     
     const newInventory = [...inventory];
@@ -385,27 +471,47 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     return { success: result.success, message: result.message };
   };
 
-  const fightPvP = () => {
+  const fightPvP = async () => {
     const targetRank = Math.max(1, userStats.pvpRank - 1);
     const opponent = PVP_OPPONENTS[targetRank];
     if (!opponent) return { success: false, message: "Bạn đã đạt đỉnh cao Thách Đấu, không còn đối thủ!", won: false };
-    
-    const won = calculateFightResult(userStats.maxPower, opponent.luc_chien);
-    
-    if (won) {
-      const newStreak = userStats.pvpWinStreak + 1;
-      const multiplier = newStreak >= 3 ? 1.15 : 1;
-      const finalXp = Math.floor(opponent.reward_xp * multiplier);
-      const finalCoins = Math.floor(opponent.reward_coins * multiplier);
-      
-      setUserStats(prev => ({ ...prev, pvpWinStreak: newStreak, pvpRank: targetRank }));
-      addReward(finalXp, finalCoins);
-      
-      const streakMsg = newStreak >= 3 ? ` (Chuỗi thắng ${newStreak}x! Bonus +15%)` : '';
-      return { success: true, message: `Chiến thắng ${opponent.name}! Nhận ${finalXp} XP và ${finalCoins} Xu.${streakMsg}`, won: true };
-    } else {
+
+    // 🔴 Server quyết tất cả: cổng năng lực (lực chiến từ mastery thật), RNG
+    // thắng/thua, phần thưởng (§9.1). Client chỉ gửi targetRank — KHÔNG random,
+    // KHÔNG tự cộng xu (trước đây calculateFightResult chạy ở client → đánh lại
+    // tới khi thắng + maxPower bị item bơm).
+    try {
+      const res = await fetch('/api/economy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'pvp', targetRank }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return { success: false, message: data?.error ?? "Lỗi khi xử lý trận đấu.", won: false };
+      }
+
+      // Chưa đủ lực (cổng năng lực): hướng dẫn luyện thêm, không đổi rank/chuỗi.
+      if (!data.eligible) {
+        return { success: false, message: data.reason ?? "Lực chiến chưa đủ để thách đấu đối thủ này.", won: false };
+      }
+
+      if (data.won) {
+        if (data.state) syncEconomy(data.state); // xu/XP từ server
+        // State: dùng functional update (không stale). Số chuỗi cho MESSAGE chỉ
+        // là hiển thị → dùng giá trị captured (an toàn vì isFighting serialize click).
+        setUserStats(prev => ({ ...prev, pvpWinStreak: prev.pvpWinStreak + 1, pvpRank: targetRank }));
+        const displayStreak = userStats.pvpWinStreak + 1;
+        const streakMsg = displayStreak >= 3 ? ` (Chuỗi thắng ${displayStreak}x!)` : '';
+        const reward = data.granted ? ` +${data.granted.coins} Xu, +${data.granted.xp} XP.` : '';
+        return { success: true, message: `Chiến thắng ${opponent.name}! Leo lên hạng mới.${reward}${streakMsg}`, won: true };
+      }
+
       setUserStats(prev => ({ ...prev, pvpWinStreak: 0 }));
-      return { success: true, message: `Thất bại trước ${opponent.name}! Chuỗi thắng bị đứt. Hãy nâng cấp trang bị và thử lại.`, won: false };
+      return { success: true, message: `Thất bại trước ${opponent.name}! Chuỗi thắng bị đứt. Hãy luyện thêm để nâng lực chiến và thử lại.`, won: false };
+    } catch (e) {
+      console.error('Lỗi trận PvP', e);
+      return { success: false, message: "Lỗi kết nối khi xử lý trận đấu.", won: false };
     }
   };
 
@@ -416,26 +522,43 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
   const updateQuestProgress = (questId: string, amount: number) => {
     setQuests(prev => {
       // Find quest in daily
-      let updatedDaily = prev.daily.map(q => q.id === questId ? { ...q, progress: Math.min(q.target, q.progress + amount) } : q);
+      const updatedDaily = prev.daily.map(q => q.id === questId ? { ...q, progress: Math.min(q.target, q.progress + amount) } : q);
       return { ...prev, daily: updatedDaily };
     });
   };
 
-  const claimQuest = (questId: string) => {
+  const claimQuest = async (questId: string) => {
     const quest = quests.daily.find(q => q.id === questId);
     if (quest && quest.progress >= quest.target && !quest.claimed) {
-      addReward(quest.xp, quest.coins);
+      // 🔴 Server quyết phần thưởng từ QUEST_REWARD theo questId (§9.1).
+      // Đánh dấu đã nhận TRƯỚC để chống double-claim do bấm nhanh; nếu request
+      // lỗi, server không cộng nhưng claim flag chỉ là cờ UI cục bộ (sẽ đồng bộ
+      // lại từ save-data lần load sau).
       setQuests(prev => ({
         ...prev,
         daily: prev.daily.map(q => q.id === questId ? { ...q, claimed: true } : q)
       }));
+      try {
+        const res = await fetch('/api/economy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'quest', questId }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.state) syncEconomy(data.state);
+        }
+      } catch (e) {
+        console.error('Failed to claim quest reward', e);
+      }
     }
   };
 
-  useEffect(() => {
+  // Badge: neo vào level (đã DẪN XUẤT từ masteredCount), coins, maxPower.
+  // useMemo (không phải effect+setState) — thuần dẫn xuất, tránh cascading render.
+  const unlockedBadges = useMemo(() => {
     const state = { level: userStats.level, coins: userStats.coins, maxPower: userStats.maxPower };
-    const newlyUnlocked = BADGE_CATALOG.filter(b => b.check(state)).map(b => b.id);
-    setUnlockedBadges(newlyUnlocked);
+    return BADGE_CATALOG.filter(b => b.check(state)).map(b => b.id);
   }, [userStats.level, userStats.coins, userStats.maxPower]);
 
   if (!isLoaded) {
@@ -454,7 +577,8 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
       // Legacy exposes for crash-proofing
       level: userStats.level,
       currentXp: userStats.xp,
-      maxXp: getMaxXp(userStats.level),
+      masteredCount: skillProgress.masteredCount,
+      totalNodes: skillProgress.totalNodes,
       coins: userStats.coins,
       shields: userStats.shield,
       maxPower: userStats.maxPower,
@@ -465,12 +589,11 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
       lastSpinDate: userStats.lastSpinDate,
       activePet: userStats.activePet,
       bookmarkedQuestions: practiceQuestion.bookmarkedQuestions || [],
-      
+
       unlockedBadges,
-      
-      addReward, incrementCorrectAnswers, handlePracticeAnswer, spinDailyWheel, buyItem, spendCoins, toggleBookmark, upgradeItem, fightPvP, equipPet,
+
+      incrementCorrectAnswers, handlePracticeAnswer, handleExamComplete, spinDailyWheel, buyItem, spendCoins, toggleBookmark, upgradeItem, fightPvP, equipPet,
       updateQuestProgress, claimQuest,
-      levelUpAlert, clearLevelUpAlert: () => setLevelUpAlert(false),
       soundEnabled, setSoundEnabled, focusMode, setFocusMode,
       hideBanner, setHideBanner, learningMode, setLearningMode,
       subject, setSubject, questionKey, incrementQuestionKey: () => setQuestionKey(prev => prev + 1)

@@ -108,7 +108,7 @@ export function AITutoring() {
 
       setIsTyping(false);
       setChatMessages(prev => [...prev, { role: 'ai', text: aiText }]);
-    } catch (err) {
+    } catch {
       setIsTyping(false);
       setChatMessages(prev => [...prev, { role: 'ai', text: "Lỗi: Không thể kết nối với server. Có thể bạn chưa thiết lập OPENAI_API_KEY trong file .env.local." }]);
     }
@@ -121,7 +121,8 @@ export function AITutoring() {
     const correct = selectedAnswer === currentQuestion.correct;
     setIsCorrect(correct);
     
-    const result = handlePracticeAnswer(correct, 50, 10);
+    // Câu của AITutoring không gắn difficulty → mặc định 'Medium' (server tra bảng).
+    const result = await handlePracticeAnswer(correct, 'Medium');
     setRewardData(result);
     
     if (!correct) {

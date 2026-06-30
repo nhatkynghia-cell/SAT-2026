@@ -15,6 +15,8 @@ export interface PracticeQuestion {
   trapRate: number;
   /** skillId từ skill-taxonomy (task #9) — optional để các trang cũ không vỡ. */
   skillId?: string;
+  /** Phân tích từng đáp án (Nhóm 7 #9) — optional: câu cũ trong bank chưa có. */
+  choice_analysis?: { choice_letter: string; is_correct: boolean; analysis: string }[];
 }
 
 interface CorePracticeUIProps {
@@ -23,9 +25,14 @@ interface CorePracticeUIProps {
   isLoading?: boolean;
   onAnswer?: (isCorrect: boolean) => void;
   onSubmitted?: () => void;
+  /**
+   * Chế độ thi cổng: ẩn nút "Câu Hỏi Mới" cho tới khi đã nộp bài, để người thi
+   * KHÔNG bỏ qua câu (skip = không trả lời) làm sai số đếm điểm cổng.
+   */
+  hideNextUntilSubmitted?: boolean;
 }
 
-export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSubmitted }: CorePracticeUIProps) {
+export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSubmitted, hideNextUntilSubmitted }: CorePracticeUIProps) {
   const { handlePracticeAnswer, spendCoins, toggleBookmark, bookmarkedQuestions } = useGamification();
   
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -49,8 +56,10 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
     return () => clearInterval(timer);
   }, [isSubmitted, isLoading]);
 
-  // Reset state when new question comes in
+  // Reset state when new question comes in. Đồng bộ state nội bộ với prop
+  // questionData mới — reset-on-prop-change hợp lệ (không phải cascading render).
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     setSelectedAnswer(null);
     setIsSubmitted(false);
     setIsCorrect(null);
@@ -58,6 +67,7 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
     setTimeElapsed(0);
     setHintsRevealed(0);
     setHintError("");
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [questionData]);
 
   const handleSubmit = async () => {
@@ -68,7 +78,7 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
     const isAnsCorrect = selectedAnswer.trim()[0].toUpperCase() === questionData.correct_choice.trim()[0].toUpperCase();
     setIsCorrect(isAnsCorrect);
     
-    const result = handlePracticeAnswer(isAnsCorrect, 50, 10);
+    const result = await handlePracticeAnswer(isAnsCorrect, questionData.difficulty);
     setRewardData(result);
 
     if (onAnswer) onAnswer(isAnsCorrect);
@@ -166,17 +176,19 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
           </div>
         </div>
         <div className="flex gap-2">
-          <button 
+          <button
             onClick={() => toggleBookmark(questionData.practice_question)}
             className={`text-sm px-4 py-2 rounded font-bold transition-colors border ${isBookmarked ? 'bg-yellow-500 text-yellow-900 border-yellow-500' : 'bg-transparent text-gray-300 border-gray-600 hover:bg-gray-800'}`}
           >
             {isBookmarked ? "⭐ Đã Lưu" : "⭐ Lưu Câu Này"}
           </button>
-          <button 
-            onClick={onNext}
-            className="text-sm bg-[#3b82f6] hover:bg-[#2563eb] border border-[#3b82f6] px-4 py-2 rounded text-white transition-colors font-bold">
-            🔄 Câu Hỏi Mới
-          </button>
+          {!(hideNextUntilSubmitted && !isSubmitted) && (
+            <button
+              onClick={onNext}
+              className="text-sm bg-[#3b82f6] hover:bg-[#2563eb] border border-[#3b82f6] px-4 py-2 rounded text-white transition-colors font-bold">
+              🔄 Câu Hỏi Mới
+            </button>
+          )}
         </div>
       </div>
       
@@ -292,6 +304,41 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
               {questionData.explanation}
             </div>
           </div>
+
+          {/* Phân tích TỪNG đáp án (Nhóm 7 #9) — dạy kỹ năng loại trừ bẫy. Chỉ
+              hiện khi câu có choice_analysis (câu cũ trong bank có thể chưa có). */}
+          {Array.isArray(questionData.choice_analysis) && questionData.choice_analysis.length > 0 && (
+            <div className="bg-[#0f172a] p-5 rounded-xl border border-[#334155] shadow-lg">
+              <h4 className="text-[#fbbf24] font-bold mb-3 flex items-center gap-2">
+                <span>🔍 VÌ SAO CÁC ĐÁP ÁN KIA SAI?</span>
+              </h4>
+              <div className="space-y-2">
+                {questionData.choice_analysis.map((ca, idx) => {
+                  // Khớp lựa chọn của user theo INDEX (schema đảm bảo choice_analysis[i]
+                  // ứng với choices[i] đúng thứ tự) — KHÔNG parse chữ cái đầu, vì choices
+                  // có thể là giá trị trần ("x = 3") không mang nhãn "A)".
+                  const isUserPick = questionData.choices[idx] === selectedAnswer;
+                  const rowClass = ca.is_correct
+                    ? 'bg-[#064e3b]/40 border-[#10b981]'
+                    : isUserPick
+                    ? 'bg-[#7f1d1d]/40 border-[#ef4444]'
+                    : 'bg-[#1b2533] border-[#334155]';
+                  const icon = ca.is_correct ? '✅' : isUserPick ? '❌' : '⚠️';
+                  return (
+                    <div key={idx} className={`p-3 rounded-lg border ${rowClass}`}>
+                      <div className="text-sm text-[#e2e8f0] leading-relaxed">
+                        <span className="font-bold mr-1">{icon} {ca.choice_letter}.</span>
+                        {isUserPick && !ca.is_correct && (
+                          <span className="text-[#fca5a5] font-bold mr-1">(Bạn đã chọn)</span>
+                        )}
+                        {ca.analysis}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

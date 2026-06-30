@@ -63,7 +63,7 @@ export async function GET() {
       const cauSaiData = JSON.parse(fs.readFileSync(cauSaiPath, 'utf8'));
       
       // Chuyển đổi dữ liệu và gắn user_id
-      const insertData = cauSaiData.map((item: any) => ({
+      const insertData = cauSaiData.map((item: Record<string, unknown>) => ({
         user_id: user.id,
         passage: item.passage || '',
         question: item.question || '',
@@ -90,7 +90,7 @@ export async function GET() {
     if (fs.existsSync(historyPath)) {
       const historyData = JSON.parse(fs.readFileSync(historyPath, 'utf8'));
       
-      const insertData = historyData.map((item: any) => ({
+      const insertData = historyData.map((item: Record<string, unknown>) => ({
         user_id: user.id,
         module: item.module || '',
         subject: item.subject || '',
@@ -133,8 +133,8 @@ export async function GET() {
       }
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Lỗi tiến trình migration:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }

@@ -8,19 +8,46 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 
+interface ExamQuestion {
+  id: string;
+  full_passage?: string;
+  practice_question: string;
+  choices: string[];
+  correct_choice: string;
+}
+interface ExamModule {
+  name: string;
+  time_minutes: number;
+  questions: ExamQuestion[];
+}
+interface FullExam {
+  id: string;
+  title: string;
+  description: string;
+  total_time_minutes: number;
+  modules: ExamModule[];
+}
+interface ScoreData {
+  correct: number;
+  total: number;
+  estimatedScore: number;
+  xpReward: number;
+  coinsReward: number;
+}
+
 export default function RealExamsPage() {
-  const { level, addReward } = useGamification();
+  const { level, handleExamComplete } = useGamification();
   const { showToast } = useToast();
-  const [exams, setExams] = useState<any[]>([]);
-  const [selectedExam, setSelectedExam] = useState<any>(null);
-  
+  const [exams, setExams] = useState<FullExam[]>([]);
+  const [selectedExam, setSelectedExam] = useState<FullExam | null>(null);
+
   const [isExamStarted, setIsExamStarted] = useState(false);
   const [currentModuleIndex, setCurrentModuleIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  
+
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isFinished, setIsFinished] = useState(false);
-  const [scoreData, setScoreData] = useState<any>(null);
+  const [scoreData, setScoreData] = useState<ScoreData | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
 
   useEffect(() => {
@@ -32,19 +59,10 @@ export default function RealExamsPage() {
       .catch(err => console.error("Failed to load exams", err));
   }, []);
 
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isExamStarted && !isFinished && timeLeft > 0) {
-      timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
-    } else if (timeLeft === 0 && isExamStarted && !isFinished) {
-      handleNextModule();
-    }
-    return () => clearInterval(timer);
-  }, [isExamStarted, isFinished, timeLeft]);
-
-  const handleStartExam = (exam: any) => {
-    if (level < 30) {
-      showToast("Cần đạt Level 30 để mở khóa đề thi thật QAS!", 'error');
+  const handleStartExam = (exam: FullExam) => {
+    // Cổng năng lực: cần tinh thông ≥6 kỹ năng (level dẫn xuất = masteredCount+1).
+    if (level < 7) {
+      showToast("Cần tinh thông 6 kỹ năng để mở khóa đề thi thật QAS!", 'error');
       return;
     }
     setSelectedExam(exam);
@@ -65,6 +83,7 @@ export default function RealExamsPage() {
   const currentQuestion = currentModule?.questions[currentQuestionIndex];
 
   const handleNextQuestion = () => {
+    if (!currentModule) return;
     if (currentQuestionIndex < currentModule.questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
     }
@@ -76,23 +95,14 @@ export default function RealExamsPage() {
     }
   };
 
-  const handleNextModule = () => {
-    if (currentModuleIndex < selectedExam.modules.length - 1) {
-      setCurrentModuleIndex(prev => prev + 1);
-      setCurrentQuestionIndex(0);
-      setTimeLeft(selectedExam.modules[currentModuleIndex + 1].time_minutes * 60);
-    } else {
-      finishExam();
-    }
-  };
-
   const finishExam = () => {
+    if (!selectedExam) return;
     setIsFinished(true);
     let correct = 0;
     let total = 0;
-    
-    selectedExam.modules.forEach((mod: any) => {
-      mod.questions.forEach((q: any) => {
+
+    selectedExam.modules.forEach((mod: ExamModule) => {
+      mod.questions.forEach((q: ExamQuestion) => {
         total++;
         const userAns = answers[q.id];
         if (userAns && userAns.trim()[0].toUpperCase() === q.correct_choice.trim()[0].toUpperCase()) {
@@ -105,10 +115,37 @@ export default function RealExamsPage() {
     const estimatedScore = Math.floor(400 + ratio * 1200);
     const xpReward = correct * 100; // Thưởng cao hơn thi thử
     const coinsReward = correct * 20;
-    
+
     setScoreData({ correct, total, estimatedScore, xpReward, coinsReward });
-    addReward(xpReward, coinsReward);
+    // 🔴 Server quyết thưởng: thi thật = độ khó Hard × số câu đúng (§9.1).
+    void handleExamComplete(correct, 'Hard');
   };
+
+  const handleNextModule = () => {
+    if (!selectedExam) return;
+    if (currentModuleIndex < selectedExam.modules.length - 1) {
+      setCurrentModuleIndex(prev => prev + 1);
+      setCurrentQuestionIndex(0);
+      setTimeLeft(selectedExam.modules[currentModuleIndex + 1].time_minutes * 60);
+    } else {
+      finishExam();
+    }
+  };
+
+  // Timer: đặt SAU handleNextModule/finishExam để không tham chiếu hàm trước khi
+  // khai báo. Auto-nộp module khi hết giờ — phản ứng với thời gian (nguồn ngoài)
+  // đạt 0, một trường hợp setState-in-effect hợp lệ.
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (isExamStarted && !isFinished && timeLeft > 0) {
+      timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+    } else if (timeLeft === 0 && isExamStarted && !isFinished) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      handleNextModule();
+    }
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isExamStarted, isFinished, timeLeft]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -135,23 +172,23 @@ export default function RealExamsPage() {
           <div className="bg-[#450a0a] border border-[#ef4444] text-[#fca5a5] p-6 rounded-lg mb-6 shadow-[0_0_15px_rgba(239,68,68,0.2)]">
             <h3 className="font-bold text-xl mb-2 flex items-center gap-2">⚠️ CẢNH BÁO BẢO MẬT ĐỀ THI THẬT</h3>
             <p className="text-sm leading-relaxed">
-              Đề thi thật (QAS / Past Papers) chỉ được phép mở khóa khi Chiến binh đã vượt qua Level 30. 
+              Đề thi thật (QAS / Past Papers) chỉ được phép mở khóa khi Chiến binh đã tinh thông 6 kỹ năng.
               Vui lòng không chia sẻ đề thi ra bên ngoài để bảo vệ nguồn tài nguyên của Học viện.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {exams.map(exam => (
-              <div key={exam.id} className={`bg-[#1b2533] border-2 ${level >= 30 ? 'border-[#10b981]' : 'border-[#334155]'} rounded-xl p-6 flex flex-col items-center text-center relative overflow-hidden group`}>
+              <div key={exam.id} className={`bg-[#1b2533] border-2 ${level >= 7 ? 'border-[#10b981]' : 'border-[#334155]'} rounded-xl p-6 flex flex-col items-center text-center relative overflow-hidden group`}>
                 <div className="text-5xl mb-4">📜</div>
                 <h3 className="text-lg font-bold text-white mb-1">{exam.title}</h3>
                 <p className="text-[#94a3b8] text-sm mb-4">Digital SAT QAS</p>
                 
                 <button 
                   onClick={() => handleStartExam(exam)}
-                  className={`w-full py-2 rounded font-bold transition-colors ${level >= 30 ? 'bg-[#10b981] hover:bg-[#059669] text-white' : 'bg-[#334155] text-gray-400 cursor-not-allowed'}`}
+                  className={`w-full py-2 rounded font-bold transition-colors ${level >= 7 ? 'bg-[#10b981] hover:bg-[#059669] text-white' : 'bg-[#334155] text-gray-400 cursor-not-allowed'}`}
                 >
-                  {level >= 30 ? 'VÀO THI NGAY' : `🔒 Cần Level 30`}
+                  {level >= 7 ? 'VÀO THI NGAY' : `🔒 Cần tinh thông 6 kỹ năng`}
                 </button>
               </div>
             ))}
@@ -183,7 +220,7 @@ export default function RealExamsPage() {
             Về Danh Sách Đề
           </button>
         </div>
-      ) : (
+      ) : currentModule && currentQuestion ? (
         <div className="bg-[#1b2533] rounded-xl border border-[#a855f7] shadow-[0_0_20px_rgba(168,85,247,0.15)] overflow-hidden flex flex-col min-h-[600px]">
           {/* Top Bar */}
           <div className="bg-[#2e1065] p-4 flex justify-between items-center border-b border-[#4c1d95]">
@@ -260,7 +297,7 @@ export default function RealExamsPage() {
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

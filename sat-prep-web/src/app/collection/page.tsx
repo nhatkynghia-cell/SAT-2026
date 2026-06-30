@@ -18,13 +18,13 @@ export default function CollectionPage() {
       
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
         {[
-          { name: "Cúp Vô Địch Toán", icon: "🏆", locked: level < 5 },
-          { name: "Sách Cổ Ngữ", icon: "📖", locked: level < 10 },
-          { name: "Kiếm Ánh Sáng", icon: "⚔️", locked: level < 20 },
+          { name: "Cúp Vô Địch Toán", icon: "🏆", locked: level < 2 },
+          { name: "Sách Cổ Ngữ", icon: "📖", locked: level < 4 },
+          { name: "Kiếm Ánh Sáng", icon: "⚔️", locked: level < 7 },
           { name: "Vương Miện Trí Tuệ", icon: "👑", locked: !inventory.includes('title_gold') },
           { name: "Khiên Rồng", icon: "🐉", locked: !inventory.includes('shield_1') },
-          { name: "Nhẫn Càn Khôn", icon: "💍", locked: level < 50 },
-          { name: "Đá Vô Cực", icon: "🔮", locked: level < 100 },
+          { name: "Nhẫn Càn Khôn", icon: "💍", locked: level < 11 },
+          { name: "Đá Vô Cực", icon: "🔮", locked: level < 15 },
           { name: "Áo Choàng Bóng Tối", icon: "🦇", locked: !inventory.includes('theme_fire') }
         ].map((item, idx) => (
           <div key={idx} className={`bg-[#1b2533] p-6 rounded-xl border flex flex-col items-center justify-center text-center ${item.locked ? 'border-[#334155] opacity-50 grayscale' : 'border-[#c084fc] shadow-[0_0_15px_rgba(192,132,252,0.2)]'}`}>

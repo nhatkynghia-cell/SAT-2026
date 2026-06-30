@@ -18,7 +18,7 @@ export default function QuestsPage() {
       
       <div className="grid grid-cols-1 gap-4">
         {quests && quests.daily && quests.daily.length > 0 ? (
-          quests.daily.map((q: any, idx: number) => {
+          quests.daily.map((q: { id: string; progress: number; target: number; name: string; desc: string; claimed?: boolean; xp: number; coins: number }, idx: number) => {
             const isDone = q.progress >= q.target;
             return (
               <div key={q.id || idx} className="bg-[#1b2533] p-5 rounded-xl border border-[#262730] flex justify-between items-center shadow-lg transition-transform hover:scale-[1.01]">

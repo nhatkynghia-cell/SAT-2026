@@ -16,12 +16,12 @@ export const acquireLock = async (filePath: string, timeoutMs: number = 5000): P
       return () => {
         try {
           fs.unlinkSync(lockFile);
-        } catch (e) {
+        } catch {
           // ignore
         }
       };
-    } catch (e: any) {
-      if (e.code === 'EEXIST') {
+    } catch (e: unknown) {
+      if ((e as { code?: string }).code === 'EEXIST') {
         // Lock file exists, wait and retry
         await sleep(50);
       } else {
