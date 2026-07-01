@@ -21,6 +21,8 @@ interface MathLesson {
   trapRate: number;
   /** skillId từ skill-taxonomy (task #9) — optional, do API gắn kèm. */
   skillId?: string;
+  /** Phân tích từng đáp án (Nhóm 7 #9) — optional: câu cũ trong bank chưa có. */
+  choice_analysis?: { choice_letter: string; is_correct: boolean; analysis: string }[];
 }
 
 interface ChatMessage {
@@ -445,6 +447,36 @@ export default function MathPage() {
                       <h4 className="text-[#fbbf24] font-bold mb-3 flex items-center gap-2">🤖 GIA SƯ AI PHÂN TÍCH ĐÁP ÁN:</h4>
                       <div className="text-[15px] text-[#e2e8f0] leading-relaxed whitespace-pre-wrap">{lessonData.explanation}</div>
                     </div>
+
+                    {/* Phân tích TỪNG đáp án (Nhóm 7 #9) — dạy kỹ năng loại trừ bẫy.
+                        Khớp đáp án user theo INDEX (không parse chữ cái đầu). */}
+                    {Array.isArray(lessonData.choice_analysis) && lessonData.choice_analysis.length > 0 && (
+                      <div className="bg-[#0f172a] p-5 rounded-xl border border-[#334155] shadow-lg">
+                        <h4 className="text-[#fbbf24] font-bold mb-3 flex items-center gap-2">🔍 VÌ SAO CÁC ĐÁP ÁN KIA SAI?</h4>
+                        <div className="space-y-2">
+                          {lessonData.choice_analysis.map((ca, idx) => {
+                            const isUserPick = lessonData.choices[idx] === selectedAnswer;
+                            const rowClass = ca.is_correct
+                              ? 'bg-[#064e3b]/40 border-[#10b981]'
+                              : isUserPick
+                              ? 'bg-[#7f1d1d]/40 border-[#ef4444]'
+                              : 'bg-[#1b2533] border-[#334155]';
+                            const icon = ca.is_correct ? '✅' : isUserPick ? '❌' : '⚠️';
+                            return (
+                              <div key={idx} className={`p-3 rounded-lg border ${rowClass}`}>
+                                <div className="text-sm text-[#e2e8f0] leading-relaxed">
+                                  <span className="font-bold mr-1">{icon} {ca.choice_letter}.</span>
+                                  {isUserPick && !ca.is_correct && (
+                                    <span className="text-[#fca5a5] font-bold mr-1">(Bạn đã chọn)</span>
+                                  )}
+                                  {ca.analysis}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     <button onClick={() => handleGenerateLesson(currentTopic)} className="w-full py-3 bg-[#3b82f6] hover:bg-[#2563eb] rounded-xl font-bold text-white transition-colors">
                       🔄 Tải Bài Giảng Tiếp Theo
