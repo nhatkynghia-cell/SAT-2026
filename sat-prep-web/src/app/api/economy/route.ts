@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { loadEconomy, saveEconomy } from '@/lib/economy-store';
+import { loadEconomy, saveEconomy, loadPvpState, savePvpState } from '@/lib/economy-store';
 import { getMasterySummary } from '@/lib/mastery';
 import { computeStats } from '@/lib/stats';
 import { PVP_OPPONENTS } from '@/helpers/pvp';
@@ -11,6 +11,9 @@ import {
   applySpend,
   applySpin,
   resolvePvpFight,
+  checkPvpAttempt,
+  bumpPvpCounter,
+  nextPvpRank,
   type Difficulty,
 } from '@/lib/economy';
 
@@ -102,19 +105,57 @@ export async function POST(req: Request) {
     }
 
     if (action === 'pvp') {
-      // Trận PvP server-authoritative (nợ T7). Lực chiến = NĂNG LỰC HỌC THẬT
-      // (basePower từ mastery, KHÔNG tính trang bị — chống pay/grind-to-win),
-      // RNG + cổng năng lực + phần thưởng đều ở server. Client chỉ gửi targetRank.
-      const targetRank = Number(body.targetRank);
+      // Trận PvP server-authoritative (nợ T7 + anti-faucet). Lực chiến = NĂNG LỰC
+      // HỌC THẬT (basePower từ mastery), RNG + cổng năng lực + thưởng đều ở server.
+      // 🔴 Server tự quyết targetRank từ rank THẬT (KHÔNG tin client) + cap/ngày.
+
+      // FAIL-SAFE: nếu cột pvp_* chưa tồn tại (migration chưa chạy) → đóng PvP,
+      // KHÔNG mở faucet. loadPvpState trả null đúng trường hợp này.
+      const pvp = await loadPvpState(user.id);
+      if (!pvp) {
+        return NextResponse.json(
+          { success: false, error: 'Đấu trường PvP đang được nâng cấp. Vui lòng quay lại sau!', pvpUnavailable: true },
+          { status: 503 }
+        );
+      }
+
+      const today = todayStr();
+      // Đối thủ = hạng KẾ TRÊN theo rank THẬT ở server (bỏ qua targetRank client gửi).
+      const targetRank = pvp.pvpRank - 1;
+
+      // Cổng 1: hợp lệ hóa lượt đánh (chỉ đối thủ kế trên + cap/ngày).
+      const attempt = checkPvpAttempt(pvp.pvpRank, targetRank, pvp.fightsToday, pvp.lastFightDate, today);
+      if (!attempt.allowed) {
+        return NextResponse.json({
+          success: true,
+          eligible: false,
+          won: false,
+          granted: { coins: 0, xp: 0 },
+          pvpRank: pvp.pvpRank,
+          fightsRemaining: attempt.fightsRemaining,
+          reason: attempt.reason,
+        });
+      }
+
       const opponent = PVP_OPPONENTS[targetRank];
       if (!opponent) {
-        return NextResponse.json({ success: false, error: 'Đối thủ không hợp lệ' }, { status: 400 });
+        // Đã ở đỉnh (rank 1 → targetRank 0): không còn đối thủ.
+        return NextResponse.json({
+          success: true,
+          eligible: false,
+          won: false,
+          granted: { coins: 0, xp: 0 },
+          pvpRank: pvp.pvpRank,
+          fightsRemaining: attempt.fightsRemaining,
+          reason: 'Bạn đã đạt đỉnh cao Thách Đấu, không còn đối thủ!',
+        });
       }
 
       // basePower từ mastery — KHÔNG cộng equipmentBonus vào lực PvP (equipmentBonus=0).
       const summary = await getMasterySummary(user.id);
       const { basePower } = computeStats(summary, 0);
 
+      // Cổng 2: năng lực + RNG + thưởng.
       const fight = resolvePvpFight(
         state,
         {
@@ -126,21 +167,44 @@ export async function POST(req: Request) {
         Math.random
       );
 
-      // Chỉ persist khi đủ điều kiện + thắng (state có đổi). Thua/không đủ điều
-      // kiện → state nguyên, không ghi (tiết kiệm write).
-      if (fight.eligible && fight.won) {
+      // Nếu KHÔNG đủ lực (power gate fail) → KHÔNG tính là 1 trận (không tốn cap,
+      // không đổi rank). Trả hướng dẫn luyện thêm.
+      if (!fight.eligible) {
+        return NextResponse.json({
+          success: true,
+          eligible: false,
+          won: false,
+          granted: { coins: 0, xp: 0 },
+          combatPower: fight.combatPower,
+          pvpRank: pvp.pvpRank,
+          fightsRemaining: attempt.fightsRemaining,
+          reason: fight.reason,
+        });
+      }
+
+      // Đã đánh 1 trận hợp lệ (thắng hoặc thua): tính vào cap, cập nhật rank.
+      const counter = bumpPvpCounter(pvp.fightsToday, pvp.lastFightDate, today);
+      const newRank = nextPvpRank(pvp.pvpRank, fight.won);
+
+      // Persist: coins TRƯỚC (chỉ khi thắng, state có đổi), rồi PvP state.
+      if (fight.won) {
         await saveEconomy(user.id, fight.state);
       }
+      await savePvpState(user.id, {
+        pvpRank: newRank,
+        fightsToday: counter.fightsToday,
+        lastFightDate: counter.lastFightDate,
+      });
 
       return NextResponse.json({
         success: true,
-        eligible: fight.eligible,
+        eligible: true,
         won: fight.won,
         granted: fight.granted,
         combatPower: fight.combatPower,
-        targetRank,
+        pvpRank: newRank,
+        fightsRemaining: Math.max(0, attempt.fightsRemaining - 1),
         state: fight.state,
-        reason: fight.reason,
       });
     }
 

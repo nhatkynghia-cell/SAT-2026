@@ -472,43 +472,52 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
   };
 
   const fightPvP = async () => {
+    // Đối thủ hiển thị (chỉ để dựng message) tính từ rank client. Rank THẬT do
+    // SERVER quyết và trả về trong data.pvpRank — client luôn đồng bộ theo đó.
     const targetRank = Math.max(1, userStats.pvpRank - 1);
     const opponent = PVP_OPPONENTS[targetRank];
-    if (!opponent) return { success: false, message: "Bạn đã đạt đỉnh cao Thách Đấu, không còn đối thủ!", won: false };
 
-    // 🔴 Server quyết tất cả: cổng năng lực (lực chiến từ mastery thật), RNG
-    // thắng/thua, phần thưởng (§9.1). Client chỉ gửi targetRank — KHÔNG random,
-    // KHÔNG tự cộng xu (trước đây calculateFightResult chạy ở client → đánh lại
-    // tới khi thắng + maxPower bị item bơm).
+    // 🔴 Server quyết tất cả: hợp lệ lượt đánh (rank kế trên + cap/ngày), cổng
+    // năng lực (lực từ mastery thật), RNG, thưởng, rank mới (§9.1). Client KHÔNG
+    // gửi targetRank có ý nghĩa (server tự tính từ rank thật) — chống nhảy rank.
     try {
       const res = await fetch('/api/economy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'pvp', targetRank }),
+        body: JSON.stringify({ action: 'pvp' }),
       });
       const data = await res.json();
+
+      // PvP đang nâng cấp (migration cột pvp_* chưa chạy) hoặc lỗi khác.
       if (!res.ok || !data.success) {
         return { success: false, message: data?.error ?? "Lỗi khi xử lý trận đấu.", won: false };
       }
 
-      // Chưa đủ lực (cổng năng lực): hướng dẫn luyện thêm, không đổi rank/chuỗi.
+      // Đồng bộ rank THẬT từ server (kể cả khi không đủ điều kiện, để client
+      // không lệch với server).
+      if (typeof data.pvpRank === 'number') {
+        setUserStats(prev => ({ ...prev, pvpRank: data.pvpRank }));
+      }
+
+      // Không đủ điều kiện (hết cap/ngày, chưa đủ lực, hoặc đã ở đỉnh): không đổi
+      // chuỗi thắng, hiện thông điệp hướng dẫn từ server.
       if (!data.eligible) {
-        return { success: false, message: data.reason ?? "Lực chiến chưa đủ để thách đấu đối thủ này.", won: false };
+        return { success: false, message: data.reason ?? "Chưa thể thách đấu lúc này.", won: false };
       }
 
       if (data.won) {
         if (data.state) syncEconomy(data.state); // xu/XP từ server
-        // State: dùng functional update (không stale). Số chuỗi cho MESSAGE chỉ
-        // là hiển thị → dùng giá trị captured (an toàn vì isFighting serialize click).
-        setUserStats(prev => ({ ...prev, pvpWinStreak: prev.pvpWinStreak + 1, pvpRank: targetRank }));
+        setUserStats(prev => ({ ...prev, pvpWinStreak: prev.pvpWinStreak + 1 }));
         const displayStreak = userStats.pvpWinStreak + 1;
         const streakMsg = displayStreak >= 3 ? ` (Chuỗi thắng ${displayStreak}x!)` : '';
         const reward = data.granted ? ` +${data.granted.coins} Xu, +${data.granted.xp} XP.` : '';
-        return { success: true, message: `Chiến thắng ${opponent.name}! Leo lên hạng mới.${reward}${streakMsg}`, won: true };
+        const foe = opponent ? opponent.name : 'đối thủ';
+        return { success: true, message: `Chiến thắng ${foe}! Leo lên hạng mới.${reward}${streakMsg}`, won: true };
       }
 
       setUserStats(prev => ({ ...prev, pvpWinStreak: 0 }));
-      return { success: true, message: `Thất bại trước ${opponent.name}! Chuỗi thắng bị đứt. Hãy luyện thêm để nâng lực chiến và thử lại.`, won: false };
+      const foe = opponent ? opponent.name : 'đối thủ';
+      return { success: true, message: `Thất bại trước ${foe}! Chuỗi thắng bị đứt. Hãy luyện thêm để nâng lực chiến và thử lại.`, won: false };
     } catch (e) {
       console.error('Lỗi trận PvP', e);
       return { success: false, message: "Lỗi kết nối khi xử lý trận đấu.", won: false };
