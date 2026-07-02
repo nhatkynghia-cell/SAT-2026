@@ -116,7 +116,9 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
             correct_choice: questionData.correct_choice,
             user_choice: selectedAnswer,
             explanation: questionData.explanation,
-            source: "Core Practice (Next.js)"
+            source: "Core Practice (Next.js)",
+            // Gắn skillId để sổ tay sinh câu BIẾN THỂ cùng kỹ năng khi ôn (Nhóm 7 #6).
+            skill_id: questionData.skillId ?? null,
           })
         });
       } catch (e) {

@@ -22,6 +22,12 @@ export interface MistakeEntry {
   // Trường SRS (Leitner):
   box?: number;
   next_review?: string;
+  /**
+   * skillId gắn với câu sai (Nhóm 7 #6, migration phase1_5_pvp_mistakes.sql).
+   * Cho phép sinh câu BIẾN THỂ cùng skill khác số liệu để ôn. Nullable: câu sai
+   * cũ (trước migration) để null → không có nút biến thể, vẫn ôn lối cũ.
+   */
+  skill_id?: string | null;
 }
 
 /** Lấy danh sách toàn bộ câu sai của user (mới nhất trước). */
@@ -61,6 +67,7 @@ export async function addMistake(
       source: mistake.source || 'Luyện AI (Next.js)',
       box: srs?.box ?? 1,
       next_review: srs?.next_review ?? null,
+      skill_id: mistake.skill_id ?? null,
     })
     .select()
     .single();

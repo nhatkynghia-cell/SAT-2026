@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { CorePracticeUI, type PracticeQuestion } from './CorePracticeUI';
 
 type Mistake = {
   id?: string;
@@ -13,6 +14,7 @@ type Mistake = {
   passage?: string;
   box?: number;
   next_review?: string;
+  skill_id?: string | null;
 };
 
 type Mode = 'browse' | 'review';
@@ -51,6 +53,15 @@ export function MistakeNotebook() {
   const [revealed, setRevealed] = useState(false);
   const [reviewedCount, setReviewedCount] = useState(0);
 
+  // Luyện BIẾN THỂ (Nhóm 7 #6): sinh câu CÙNG skill khác số liệu để active recall.
+  // Kết quả trên biến thể LÀ tín hiệu SRS (đúng → nhớ, sai → quên) — mạnh hơn tự
+  // đánh giá "nhớ/quên". variantScored đảm bảo chỉ chấm SRS 1 lần/câu sai dù
+  // người dùng luyện thêm nhiều biến thể.
+  const [variantQ, setVariantQ] = useState<PracticeQuestion | null>(null);
+  const [variantLoading, setVariantLoading] = useState(false);
+  const [variantError, setVariantError] = useState('');
+  const [variantScored, setVariantScored] = useState(false);
+
   const load = useCallback((m: Mode) => {
     setIsLoading(true);
     const url = m === 'review' ? '/api/cau-sai?due=true' : '/api/cau-sai';
@@ -60,6 +71,9 @@ export function MistakeNotebook() {
         setMistakes(Array.isArray(data) ? data : []);
         setCurrentIndex(0);
         setRevealed(false);
+        setVariantQ(null);
+        setVariantError('');
+        setVariantScored(false);
         setIsLoading(false);
       })
       .catch(err => {
@@ -93,6 +107,42 @@ export function MistakeNotebook() {
     setMistakes(prev => prev.filter((_, i) => i !== currentIndex));
     setCurrentIndex(0);
     setRevealed(false);
+    setVariantQ(null);
+    setVariantError('');
+    setVariantScored(false);
+  };
+
+  // Sinh câu BIẾN THỂ cùng skill (Nhóm 7 #6). Chỉ khả dụng khi câu sai có skill_id.
+  const handlePracticeVariant = async () => {
+    const m = mistakes[currentIndex];
+    if (!m?.skill_id) return;
+    setVariantLoading(true);
+    setVariantError('');
+    try {
+      const res = await fetch(`/api/cau-sai/variant?skillId=${encodeURIComponent(m.skill_id)}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setVariantError(data?.error || 'Không tạo được câu biến thể. Thử lại sau nhé.');
+        setVariantQ(null);
+      } else {
+        setVariantQ(data as PracticeQuestion);
+      }
+    } catch (e) {
+      console.error('Lỗi sinh câu biến thể', e);
+      setVariantError('Lỗi kết nối khi tạo câu biến thể.');
+    } finally {
+      setVariantLoading(false);
+    }
+  };
+
+  // Người dùng trả lời câu biến thể → dùng kết quả làm tín hiệu SRS THẬT (đúng =
+  // nhớ, sai = quên). Chấm 1 lần/câu sai (variantScored) để luyện thêm biến thể
+  // không ghi đè kết quả. CorePracticeUI đã tự ghi mastery + lưu câu sai mới nếu
+  // trả lời biến thể sai — ở đây chỉ lo phần SRS của câu sai GỐC.
+  const handleVariantAnswer = (isCorrect: boolean) => {
+    if (variantScored) return;
+    setVariantScored(true);
+    void handleReview(isCorrect);
   };
 
   if (isLoading) {
@@ -114,6 +164,35 @@ export function MistakeNotebook() {
     }
 
     const m = mistakes[currentIndex];
+
+    // Đang luyện BIẾN THỂ: thay toàn bộ khung ôn bằng CorePracticeUI. Kết quả
+    // trả lời (onAnswer) làm tín hiệu SRS cho câu sai gốc → tự chuyển câu kế.
+    if (variantQ) {
+      return (
+        <div className="my-6">
+          <ModeTabs mode={mode} onChange={setMode} />
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-[20px] font-bold text-white">🎲 Biến thể câu sai — cùng dạng, khác số liệu</h2>
+            <button
+              onClick={() => { setVariantQ(null); setVariantScored(false); }}
+              className="text-sm text-gray-400 hover:text-white underline"
+            >
+              ← Quay lại xem đáp án
+            </button>
+          </div>
+          <p className="text-sm text-[#94a3b8] mb-2">
+            Trả lời đúng = bạn đã nắm dạng này (ôn thưa dần); sai = ôn lại sớm. Kết quả tự cập nhật lịch ôn.
+          </p>
+          <CorePracticeUI
+            questionData={variantQ}
+            isLoading={variantLoading}
+            onNext={handlePracticeVariant}
+            onAnswer={handleVariantAnswer}
+          />
+        </div>
+      );
+    }
+
     return (
       <div className="my-6">
         <ModeTabs mode={mode} onChange={setMode} />
@@ -136,6 +215,23 @@ export function MistakeNotebook() {
           <strong>Thử nhớ lại đáp án đúng cho câu này:</strong><br/><br/>
           {m.question}
         </div>
+
+        {/* Luyện biến thể (Nhóm 7 #6) — active recall, chỉ khi câu có skill_id. */}
+        {m.skill_id && (
+          <div className="mb-4">
+            <button
+              onClick={handlePracticeVariant}
+              disabled={variantLoading}
+              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-60 text-white font-bold px-4 py-3 rounded transition-colors"
+            >
+              {variantLoading ? '⚙️ Đang tạo câu biến thể...' : '🎲 Luyện câu biến thể (cùng dạng, khác số liệu)'}
+            </button>
+            <p className="text-xs text-[#94a3b8] mt-2 text-center">
+              Cách ôn hiệu quả nhất: tự làm lại một câu tương tự thay vì chỉ xem đáp án.
+            </p>
+            {variantError && <p className="text-red-400 text-xs mt-1 text-center">{variantError}</p>}
+          </div>
+        )}
 
         {!revealed ? (
           <button
