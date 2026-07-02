@@ -1,0 +1,114 @@
+[
+    {
+        "id": 1,
+        "type": "Math",
+        "question": "For a constant $k$, the equation $3x - 7 = k(x + 2)$ has infinitely many solutions. What is the value of $k$?",
+        "choices": [
+            "A) $3$",
+            "B) $-7.5$",
+            "C) $-3.5$",
+            "D) There is no such value of $k$"
+        ],
+        "correct": "D) There is no such value of $k$",
+        "translation": "Với hằng số $k$, phương trình $3x - 7 = k(x + 2)$ có vô số nghiệm. Giá trị của $k$ là bao nhiêu?",
+        "explanation": "Bẫy Đồ Thị (Desmos Trap): Cẩn thận! Nếu tính toán tay, học sinh dễ nhầm lẫn khi chia cho 0. \nTuyệt chiêu: Nhập hệ phương trình này vào hệ thống Desmos. Biến đổi thành 2 đường thẳng $y = 3x - 7$ và $y = k(x + 2)$. Bật thanh trượt cho $k$. \nKhi trượt $k = 3$, hai đường thẳng song song chứ không bao giờ trùng nhau (vì điểm cắt trục tung $y$ khác biệt: $-7$ và $6$). Không có giao điểm vô số nghiệm nào. \nKết luận: D là đáp án đúng. Kéo thanh $k$ trên Desmos sẽ giúp em hình dung rõ ngay lập tức!"
+    },
+    {
+        "id": 2,
+        "type": "Writing",
+        "question": "Research on marine animals suggests that some species of whales use complex vocalizations to communicate over vast distances; __________, these songs can travel hundreds of miles underwater.",
+        "choices": [
+            "A) indeed",
+            "B) however",
+            "C) conversely",
+            "D) nevertheless"
+        ],
+        "correct": "A) indeed",
+        "translation": "Nghiên cứu về động vật biển cho thấy một số loài cá voi sử dụng các âm thanh phức tạp để giao tiếp qua khoảng cách lớn; __________, những bài hát này có thể truyền đi hàng trăm dặm dưới nước.",
+        "explanation": "Câu trước phát biểu rằng cá voi giao tiếp qua khoảng cách lớn. Vế sau đưa ra bằng chứng/chi tiết cụ thể bổ sung cho ý đó (những bài hát truyền đi hàng trăm dặm). Từ nối hợp lý nhất là 'indeed' (thật vậy) để nhấn mạnh hoặc làm rõ ý trước đó. Các phương án B, C, D đều mang nghĩa tương phản nên sai."
+    },
+    {
+        "id": 3,
+        "type": "Math",
+        "question": "In the $xy$-plane, the vertex of the parabola $y = x^2 - 6x + c$ is located at $(3, 5)$. What is the value of $c$?",
+        "choices": [
+            "A) $-4$",
+            "B) $5$",
+            "C) $9$",
+            "D) $14$"
+        ],
+        "correct": "D) $14$",
+        "translation": "Trong mặt phẳng tọa độ $xy$, đỉnh của parabol $y = x^2 - 6x + c$ nằm tại $(3, 5)$. Giá trị của $c$ là bao nhiêu?",
+        "explanation": "Dạng đỉnh của parabol là $y = (x - h)^2 + k$, với đỉnh $(h, k) = (3, 5)$.\nDo đó, ta viết lại phương trình parabol: $y = (x - 3)^2 + 5$.\nKhai triển ra: $y = (x^2 - 6x + 9) + 5 = x^2 - 6x + 14$.\nSo sánh với phương trình ban đầu $y = x^2 - 6x + c$, ta suy ra $c = 14$."
+    },
+    {
+        "id": 4,
+        "type": "Reading",
+        "question": "While studying the fleeting nature of springtime blossoms, botanists noted that the cherry petals were exceptionally __________, lasting only a few days before falling. However, this brevity served to mitigate the plant's energy loss during unseasonable frosts.",
+        "choices": [
+            "A) ephemeral",
+            "B) robust",
+            "C) perpetual",
+            "D) mundane"
+        ],
+        "correct": "A) ephemeral",
+        "translation": "Khi nghiên cứu bản chất thoáng qua của những bông hoa mùa xuân, các nhà thực vật học lưu ý rằng những cánh hoa anh đào cực kỳ __________, chỉ tồn tại trong vài ngày trước khi rụng. Tuy nhiên, sự ngắn ngủi này giúp làm giảm thiểu (mitigate) việc mất năng lượng của cây trong những đợt sương giá trái mùa.",
+        "explanation": "Câu hỏi yêu cầu tìm một từ đồng nghĩa với cụm 'lasting only a few days' (tồn tại chỉ vài ngày) và 'brevity' (sự ngắn ngủi). \nTừ 'ephemeral' (A) có nghĩa là phù du, sớm nở tối tàn, cực kỳ ngắn ngủi - hoàn toàn khớp với ngữ cảnh Digital SAT chuẩn College Board. \nCác từ khác: 'robust' (khỏe mạnh), 'perpetual' (vĩnh cửu), 'mundane' (tầm thường) đều sai logic đoạn văn."
+    },
+    {
+        "id": 5,
+        "type": "Math",
+        "question": "If $x > 0$ and $y > 0$, and $\\sqrt{x^3 y^5} = x^a y^b$, what is the value of $a + b$?",
+        "choices": [
+            "A) $2$",
+            "B) $4$",
+            "C) $8$",
+            "D) $15$"
+        ],
+        "correct": "B) $4$",
+        "translation": "Nếu $x > 0$ và $y > 0$, và $\\sqrt{x^3 y^5} = x^a y^b$, giá trị của $a + b$ là bao nhiêu?",
+        "explanation": "Ta viết lại căn bậc hai dưới dạng lũy thừa phân số:\n$\\sqrt{x^3 y^5} = (x^3 y^5)^{1/2} = x^{3/2} y^{5/2}$.\nDo đó, ta có $a = 3/2$ và $b = 5/2$.\nGiá trị của $a + b = 3/2 + 5/2 = 8/2 = 4$."
+    },
+    {
+        "id": 6,
+        "type": "Writing",
+        "question": "Modern architecture in cities often prioritizes vertical growth; land is expensive and scarce, __________ skyscrapers offer an efficient solution to maximize usable space.",
+        "choices": [
+            "A) so",
+            "B) although",
+            "C) but",
+            "D) unless"
+        ],
+        "correct": "A) so",
+        "translation": "Kiến trúc hiện đại ở các đô thị thường ưu tiên phát triển chiều dọc; đất đai đắt đỏ và khan hiếm, __________ các tòa nhà chọc trời cung cấp một giải pháp hiệu quả để tối đa hóa không gian sử dụng.",
+        "explanation": "Mối quan hệ giữa vế 'đất đai đắt đỏ và khan hiếm' và 'các tòa nhà chọc trời cung cấp giải pháp' là mối quan hệ nguyên nhân - kết quả. 'So' (vì vậy) là liên từ chỉ kết quả chính xác nhất ở đây."
+    },
+    {
+        "id": 7,
+        "type": "Math",
+        "question": "A right triangle has a hypotenuse of length $13$ and one leg of length $5$. What is the value of the tangent of the angle opposite to the side of length $5$?",
+        "choices": [
+            "A) $\\frac{5}{12}$",
+            "B) $\\frac{12}{5}$",
+            "C) $\\frac{5}{13}$",
+            "D) $\\frac{12}{13}$"
+        ],
+        "correct": "A) $\\frac{5}{12}$",
+        "translation": "Một tam giác vuông có cạnh huyền bằng $13$ và một cạnh góc vuông bằng $5$. Giá trị tangent của góc đối diện với cạnh bằng $5$ là bao nhiêu?",
+        "explanation": "Áp dụng định lý Pytago, cạnh góc vuông còn lại là:\n$\\sqrt{13^2 - 5^2} = \\sqrt{169 - 25} = \\sqrt{144} = 12$.\nGóc đối diện với cạnh dài $5$ sẽ có:\n- Cạnh đối (opposite) = $5$\n- Cạnh kề (adjacent) = $12$\nCông thức tính tangent: $\\tan(\\theta) = \\frac{\\text{đối}}{\\text{kề}} = \\frac{5}{12}$."
+    },
+    {
+        "id": 8,
+        "type": "Reading",
+        "question": "Many astronomers believe that the atmosphere of Europa, one of Jupiter's moons, may contain oxygen; __________, the presence of a vast subsurface ocean makes it a primary candidate in the search for extraterrestrial life.",
+        "choices": [
+            "A) furthermore",
+            "B) on the other hand",
+            "C) in contrast",
+            "D) previously"
+        ],
+        "correct": "A) furthermore",
+        "translation": "Nhiều nhà thiên văn tin rằng bầu khí quyển của Europa, một trong các vệ tinh của Sao Mộc, có thể chứa oxy; __________, sự hiện diện của một đại dương ngầm khổng lồ khiến nó trở thành ứng viên hàng đầu trong cuộc tìm kiếm sự sống ngoài Trái Đất.",
+        "explanation": "Câu trước nêu một điểm tích cực về tiềm năng sự sống trên Europa (khí quyển có oxy). Câu sau bổ sung thêm một lý do mạnh mẽ khác (đại dương dưới lòng đất). Cần một từ chỉ sự bổ sung thông tin cùng chiều. 'Furthermore' (hơn nữa) là lựa chọn hoàn hảo nhất."
+    }
+]
