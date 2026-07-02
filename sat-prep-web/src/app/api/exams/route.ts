@@ -1,20 +1,15 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
+import mockExams from '@/data/mock_exams.json';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
-const EXAMS_FILE = path.join(DATA_DIR, 'mock_exams.json');
-
+/**
+ * Danh sách đề thi thử (mock exams) cho trang mock-exams/real-exams.
+ *
+ * ⚠️ SERVERLESS-SAFE (2026-07-02): trước đây đọc `fs.readFileSync` từ
+ * `process.cwd()/data/mock_exams.json`. Next.js file-tracing KHÔNG đảm bảo
+ * bundle file đọc qua đường dẫn động vào serverless function → trên Vercel có
+ * thể trả rỗng âm thầm (fallback {exams:[]}). Nay JSON được IMPORT như module
+ * (webpack bundle vào code lúc build) → luôn có mặt, không cần fs.
+ */
 export async function GET() {
-  try {
-    if (!fs.existsSync(EXAMS_FILE)) {
-      return NextResponse.json({ exams: [] });
-    }
-    const fileContent = fs.readFileSync(EXAMS_FILE, 'utf-8');
-    const data = JSON.parse(fileContent);
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error("Lỗi khi load danh sách đề thi:", error);
-    return NextResponse.json({ error: "Failed to load exams" }, { status: 500 });
-  }
+  return NextResponse.json(mockExams);
 }
