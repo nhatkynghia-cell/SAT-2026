@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useGamification } from '@/context/GamificationContext';
+import { LoadingState } from './LoadingState';
 
 interface QuestionData {
   id?: number;
@@ -151,12 +152,7 @@ export function AITutoring() {
   };
 
   if (isLoading) {
-    return (
-      <div className="my-6 p-8 flex flex-col items-center justify-center bg-[#1b2533] rounded-xl border border-[#262730]">
-        <div className="text-4xl animate-spin mb-4">⚙️</div>
-        <div className="text-white font-bold">Gia sư AI đang soạn câu hỏi mới...</div>
-      </div>
-    );
+    return <LoadingState message="Gia sư AI đang soạn câu hỏi mới..." />;
   }
 
   if (!currentQuestion) return null;

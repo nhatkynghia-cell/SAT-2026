@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useGamification } from '@/context/GamificationContext';
+import { LoadingState } from './LoadingState';
 
 export interface PracticeQuestion {
   title: string;
@@ -146,12 +147,7 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
   };
 
   if (isLoading) {
-    return (
-      <div className="my-6 p-12 flex flex-col items-center justify-center bg-[#1b2533] rounded-xl border border-[#262730]">
-        <div className="text-4xl animate-spin mb-4">⚙️</div>
-        <div className="text-white font-bold">Hệ thống đang cấu trúc câu hỏi động...</div>
-      </div>
-    );
+    return <LoadingState message="Hệ thống đang cấu trúc câu hỏi động..." />;
   }
 
   const difficultyColor = questionData.difficulty === 'Hard' ? 'text-red-400 border-red-400' : 

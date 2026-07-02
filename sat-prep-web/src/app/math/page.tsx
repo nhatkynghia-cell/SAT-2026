@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useGamification } from '@/context/GamificationContext';
 import { useToast } from '@/context/ToastContext';
 import { SKILL_TREE } from '@/lib/skill-taxonomy';
+import { LoadingState } from '@/components/LoadingState';
 
 // 4 domain Toán + skill con, lấy thẳng từ skill-taxonomy (single source of truth).
 // Mỗi skill con map đúng 1 skillId → mastery phủ đủ 13 skill Toán (nền cho Skill Tree).
@@ -333,10 +334,7 @@ export default function MathPage() {
           </div>
 
           {isLoading && (
-            <div className="my-6 p-12 flex flex-col items-center justify-center bg-[#1b2533] rounded-xl border border-[#262730]">
-              <div className="text-4xl animate-spin mb-4">⚙️</div>
-              <div className="text-white font-bold">Gia sư AI đang biên soạn bài giảng riêng cho chiến binh...</div>
-            </div>
+            <LoadingState message="Gia sư AI đang biên soạn bài giảng riêng cho chiến binh..." />
           )}
           
           {lessonData && (

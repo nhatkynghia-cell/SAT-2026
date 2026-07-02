@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { RETRY_CORRECT_NEEDED } from '@/lib/gate-exam';
+import { LoadingState } from '@/components/LoadingState';
 
 /**
  * SKILL TREE PAGE (implementation_plan.md §10.B.1, task #17 / Nhóm 6 T3)
@@ -179,10 +180,7 @@ export default function SkillTreePage() {
       )}
 
       {loading && (
-        <div className="bg-[#1b2533] p-12 rounded-xl border border-[#262730] flex flex-col items-center justify-center">
-          <div className="text-4xl animate-spin mb-4">⚙️</div>
-          <div className="text-white font-bold">Đang dựng bản đồ năng lực...</div>
-        </div>
+        <LoadingState message="Đang dựng bản đồ năng lực..." />
       )}
 
       {error && !loading && (
