@@ -153,6 +153,18 @@ Khi sửa đổi mã nguồn Python của dự án này, bất kỳ Agent nào c
 
 ---
 
+> [!IMPORTANT]
+> ### 🚀 ĐÃ DEPLOY VERCEL THÀNH CÔNG (2026-07-02T18:xx) — APP SỐNG TRÊN PRODUCTION
+> **URL production:** `https://sat-2026.vercel.app` (team `sat-2027`, project `sat-2026`, root dir `sat-prep-web`, repo `nhatkynghia-cell/SAT-2026`). Mọi route 200: `/`, `/login`, `/api/questions`, `/api/exams`, `/api/admin/ai-cost`, `/api/load-data`. Cả 3 migration phiên này SỐNG trên prod: `/api/admin/ai-cost` đọc `ai_cost_ledger` Supabase thật (`{costUsd:0,budgetUsd:5}`), `/api/questions`+`/api/exams` trả JSON bundled (fix serverless OK).
+>
+> **🐛 ROOT CAUSE 500 lần đầu (bài học QUAN TRỌNG, non-obvious):** deploy đầu 500 ở MỌI route qua middleware (favicon 200 vì matcher loại trừ). KHÔNG phải thiếu env (đủ 4) KHÔNG phải build fail (READY) KHÔNG phải code (local `next start` 200 hết). **Nguyên nhân: 2 biến `NEXT_PUBLIC_SUPABASE_URL/ANON_KEY` bị đặt `type: sensitive` trên Vercel.** Biến `NEXT_PUBLIC_*` phải nhúng vào bundle LÚC BUILD, nhưng Vercel KHÔNG cho đọc biến "sensitive" ở bước build → nhúng thành `undefined` → `createServerClient(undefined)` trong `proxy.ts`→`updateSession` throw → mọi request 500. **Fix (qua Vercel API, Claude tự làm được vì có token):** DELETE 2 biến sensitive → tạo lại `type:plain` (value lấy từ `.env.local`) → trigger deploy mới (build lại nhúng đúng). `OPENAI_API_KEY`/`SAT_PREP_SECRET` GIỮ sensitive (server-only, không nhúng bundle nên OK). ⚠️ QUY TẮC: biến `NEXT_PUBLIC_*` trên Vercel PHẢI để plain, KHÔNG sensitive.
+>
+> **🔑 Token dịch vụ (Claude giờ tự thao tác được, lưu ngoài repo):** GitHub PAT + Vercel token user cấp → lưu `~/.gitcreds-sat2026` + `~/.vercel-token` (chmod 600, KHÔNG commit). Git push không cần popup; đọc CI qua GitHub API; quản lý Vercel (env/deploy/logs) qua Vercel API. team `team_q6ezpFDUoFsOY6DE0IUpXpL9`, proj `prj_b8Q2K45HSN3vMrBzZv3kReWbqeYu`.
+>
+> **🔴 VỆ SINH BẢO MẬT GẤP (user PHẢI làm — đều đã LỘ):** (1) **GitHub PAT `ghp_...HETIG`** lộ trong ảnh chat → GitHub Settings→Tokens→Delete+tạo mới. (2) **Vercel token `vcp_...`** lộ trong chat → Vercel Settings→Tokens→xóa+tạo mới. (3) **OpenAI key** trong `.anv` (ROOT) + đang set trên Vercel → thu hồi platform.openai.com + tạo mới + cập nhật biến `OPENAI_API_KEY` trên Vercel. (4) reset DB password Supabase. → Sau khi rotate, token cũ trong `~/.gitcreds-sat2026`/`~/.vercel-token` sẽ hết hiệu lực (bình thường, cấp lại nếu cần).
+>
+> **⏳ CÒN LẠI (authenticated verify — cần user login trên app prod):** login `https://sat-2026.vercel.app/login` (account `truongsonht.xd@gmail.com`) → verify persist THẬT qua Supabase: streak qua reload (`user_progress`), question bank hit-rate>0 sau vài câu (`questions`), coins/mastery/economy. Claude verify được nếu user login giúp (như các phiên trước dùng dev server).
+
 ## 📈 6. KẾ HOẠCH NÂNG CẤP TIẾP THEO (NEXT STEPS)
 
 > [!IMPORTANT]
