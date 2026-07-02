@@ -259,3 +259,36 @@ test('nextPvpRank: thắng leo 1 bậc (rank giảm), sàn 1; thua giữ nguyên
   assert.equal(nextPvpRank(1, true), 1);   // đã đỉnh, không xuống 0
   assert.equal(nextPvpRank(7, false), 7);  // thua giữ hạng
 });
+
+// ─── PvP edge cases (khóa lại các nhánh sanitize/guard) ─────────────────────
+
+test('resolvePvpFight: combatPower=0 VÀ opp=0 → winProb 0 (KHÔNG NaN), luôn thua', () => {
+  // Cả hai bằng 0: cổng năng lực (0 < 0*0.5 = 0) là false → qua cổng (eligible),
+  // nhưng total=0 nên nhánh `total>0 ? ... : 0` chặn chia 0/0 → winProb=0 → luôn thua.
+  const r = resolvePvpFight(fresh(), pvpInput(0, 0, 500, 400), () => 0);
+  assert.equal(r.eligible, true);
+  assert.equal(r.won, false, 'rng=0 < winProb=0 là false → không thắng');
+  assert.deepEqual(r.granted, { coins: 0, xp: 0 });
+  assert.equal(r.combatPower, 0);
+});
+
+test('resolvePvpFight: basePower âm/float bị kẹp (Math.max(0, floor)) trước khi tính', () => {
+  // basePower -5 → kẹp về 0 → combatPower 0. basePower 2.9 → floor 2 → combatPower 80.
+  assert.equal(resolvePvpFight(fresh(), pvpInput(-5, 100), () => 0).combatPower, 0);
+  assert.equal(resolvePvpFight(fresh(), pvpInput(2.9, 40), () => 0).combatPower, 2 * PVP_COMBAT_SCALE);
+});
+
+test('checkPvpAttempt: fightsToday âm/không nguyên bị coi như 0 (fightsTodayEffective sanitize)', () => {
+  // fightsToday bẩn (âm hoặc float) cùng ngày → coi như 0 → còn full cap, cho đánh.
+  const neg = checkPvpAttempt(11, 10, -3, TODAY, TODAY);
+  assert.equal(neg.allowed, true);
+  assert.equal(neg.fightsRemaining, PVP_MAX_FIGHTS_PER_DAY);
+  const frac = checkPvpAttempt(11, 10, 2.7, TODAY, TODAY);
+  assert.equal(frac.allowed, true);
+  assert.equal(frac.fightsRemaining, PVP_MAX_FIGHTS_PER_DAY, 'float không nguyên → coi như 0');
+});
+
+test('bumpPvpCounter: fightsToday âm/float cùng ngày → sanitize về 0 rồi +1', () => {
+  assert.deepEqual(bumpPvpCounter(-4, TODAY, TODAY), { fightsToday: 1, lastFightDate: TODAY });
+  assert.deepEqual(bumpPvpCounter(3.9, TODAY, TODAY), { fightsToday: 1, lastFightDate: TODAY });
+});
