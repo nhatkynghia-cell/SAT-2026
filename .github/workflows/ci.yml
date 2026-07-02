@@ -1,12 +1,13 @@
 name: CI
 
-# CI tối thiểu (implementation_plan.md §9.8, task #8): khóa hồi quy cho các lib
-# nền móng (mastery, score, quota, cost, leitner, question-bank, taxonomy).
+# CI (implementation_plan.md §9.8, task #5.4): 3 cổng CHẶN cho tầng logic nền —
+# tsc (kiểu) + test (unit) + lint. Chạy trên mỗi push/PR đụng sat-prep-web.
 #
-# LƯU Ý: chưa chạy `next build` trong CI vì một số trang UI có sẵn (mock-exams,
-# real-exams) còn thiếu package (react-markdown, remark-math, rehype-katex) —
-# build đang đỏ do nguyên nhân KHÔNG liên quan tầng logic. Mở lại bước build +
-# lint sau khi các trang đó được sửa (tạo task riêng).
+# ⚠️ npm ci PHẢI kèm --legacy-peer-deps: lucide-react@0.344.0 khai báo peer
+#    react ^16/17/18 nhưng dự án dùng React 19 → npm ci thường sẽ ERESOLVE fail.
+# ⚠️ Node 24: test chạy `node --test "src/**/*.test.ts"` cần >= 23.6 (native
+#    TypeScript type-stripping không cờ). Node 22 sẽ không parse được .ts.
+# Chưa chạy `next build` trong CI (giữ nhanh); tsc + lint đã phủ kiểu + style.
 
 on:
   push:
@@ -20,7 +21,7 @@ on:
       - '.github/workflows/ci.yml'
 
 jobs:
-  test:
+  verify:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -31,15 +32,18 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          # Node 24 (LTS): chạy TypeScript natively không cần cờ (type-stripping
-          # unflagged từ v23.6+). Test dùng `node --test src/**/*.test.ts` nên
-          # BẮT BUỘC >= 23.6 — Node 22 sẽ không parse được file .ts.
           node-version: '24'
           cache: 'npm'
           cache-dependency-path: sat-prep-web/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --legacy-peer-deps
+
+      - name: Typecheck (tsc)
+        run: npx tsc --noEmit
 
       - name: Run unit tests
         run: npm test
+
+      - name: Lint
+        run: npm run lint
