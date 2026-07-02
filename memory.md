@@ -168,6 +168,25 @@ Khi sửa đổi mã nguồn Python của dự án này, bất kỳ Agent nào c
 ## 📈 6. KẾ HOẠCH NÂNG CẤP TIẾP THEO (NEXT STEPS)
 
 > [!IMPORTANT]
+> ### ▶️ CÂU LỆNH & CHECKLIST PHIÊN SAU (đọc NGAY — câu lệnh copy-paste ở `NEXT_SESSION.md`)
+> **Câu lệnh khởi động phiên sau** đã lưu riêng ở `NEXT_SESSION.md` (thư mục dự án) — user paste vào để mở phiên. Tóm tắt việc phiên sau:
+> - export PATH + verify (tsc·test·build) trong `sat-prep-web/`.
+> - Token đã lưu: `~/.gitcreds-sat2026` (git push/API) + `~/.vercel-token` (Vercel API). ⚠️ NẾU user đã rotate (xem checklist) → token cũ HẾT hiệu lực, xin token mới.
+> - App prod: `https://sat-2026.vercel.app` (sống). Việc chính: **authenticated verify** (user login → Claude kiểm persist Supabase: streak/coins/mastery/bank/kill-switch) + nợ cũ PvP win-path & Mistake variant full-loop.
+> - **⚠️ GIỚI HẠN NGỮ CẢNH 80%:** khi dùng tới ~80% context → DỪNG việc mới, cập nhật memory.md + commit + push (thủ tục bàn giao) TRƯỚC khi bị compact. KHÔNG bắt đầu việc lớn khi đã quá 80%.
+>
+> **🔴 CHECKLIST SECRET CẦN ROTATE (user làm — đều đã LỘ; phiên sau HỎI user đã đổi chưa rồi TICK + cập nhật):**
+> - [ ] GitHub PAT `ghp_...HETIG` (lộ ảnh) → Delete + tạo mới
+> - [ ] Vercel token `vcp_...` (lộ chat) → xóa + tạo mới
+> - [ ] OpenAI key (trong `.anv` ROOT + biến `OPENAI_API_KEY` trên Vercel) → thu hồi + tạo mới + cập nhật lại trên Vercel
+> - [ ] DB password Supabase (Settings→Database) → reset
+> - Khi user báo đã đổi xong → sửa `[ ]`→`[x]` ở dòng tương ứng + ghi ngày; nếu đổi git/vercel token thì xin token mới lưu lại `~/.gitcreds-sat2026`/`~/.vercel-token`.
+>
+> **📋 PLAN CÒN LẠI (sau Phase 1.5 — gần xong):** Phase 1.5 gần cạn (chỉ còn authenticated-verify + nợ nhỏ 5.2 `tier` hardcode). Kế tiếp là **Phase 2 MVP**: thanh toán (VNPay/MoMo/Stripe), Parent Dashboard, Diagnostic Onboarding; + Nhóm 7 Phase-2 (câu vàng hằng ngày #2, pacing #7, báo cáo tuần phụ huynh #10). Các mục này LỚN → hỏi user chọn hướng trước khi code, đừng tự mở scope.
+
+
+
+> [!IMPORTANT]
 > ### 🎯 BÀN GIAO PHIÊN 2026-07-02 (B) — ĐỌC ĐẦU TIÊN (nối tiếp phiên (A) cùng ngày)
 > **Máy:** như (A) — path `D:\10.SAT_Prep_App 30.6\...\10.SAT_Prep_App\`. ⚠️ Bash mỗi phiên `export PATH="$PATH:/c/Program Files/nodejs"`. Verify đầu phiên PASS: tsc sạch · **test 122/122** · lint **0/0** · build **43 pages**. **User-side phiên này: KHÔNG làm gì** (chọn "continue") → Claude tự chạy hết mục 🟢 "VIỆC CLAUDE TỰ LÀM ĐƯỢC".
 >
