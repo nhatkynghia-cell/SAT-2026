@@ -1,0 +1,24 @@
+10.SAT_Prep_App - Copy/sat_prep_app_windows/python_embed/
+10.SAT_Prep_App - Copy/sat_prep_app_windows/App_Hoc_Toan_Chuan_SAT.exe
+sat-prep-backend/
+sat-prep-frontend/
+__pycache__/
+*.pyc
+sat-prep-web/node_modules/
+sat-prep-web/.next/
+*.db
+
+# --- An toàn chung: che mọi tầng (thêm 2026-07-02 trước khi push repo root) ---
+node_modules/
+.next/
+# BẮT BUỘC: không đẩy secret (OpenAI key / HMAC secret) lên GitHub.
+.env
+.env.*
+!.env.example
+# File .anv chứa OpenAI key (rò rỉ) — TUYỆT ĐỐI không commit.
+.anv
+# Bản Streamlit CŨ (prototype, không dùng cho deploy Vercel) — 2860 file gồm
+# python_embed runtime + .zip artifact. Bỏ ignore nếu sau muốn lưu source cũ.
+10.SAT_Prep_App - Copy/
+# Thư mục phiên làm việc cục bộ.
+.claude/worktrees/

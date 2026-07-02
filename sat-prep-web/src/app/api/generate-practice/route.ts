@@ -75,8 +75,8 @@ export async function POST(req: Request) {
     // CHIẾN LƯỢC LAI (implementation_plan.md §9.4):
     // Ưu tiên lấy câu từ Question Bank khi pool đã đủ lớn → cắt chi phí OpenAI.
     // prefer='ai' để ép sinh câu mới (nút "câu mới hoàn toàn"); mặc định 'auto'.
-    if (prefer !== 'ai' && poolSize(moduleType) >= MIN_POOL) {
-      const cached = getFromBank(moduleType, topic, reqDifficulty);
+    if (prefer !== 'ai' && (await poolSize(moduleType)) >= MIN_POOL) {
+      const cached = await getFromBank(moduleType, topic, reqDifficulty);
       if (cached) {
         return NextResponse.json({ ...cached, skillId, _source: 'bank' });
       }
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
     if (!apiKey) {
       // Nếu không có key mà bank còn câu nào khớp module → dùng tạm (degrade mềm).
       // Degrade mềm: ưu tiên đúng độ khó yêu cầu, nếu bank không có thì lấy bất kỳ.
-      const fallback = getFromBank(moduleType, topic, reqDifficulty) ?? getFromBank(moduleType, topic);
+      const fallback = (await getFromBank(moduleType, topic, reqDifficulty)) ?? (await getFromBank(moduleType, topic));
       if (fallback) {
         return NextResponse.json({ ...fallback, skillId, _source: 'bank' });
       }
@@ -96,9 +96,9 @@ export async function POST(req: Request) {
 
     // Kill-switch ngân sách (§9.5): nếu đã vượt trần chi phí ngày, degrade mềm
     // về Question Bank thay vì gọi OpenAI. Nếu bank trống → báo bận.
-    if (!checkBudget().allowed) {
+    if (!(await checkBudget()).allowed) {
       // Degrade mềm: ưu tiên đúng độ khó yêu cầu, nếu bank không có thì lấy bất kỳ.
-      const fallback = getFromBank(moduleType, topic, reqDifficulty) ?? getFromBank(moduleType, topic);
+      const fallback = (await getFromBank(moduleType, topic, reqDifficulty)) ?? (await getFromBank(moduleType, topic));
       if (fallback) {
         return NextResponse.json({ ...fallback, skillId, _source: 'bank', _degraded: 'budget' });
       }

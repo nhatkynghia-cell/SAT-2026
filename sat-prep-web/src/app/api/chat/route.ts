@@ -116,7 +116,7 @@ export async function POST(request: Request) {
 
     // 2) Kill-switch ngân sách toàn hệ thống (§9.5): chặn gọi AI mới nếu đã vượt
     // trần chi phí ngày. Chat không có Question Bank để degrade nên trả 503.
-    const budget = checkBudget();
+    const budget = await checkBudget();
     if (!budget.allowed) {
       return NextResponse.json(
         {

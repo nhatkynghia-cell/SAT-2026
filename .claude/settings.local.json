@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E '^\\(react-markdown|remark-math|rehype-katex|katex\\)$')",
+      "Bash(rm -rf alice bob)",
+      "Bash(rm -f /tmp/alice.txt /tmp/bob.txt)",
+      "Bash(pkill -f \"next dev -p 3137\")",
+      "Bash(npx tsc *)",
+      "Bash(curl -s -o /dev/null -w \"ping status: %{http_code}\\\\n\" http://localhost:3138/api/auth/session)",
+      "Read(//tmp/**)",
+      "Bash(sleep 12 && curl -s -o /dev/null -w \"ping status: %{http_code}\\\\n\" http://localhost:3138/api/auth/session 2>&1; echo \"--- log tail ---\"; tail -6 /tmp/satdev3.log)",
+      "Bash(AI_DAILY_BUDGET_USD=0.0001 sh -c '\\(npx next dev -p 3137 > /tmp/satc.log 2>&1 &\\)')",
+      "Bash(curl -s -o /dev/null -w \"ping: %{http_code}\\\\n\" http://localhost:3137/api/auth/session)",
+      "Bash(node -e 'const p=require\\(\"./package.json\"\\);console.log\\(JSON.stringify\\(p.scripts,null,2\\)\\);console.log\\(\"devDeps:\",Object.keys\\(p.devDependencies||{}\\).join\\(\", \"\\)\\)')",
+      "Bash(npm test *)",
+      "Bash(node --test src/lib/adaptive.test.ts)"
+    ]
+  }
+}

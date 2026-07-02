@@ -1,0 +1,45 @@
+name: CI
+
+# CI tối thiểu (implementation_plan.md §9.8, task #8): khóa hồi quy cho các lib
+# nền móng (mastery, score, quota, cost, leitner, question-bank, taxonomy).
+#
+# LƯU Ý: chưa chạy `next build` trong CI vì một số trang UI có sẵn (mock-exams,
+# real-exams) còn thiếu package (react-markdown, remark-math, rehype-katex) —
+# build đang đỏ do nguyên nhân KHÔNG liên quan tầng logic. Mở lại bước build +
+# lint sau khi các trang đó được sửa (tạo task riêng).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'sat-prep-web/**'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    paths:
+      - 'sat-prep-web/**'
+      - '.github/workflows/ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sat-prep-web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Node 24 (LTS): chạy TypeScript natively không cần cờ (type-stripping
+          # unflagged từ v23.6+). Test dùng `node --test src/**/*.test.ts` nên
+          # BẮT BUỘC >= 23.6 — Node 22 sẽ không parse được file .ts.
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: sat-prep-web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test

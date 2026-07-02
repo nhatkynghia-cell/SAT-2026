@@ -1,0 +1,149 @@
+# 📋 Danh sách công việc (Master Task List)
+
+Tài liệu này theo dõi toàn bộ tiến độ của dự án Ivy League Math Academy theo lộ trình thương mại hóa (Go-To-Market Roadmap).
+
+> [!IMPORTANT]
+> ### Chú thích trạng thái (cập nhật 2026-06-28 sau khi đối chiếu code thật)
+> - `[x]` = **Hoàn thành & đã chạy** end-to-end (UI ↔ API ↔ dữ liệu).
+> - `[~]` = **Đã xây nhưng CHƯA NỐI** (built-not-wired): engine có đủ ở tầng `lib/` + API route + test, nhưng **không UI nào gọi tới** nên người dùng chưa hưởng được. Đây là "tài sản đang ngủ".
+> - `[ ]` = Chưa bắt đầu.
+>
+> **Phát hiện then chốt:** Một loạt engine cốt lõi (Mastery, Skill Tree, Score Prediction, Adaptive, Base Stats, Economy server-authoritative) đã được viết xong ở lớp `lib/` + `/api/*` + unit test, nhưng UI thật vẫn chạy logic client cũ và **chưa fetch các API này**. Vì vậy việc ưu tiên hàng đầu là **Integration Sprint** (xem cuối tài liệu) chứ không phải xây mới.
+
+## 🟢 Nhóm 1: Hoàn thiện Prototype Streamlit (Phase 0)
+- [x] Hoàn thiện Refactor Code Duplication (`clean_ai_text`, `check_answer_correct`) trên 16 trang.
+- [x] Rà soát và vá lỗi "Luật Sắt" UI Crash (`st.progress`).
+- [x] Báo cáo Walkthrough phần hoàn thiện Streamlit.
+
+---
+
+## 🔷 Phase 1: Foundation (Nền móng Web App & Backend)
+> **Mục tiêu:** Chuyển đổi kiến trúc sang Next.js + Supabase, chống gian lận và thiết lập bảo mật.
+
+- [x] **Migration Frontend:** Chuyển đổi UI của 16 modules sang React/Next.js (Responsive).
+- [x] **Database Migration:** Chuyển SQLite/JSON cục bộ sang PostgreSQL (Supabase).
+- [x] **Authentication:** Tích hợp Supabase Auth (Đăng ký/Đăng nhập email, Google).
+- [x] **Backend API (Bảo mật AI):** Proxy gọi OpenAI ẩn API Key (9.2). ⚠️ *Phần Quota freemium cần verify lại đã enforce theo `user_id`+ngày chưa.*
+- [x] **Data Scoping:** Gắn `user_id` vào mọi API route và truy vấn ngay từ đầu (9.3).
+- [~] **Server-authoritative Anti-cheat (9.1):** Engine kinh tế server-authoritative (`src/lib/economy.ts` + `/api/economy` + test) **đã xây xong** NHƯNG **chưa nối**. Thực tế UI vẫn tính coins/xp/level/maxPower/vòng-quay ở client (`GamificationContext.tsx`) rồi gửi blob lên `/api/save-data` — route này tự thừa nhận HMAC "chỉ chống sửa file tay, KHÔNG xác thực số liệu client". → **Lỗ hổng 9.1 vẫn HỞ.** Cần cutover (xem Integration Sprint T5).
+- [ ] **Testing:** Viết Integration test & CI cho các endpoint kinh tế (9.8). *(Đã có unit test cho economy/mastery/stats/skill-tree/adaptive/leitner; còn thiếu CI + integration test luồng thật.)*
+
+---
+
+## 🔷 Phase 2: MVP Launch & Hợp nhất Học tập - RPG
+> **Mục tiêu:** Ra mắt bản Beta có thanh toán, hợp nhất cơ chế Game vào thành tựu học tập thật.
+
+- [ ] **Hệ thống Thanh toán:** Tích hợp VNPay / MoMo / Stripe (Gói Premium/Ultimate).
+- [ ] **Parent Dashboard:** Màn hình theo dõi tiến độ và nhận báo cáo dành cho phụ huynh. *(Phụ thuộc Score Prediction đã chảy dữ liệu — xem T2.)*
+- [~] **Mastery Tracking (Lõi học tập) (10.A.3):** `src/lib/mastery.ts` + `/api/mastery` + test **đã xây xong** nhưng **chưa có dữ liệu chảy vào** — luồng trả lời câu hỏi (`CorePracticeUI`) chưa gắn `skillId` và chưa POST `/api/mastery`. Đây là **nút thắt trung tâm** (xem T1).
+- [~] **Diagnostic Onboarding (10.A.2 & 10.A.5):** Score Prediction (`/api/score`) đã xây; Diagnostic onboarding (bài test xếp lớp đầu vào) **chưa có**. Score hiện luôn = 0 vì thiếu mastery (T1).
+- [~] **Cải tổ RPG (Skill Tree) (10.B.1):** `src/lib/skill-tree.ts` + `/api/skill-tree` + test **đã xây xong** nhưng **chưa có trang UI** nào hiển thị, và Level phẳng cũ vẫn còn song song (xem T3, T6).
+- [~] **Cải tổ RPG (Base Stats) (10.B.2):** `src/lib/stats.ts` + `/api/stats` + test **đã xây xong** (Lực Chiến nền từ mastery, trang bị chỉ là bonus) nhưng **chưa nối UI** — màn hình vẫn đọc `maxPower` client (xem T4/T6).
+- [~] **Cải tổ RPG (Boss) (10.B.3):** ⚠️ *Cần verify — task cũ đánh `[x]` nhưng chưa kiểm tra trang Tower/Boss đã dùng câu hỏi assessment gắn adaptive chưa.*
+- [x] **Tối ưu Chi phí AI:** Question Bank lưu & tái sử dụng câu hỏi (9.4) — **đã nối** (`/api/generate-practice` dùng bank + kill-switch ngân sách).
+- [ ] **Beta Launch:** Tuyển 100 users tham gia test, kiểm tra pháp lý điều khoản trẻ vị thành niên (9.6).
+
+---
+
+## 🔷 Phase 3: Growth (Mở rộng & Tăng trưởng)
+> **Mục tiêu:** Thu hút 1k-5k users, phát triển Mobile App và tính năng cộng đồng.
+
+- [ ] **Mobile App:** Phát triển phiên bản React Native cho iOS và Android.
+- [ ] **Social & Retention:** Bảng xếp hạng bạn bè, Study Squad (10.B.6).
+- [ ] **Real PvP Multiplayer:** Hệ thống đấu trường thời gian thực (WebSocket).
+- [ ] **Mở rộng RPG:** Season Pass (Mùa giải), Story Mode, Thú cưng hỗ trợ học tập (10.B.4).
+- [ ] **Marketing:** Chạy chiến dịch TikTok/Reels, KOL, hợp tác trường cấp 3.
+
+---
+
+## 🔷 Phase 4: Scale (Nhân rộng & Gọi vốn)
+> **Mục tiêu:** 10k+ users, ổn định doanh thu định kỳ (ARR), gọi vốn quỹ đầu tư.
+
+- [ ] **B2B School Licensing:** Ra mắt gói bán sỉ cho các trường học, Teacher Dashboard.
+- [ ] **Mở rộng Nội dung:** Hỗ trợ luyện thi ACT, IELTS, Toán Olympiad.
+- [ ] **Fundraising:** Chuẩn bị hồ sơ gọi vốn Seed/Pre-Series A.
+
+---
+
+## 🔶 PHASE 1.5 — KHÓA NỀN & TỐI ƯU APP (Ưu tiên #0, chốt 2026-06-28)
+> **Chặng mới chèn giữa Phase 1 và Phase 2.** Dự án đang kẹt: code Phase 2 (engine học tập) đã viết nhưng nền Phase 1 chưa vững để chạy thật. Phase này khóa nền + tinh chỉnh app chuẩn chỉnh TRƯỚC KHI deploy.
+>
+> **Gốc rễ blocker:** Auth đã nối Supabase, NHƯNG dữ liệu user vẫn ghi file cục bộ (`fs.writeFileSync` → `data/users/<id>/*.json`). Trên serverless (Vercel) filesystem chỉ-đọc & phù du → **mất sạch tiến trình học sau mỗi deploy.**
+>
+> **Bối cảnh thuận lợi (đã verify 2026-06-28):** (1) Gần như KHÔNG có dữ liệu thật để mất — chỉ 2 file seed (`streak_data.json` mặc định + `vocab_srs.json` mẫu). (2) **Cả 7 bảng Supabase đã tồn tại sẵn** (`user_economy/user_mistakes/test_history/user_mastery/user_goals/user_ai_usage/user_vocab_srs`) → P0-1 chỉ cần viết store, KHÔNG phải tạo bảng/migration nặng.
+>
+> **Quyết định thiết kế ràng buộc:** Phương án **A — Cổng Khảo Thí gate Skill Tree** (KHÔNG hồi sinh Level phẳng). Đề thi chặn việc mở khóa chương/bậc năng lực SAT, không chặn con số XP. Tuân thủ quyết định 2026-06-26.
+
+### 🗂️ Nhóm 1 — KHÓA NỀN (Deploy Blockers, làm TRƯỚC)
+- [x] **1.1 Persistence → Supabase** — HOÀN TẤT (code + schema + smoke-test cả ĐỌC lẫn GHI, 2026-06-28):
+  - [x] SQL chạy xong: tạo 4 bảng (`user_mastery`/`user_goals`/`user_ai_usage`/`user_vocab_srs`) + RLS `auth.uid()=user_id`; ALTER `user_mistakes` thêm cột SRS `box`/`next_review`. Nguồn: `phase1_5_tables.sql`.
+  - [x] `mastery-store.ts` (keystone) + `mastery.ts` async + nối route. ⭐
+  - [x] `goals-store.ts` + `score-prediction.ts` async + route.
+  - [x] `ai-usage-store.ts` + `ai-quota.ts` async + nối `api/chat`.
+  - [x] `vocab-store.ts` + `api/vocab` route.
+  - [x] Hợp nhất sổ tay câu sai: `api/cau-sai` dùng `mistakes-store.ts` (đã thêm SRS), bỏ đường file `cau_sai.json`. Hết TRÙNG.
+  - [x] Verify: tsc sạch · test 51/51 · build 41/41 · 5 route engine GET HTTP 200 (đường đọc Supabase chạy thật). File JSON cũ giữ nguyên.
+  - [x] **Smoke-test đường GHI PASS (2026-06-28):** đăng nhập thật trên app (UUID `c43f015e-aa29-441b-b108-2cc79c162679`) → POST `/api/mastery {algebra.linear_eq}` → log server KHÔNG còn lỗi `22P02`, `overall` 0→1, GET đọc lại được. → **RLS cho phép GHI khi đã login.** Lưu ý bẫy: `saveMastery` nuốt lỗi (chỉ `console.error`) nên POST 200 KHÔNG đủ kết luận — phải đọc log server. Lần POST đầu thất bại vì tab chưa login (server thấy `local-default-user`, DB từ chối uuid).
+  - [x] `streak_data.json` (save/load-data route) — **XONG → Supabase (2026-07-02, fail-safe)**. Chuyển sang bảng `user_progress` qua `progress-store.ts` (mới). **HMAC GIỮ NGUYÊN byte-cho-byte:** cột `data_json` là TEXT chứa NGUYÊN chuỗi JSON đã ký (KHÔNG jsonb — jsonb chuẩn hóa số/key → chữ ký lệch → tưởng gian lận → xóa tiến trình). save-data ký (không đổi) → `saveProgressRaw`, false→fallback ghi file; load-data `loadProgressRaw`, null→fallback đọc file → verify HMAC (không đổi). **FAIL-SAFE:** bảng chưa có / user không uuid → fallback FILE (0 regression). SQL: `user_progress.sql` (RLS `auth.uid()=user_id` như 4 bảng user_*). ⏳ [user] chạy SQL. Runtime-verified: bảng absent → save streak 91 → read-back 91 qua HMAC INTACT (file fallback), không bị wipe.
+- [x] **1.2 Secrets & key:** code XONG + key mới đã nạp & verify sống (2026-06-29):
+  - [x] Bỏ fallback HMAC yếu `default_sat_secret_123` ở `save-data/route.ts` + `load-data/route.ts` → bắt buộc `SAT_PREP_SECRET` từ ENV (throw nếu thiếu). Đã sinh secret mạnh 64-hex vào `.env.local` + **ký lại** `streak_data.json` cũ bằng secret mới (không mất dữ liệu). Verify: tsc sạch, test 51/51, load/save-data HTTP 200.
+  - [x] Doc hóa ENV: tạo `.env.example` (Supabase/OpenAI/SAT_PREP_SECRET). `.gitignore` đã che `.env*`.
+  - [x] Kiểm tra rò rỉ: git repo `sat-prep-web` có 0 commit, key `sk-proj` CHƯA bao giờ lọt vào git/lịch sử.
+  - [x] **Key mới đã nạp + verify SỐNG (2026-06-29):** user rotate key → dán vào `.env.local`; Claude restart dev server → POST `/api/generate-practice` trả bài giảng AI thật (theory/sample_example tiếng Việt) → key hoạt động.
+  - [ ] **⚠️ CÒN LẠI / theo dõi (chỉ user kiểm soát, Claude KHÔNG verify được):** (1) xác nhận đã **thu hồi key cũ** trên platform.openai.com; (2) **sự cố lộ secret trong ảnh chụp phiên 2026-06-29** — ảnh để lộ nguyên `OPENAI_API_KEY` + `SAT_PREP_SECRET` + dòng rác `atabase password: ...` → nên: rotate lại key vừa lộ (nếu nó chính là key đang dùng), reset DB password trên Supabase, xóa dòng `atabase password:` rác khỏi `.env.local`. KHÔNG chặn deploy nhưng là vệ sinh bảo mật cần làm.
+- [x] **1.3 RLS:** verify Row Level Security scope `user_id` trên 7 bảng — HOÀN TẤT (2026-06-29):
+  - [x] **Policy đã có đủ trên cả 7 bảng** (chạy `pg_policies` qua SQL Editor 2026-06-28): tất cả `using/with_check` = `auth.uid() = user_id`. 4 bảng mới (`user_mastery/goals/ai_usage/vocab_srs`) dùng policy `ALL`; 3 bảng cũ tách lệnh: `user_economy` (SELECT/INSERT/UPDATE), `test_history` (SELECT/INSERT), `user_mistakes` (SELECT/INSERT/DELETE+UPDATE).
+  - [x] **Bằng chứng hành vi RLS bật:** anon REST (không session) đọc cả 7 bảng đều trả `[]`; riêng `user_mastery` có 1 dòng thật (vừa ghi smoke-test) mà anon vẫn `[]` → RLS chặn đúng.
+  - [x] **🔴 ĐÃ VÁ — `user_mistakes` policy UPDATE** (chạy `fix_verify_rls.sql` phần A trên SQL Editor 2026-06-29). Trước đó `mistakes-store.ts:83` (`updateMistakeReview` `.update({box,next_review})`) bị RLS chặn → `PATCH /api/cau-sai` (nút nhớ/quên `MistakeNotebook.tsx:57`) trả 500, ôn câu sai FAIL, box Leitner không tăng (SRS 10.A.4 hỏng). Nay đã có policy UPDATE `auth.uid()=user_id`.
+  - [x] **Xác nhận dứt khoát `rowsecurity=true` cả 7 bảng** (KHÔNG cần PAT): query (B) trong `fix_verify_rls.sql` đọc thẳng `pg_class.relrowsecurity` qua SQL Editor (2026-06-29) → cả 7 bảng (`test_history/user_ai_usage/user_economy/user_goals/user_mastery/user_mistakes/user_vocab_srs`) đều `rls_enabled=true`. Đây chính là cái `supabase_smoketest.mjs` định verify → script/PAT thành KHÔNG cần thiết cho mục đích RLS.
+
+### 🗂️ Công cụ — Supabase MCP (read-only) + script (thiết lập 2026-06-28)
+- [x] Tạo `.mcp.json` (root `10.SAT_Prep_App/`): remote HTTP MCP chính thức `https://mcp.supabase.com/mcp?project_ref=yynszcfqcvbnuvguwtfy&read_only=true`, header `Bearer ${SUPABASE_ACCESS_TOKEN}`. **Khóa `read_only=true`** vì project gắn nhãn PRODUCTION (Supabase docs cấm nối MCP ghi vào prod). Remote HTTP MCP KHÔNG có `npm install` — config chính là cài đặt.
+- [x] Tạo `supabase_smoketest.mjs`: gọi Management API (`api.supabase.com`, cùng API mà MCP bọc) để test PAT + verify RLS. Đã `node --check` OK, guard thiếu-token chạy đúng (exit 1). Token đọc từ env, KHÔNG hardcode.
+  - [x] **KHÔNG còn cần cho RLS:** query (B) `fix_verify_rls.sql` (đọc `pg_class.relrowsecurity` qua SQL Editor) đã verify dứt khoát `rls_enabled=true` cả 7 bảng (2026-06-29) → mục tiêu RLS đạt KHÔNG cần PAT. PAT/`supabase_smoketest.mjs`/MCP chỉ còn hữu ích nếu sau này muốn verify schema tự động từ CLI (tùy chọn, không chặn gì).
+
+### 🗂️ Nhóm 2 — HIỆU NĂNG (Performance)
+- [x] **2.1** Question Bank → Supabase — XONG (2026-07-02, fail-safe). `question-bank.ts` chuyển từ file `question_bank.json` (reset mỗi cold-start serverless → hit-rate ≈0%) sang bảng Supabase `questions`. `poolSize`/`getFromBank` thành ASYNC (route +`await`), `saveToBank` upsert onConflict `id` (dedup hash). **FAIL-SAFE:** bảng chưa có → poolSize 0 + getFromBank null → route sinh câu AI (đúng hành vi cũ). SQL: `questions.sql` (RLS `authenticated using(true)`, dùng chung). ⏳ [user] chạy `questions.sql` trên SQL Editor. Runtime-verified: bảng absent → `PGRST205` log → AI path 200 sạch.
+- [x] **2.2** Prefetch câu kế tiếp khi user đang đọc giải thích (giảm chờ "đang sinh câu") — HOÀN TẤT + browser-test PASS (2026-06-29). Prefetch fire đúng lúc submit (user đang đọc giải thích → cost-safe §9.5, không phí token vì gần chắc qua câu kế); guard chống gọi OpenAI lần 2; nút "câu mới" tái dùng promise đã prefetch → KHÔNG gọi API lần 3 (verify đếm fetch trên browser: click chủ đề=1 call, submit=+1 prefetch, next=+0). Phủ: `math/page.tsx` (inline) + 3 wrapper qua callback `onSubmitted` mới của `CorePracticeUI` (literature/desmos/vocabulary). Browser-test trực tiếp math + literature (literature chứng minh đường shared component → suy ra desmos/vocabulary). CHƯA phủ `tower/page.tsx` (mode Boss/Tower khác luồng, để verify ở V1 Nhóm 6).
+- [ ] **2.3** Xem lại debounce save 1.5s sau khi cutover Supabase (tránh ghi quá nhiều request).
+
+### 🗂️ Nhóm 3 — UX/UI POLISH
+- [x] **3.1** Thay toàn bộ `alert()` bằng toast trong app — HOÀN TẤT + browser-test PASS (2026-06-29). Tạo `src/context/ToastContext.tsx` (tự build, KHÔNG thêm dependency — tránh xung đột peer React 19; toast là UI primitive dùng khắp nơi nên trừu tượng hợp lý), 3 loại success/error/info dùng đúng bảng màu banner sẵn có, tự ẩn sau 3.5s, mount qua `ToastProvider` trong `layout.tsx` (bọc trong GamificationProvider). Thay **15 `alert()` trên 6 file**: math (8), literature/desmos/vocabulary (1 mỗi file — lỗi sinh câu), tower (1), shop (2), real-exams (1). Verify: tsc sạch, test 51/51, grep `alert(` = 0; browser-test shop → toast đỏ hiện đúng nội dung trong 100ms.
+- [x] **3.2** Chuẩn hóa loading state — XONG phần đáng làm (2026-07-02, commit `c1fa15d`). Trích `<LoadingState message=/>` (spinner-card ⚙️ lặp gần y hệt 5 chỗ) áp vào 4 call site khớp pattern (CorePracticeUI/AITutoring/math/skill-tree). Browser-verified render sống. **CHỦ Ý KHÔNG làm `<ErrorState/>` chung** (đánh giá qua subagent survey): lỗi dị nhau — toast=chuẩn de-facto qua useToast, 1 error-box (skill-tree), còn lại im lặng/context-driven → ép 1 component chỉ thêm props cấu hình vô nghĩa (over-engineer). gate-exam (full-screen phase-based) + MistakeNotebook (text đơn giản) giữ riêng, khác pattern.
+- [ ] **3.3** Empty-state đẹp khi chưa có mastery/lịch sử (thay số 0 trơ).
+
+### 🗂️ Nhóm 4 — CHẤT LƯỢNG CODE & ANTI-CHEAT
+- [x] **4.1 Khép lỗ hổng anti-cheat 9.1:** CUTOVER XONG + verify GHI thật PASS (2026-06-30). `GamificationContext` mount fetch `/api/economy`(coins/xp/lastSpinDate)+`/api/skill-tree`(level); mọi grant POST action (`answer`/`exam`/`quest`), spend POST `spend` reconcile từ server. Thêm action `quest`+`applyQuestReward` (tra `QUEST_REWARD` theo questId → đóng vector bơm tùy ý) +2 test. **PvP DESCOPE** (gỡ cộng coins/xp khỏi `fightPvP`, ghi nợ task "PvP economy"). Verify: tsc·test 72/72·build OK; route LIVE curl PASS; **authenticated write→read-back PASS** (login browser thật → POST quest+answer → GET lại coins 100→110→130 tích lũy, reload HUD hydrate 130 từ Supabase). **Lỗ hổng 9.1 KHÉP.**
+- [x] **4.2 Gỡ Level phẳng 1-200:** XONG (2026-06-30). XÓA `addReward`/`getMaxXp`/`levelUpAlert`/vòng level-up/`maxXp`/modal home. `level = masteredCount + 1` (dẫn xuất từ `/api/skill-tree`). Retune toàn bộ ngưỡng gate sang thang skill 1..19: BADGE 2/4/7/11/15 (+sửa mảng hardcode `BadgeSystem.tsx`), collection 2/4/7/11/15, pets 1/3/6, journey 1/4/8/13, real-exams `<7` ("tinh thông 6 kỹ năng"), home rank 4/7/11/15.
+- [x] **4.3** Dọn `console.log`/`console.error` route + `middleware` deprecated → `proxy` (Next 16). ✅ Phần Next-16 XONG SẴN (2026-06-30). ✅ **Lint XONG (2026-07-01): 40 error+15 warn → 0+0.** Vá nốt `MistakeNotebook.tsx` (disable-comment đúng chỗ), import thừa `mock-exams`, thêm `argsIgnorePattern/varsIgnorePattern/caughtErrorsIgnorePattern:'^_'` vào `eslint.config.mjs`. Lật cờ CI (xem 5.4).
+- [x] **4.4** Sửa `database_schema.md` lệch tên bảng so với code (lấy code làm chuẩn) — XONG (2026-06-29). Đối chiếu doc vs **8 bảng code thật đang `.from(...)`**: 7 bảng user_* khớp; cập nhật `ai_chat_cache` từ "chưa có store" → "STORE ĐÃ CÓ (`chat-cache-store.ts`), bảng chưa tạo" + ghi rõ RLS dùng-chung `authenticated using(true)`; **thêm `user_quotas`** (doc trước thiếu hẳn) — bảng legacy của route `/api/ai/generate`.
+- [x] **4.5 Gỡ route AI legacy `/api/ai/generate` + `test-ai`** — XONG (đã xóa ở WIP `51724d6`, verify 2026-06-30: grep 0 caller, thư mục không còn tồn tại). ⚠️ CÒN LẠI [user]: drop bảng `user_quotas` (DEAD sau khi route bị xóa) trên DB PRODUCTION nếu muốn dọn.
+
+### 🗂️ Nhóm 5 — CHI PHÍ AI & BẢO MẬT
+- [x] **5.1** Verify kill-switch ngân sách (`ai-cost.ts`) đã bật + log token/cost — VERIFY CODE XONG (2026-06-29) + **LEDGER → SUPABASE XONG (2026-07-02, fail-open)**: `checkBudget()` được gọi TRƯỚC khi tốn tiền ở **cả 2** route AI (`/api/chat:80`, `/api/generate-practice:32`); cả 2 đều `recordGlobalCost(tokIn,tokOut,'gpt-4o-mini')` ghi sổ cái. `DAILY_BUDGET_USD=5` (override env `AI_DAILY_BUDGET_USD`), giá gpt-4o-mini cứng trong `PRICING`. Report đọc qua `GET /api/admin/ai-cost`. Degrade khác nhau: generate-practice tụt về Question Bank, chat trả 503. ✅ **Lỗ hổng serverless ĐÃ VÁ:** sổ cái chuyển từ file `ai_cost_global.json` (reset mỗi cold-start → kill-switch mất cộng dồn) sang bảng Supabase `ai_cost_ledger` qua `cost-ledger-store.ts` (mới). `checkBudget`/`getCostReport` thành ASYNC (3 call site +`await`; `recordGlobalCost` vốn async, signature không đổi). **FAIL-OPEN:** bảng chưa có → ledger rỗng → allowed=true (đúng hành vi hiện tại, không chặn nhầm dev). ⚠️ đánh đổi: deploy prod mà quên tạo bảng → KHÔNG có trần chi phí. SQL: `ai_cost_ledger.sql` (RLS `authenticated using(true)`). ⏳ [user] chạy SQL. Runtime-verified: bảng absent → `PGRST205` log → `/api/admin/ai-cost` 200 costUsd 0.
+- [x] **5.2** Enforce quota chat freemium theo `user_id`+ngày ở `/api/chat` (9.2) — VERIFY CODE XONG (2026-06-29) + **generate-practice ĐÃ nối quota (browser-verify 2026-07-01)**: `/api/chat:52` gọi `checkQuota(user.id, tier)` TRƯỚC khi gọi OpenAI, free=5 lượt/ngày (`DAILY_LIMITS`), đếm theo `user_id`+ngày trong bảng Supabase `user_ai_usage` (**bền**, tự reset sang ngày mới ở `loadToday`); `recordUsage` tăng count sau khi gọi thành công; vượt → HTTP 429. ✅ **Điểm hở (2) ĐÃ VÁ:** `/api/generate-practice:117` giờ gọi `checkQuota` TRƯỚC khi gọi OpenAI (đặt SAU nhánh Question Bank → câu bank KHÔNG tính lượt), 429 kèm `quotaExceeded` khi hết; `recordUsage` ở dòng 302. **Browser-verify 2026-07-01:** sinh câu AI thật qua Tower/math ăn dần 5 lượt → lượt thứ 6 trả 429 "Bạn đã dùng hết 5 lượt..." (cùng sổ `user_ai_usage` với /api/chat). ⚠️ **CÒN 1 điểm hở:** `tier` vẫn hardcode `'free'` (TODO chờ subscription Phase 2).
+- [~] **5.3** Cache câu trả lời chat (`ai_chat_cache`) — CODE XONG, chờ user tạo bảng (2026-06-29). Đã viết `chat-cache-store.ts` (hash SHA256 = question+correctAnswer+selectedAnswer+userMessage.toLowerCase; get/bump/save) + nối `/api/chat`: cache lookup TRƯỚC quota/budget vì hit không tốn token (free hit, không trừ lượt); CHỈ cache hội thoại 1-lượt (history rỗng — nhiều lượt vốn duy nhất). Response thêm field `cached:true` (additive, frontend đọc `data.reply` nên không vỡ). Lõi hash tách sang `chat-cache.ts` (thuần, không I/O) theo mẫu economy.ts↔economy-store.ts → unit-test được; `chat-cache-store.ts` re-export. Verify: tsc sạch · test 57/57 (thêm 6 test `chat-cache.test.ts`: ổn định/hex64/không phân biệt hoa-thường/trim/đổi câu hỏi-đáp án → khác hash). ⚠️ **CÒN LẠI [user]:** chạy `ai_chat_cache.sql` trên SQL Editor (DB PRODUCTION) — bảng DÙNG CHUNG nên RLS KHÁC 7 bảng user_*: policy `authenticated using(true)` (mọi user login đọc/ghi, KHÔNG scope user_id) vì 1 câu trả lời phục vụ mọi HS; bảng chỉ chứa lời giải SAT, không PII. Khi chưa tạo bảng: `getCachedReply` trả null (miss) → route degrade về gọi OpenAI như cũ, KHÔNG vỡ.
+- [x] **5.4** CI tối thiểu: GitHub Actions chạy `lint` + `npm test` mỗi PR — FILE XONG + lint đã thành cổng CHẶN (2026-07-01). Tạo `.github/workflows/ci.yml`: job `verify` trên `ubuntu-latest`, `working-directory: sat-prep-web`, **Node 22** (script test dùng glob `node --test "src/**/*.test.ts"` chỉ chạy Node ≥21; local Node 24), `npm ci --legacy-peer-deps` (xung đột peer React 19). **3 cổng CHẶN (đang xanh): `npx tsc --noEmit` + `npm test` (108 test) + `npm run lint`.** ✅ **Đã bỏ `continue-on-error` ở bước lint** (2026-07-01) sau khi dọn lint về 0/0 (xem 4.3). ⚠️ **CHƯA verify chạy thật:** repo `sat-prep-web` có 0 commit + CHƯA có git remote → Actions chưa kích hoạt được. Chỉ kiểm tĩnh YAML (no-tab OK). Khi push lên GitHub mới biết workflow xanh thật.- [x] **5.5** Hardening `/api/ai/generate` (lỗ "proxy mù" §9.2 còn sót) — XONG (2026-06-29). Route này nhận `systemPrompt` THÔ từ client (prompt-injection), đếm quota bằng bảng RIÊNG `user_quotas` (split-brain với `user_ai_usage`), KHÔNG kill-switch, KHÔNG ghi cost. Đã viết lại server-authoritative đồng bộ `/api/chat`: (1) systemPrompt CỐ ĐỊNH ở server, client chỉ gửi `userPrompt` (clamp 2000); model+max_tokens cứng; (2) quota chuyển sang engine CHUNG `ai-quota.ts` (`user_ai_usage`, free=5/ngày) → **HẾT split-brain**, cùng sổ đếm với `/api/chat`; (3) thêm `checkBudget()` (§9.5) + `recordGlobalCost()`. Giữ nguyên contract cho `test-ai/page.tsx` (`data` + `usage{used,limit}` + code `QUOTA_EXCEEDED`). Verify: tsc sạch · test 57/57. ⚠️ Hệ quả: bảng `user_quotas` giờ **DEAD** (không route nào dùng) — KHÔNG drop ở code (DB PRODUCTION); user dọn nếu muốn. Route chỉ `test-ai` (debug) gọi nhưng vẫn hardening vì LIVE, mọi user login gọi được.
+
+### 🗂️ Nhóm 6 — KÍCH HOẠT ENGINE + CỔNG KHẢO THÍ (Integration)
+> Engine mastery/skill-tree/score/adaptive/stats đã xây xong ở `lib/`+`/api/*`+test nhưng **chưa nối UI** (built-not-wired). Mastery là nút thắt trung tâm → mọi thứ chảy theo sau.
+> ⚠️ **Granularity math/desmos** — ĐÃ CHỐT 2026-06-30: 16 chủ đề chi tiết nhóm theo 4 domain (mỗi skill con map đúng 1 skillId), phủ đủ 13 skill Toán.
+- [x] **T1 — Gắn `skillId` + ghi Mastery (keystone):** XONG + verify runtime (2026-06-30). `generate-practice` gắn skillId (ưu tiên client tường minh, fallback `resolveSkillId`); `CorePracticeUI` + `math/page` POST `/api/mastery {skillId,isCorrect,difficulty}`. Trang Toán đổi 4 nút thô → bộ chọn 2 cấp từ `SKILL_TREE` (13 skill). math+desmos gửi skillId tường minh.
+- [x] **T2 — Dashboard Score Prediction + Mastery:** XONG + verify (2026-06-30). `dashboard/page.tsx` đọc `/api/score`+`/api/mastery` thật (công thức cứng giả đã bị thay từ WIP `51724d6`), radar dùng domainScore thật, focus skills từ score. Contract khớp 100%.
+- [x] **T3 — Trang Skill Tree:** XONG + verify (2026-06-30). TẠO MỚI `src/app/skill-tree/page.tsx` + thêm Sidebar (nhóm TỔNG QUAN). 4 state node màu khác nhau, thanh tiến trình chương, tổng "X/13 tinh thông", logic khóa chương (DOMAIN_PREREQS) chạy đúng.
+- [x] **T4 — Adaptive "Luyện mục tiêu":** XONG + verify (2026-06-30). Panel trong trang Skill Tree fetch `/api/adaptive` → skill yếu nhất + độ khó đề xuất + lý do, nút "Luyện ngay" deep-link `<Link>` sang trang module.
+- [x] **T5 — Cổng Khảo Thí (Checkpoint Gate)** = Boss=Assessment (10.B.3) gate mở khóa chương Skill Tree — XONG + adversarial review + authenticated full-flow verify (2026-06-30):
+  - đạt ngưỡng mastery chương (avg>=40) → mở Đề Thi Cổng (5 câu, pass 4/5); **trượt → chương kế VẪN locked** (đổi: `satisfied` giờ = avg>=40 **VÀ** gate passed, không còn auto-unlock); near-miss 3/5 + thi lại sau 10 câu đúng.
+  - Lib: `gate-exam.ts` (pure: isGateEligible/isRetryAllowed/evaluateGateResult/bumpDomainGateProgress) + `gate-store.ts` (`__gates__` key trong `user_mastery.skills` JSONB, KHÔNG cần SQL mới) + `gate-exam.test.ts` (19 test). API `/api/gate-exam` (GET eligibility+5 câu, POST submit có **re-check eligibility server-side** chống bypass). UI `gate-exam/[domain]/page.tsx` (intro→countdown→fighting→result, boss animation). skill-tree.ts +gateStatus; skill-tree/page.tsx nút "⚔️ Thi Cổng"/cooldown badge.
+  - **Cải tiến #5 (near-miss):** "Chỉ thiếu 1 câu!" + 10 câu đúng mới thi lại — XONG.
+  - **Cải tiến #4 (nghi thức):** "BOSS XUẤT HIỆN" + đếm ngược 3→GO — XONG.
+  - ⚠️ **Design note:** chỉ chương CÓ chương phụ thuộc mới có cổng (chỉ `algebra` trong DOMAIN_PREREQS hiện tại); 3 chương Toán lá + reading = `not_required`. Nhất quán với "cổng mở chương KẾ"; nếu muốn mọi chương có boss riêng = mở rộng Phase sau.
+- [x] **V1** verify Boss/Tower hiện tại đã dùng câu assessment gắn adaptive chưa — XONG (2026-07-01): prior `[x]` SAI. Phát hiện Tower KHÔNG adaptive + `/api/generate-practice` bỏ qua `difficulty` + Tower ghi mastery sai địa chỉ (mọi câu → `algebra.linear_eq`). → **ĐÃ VÁ Tower thành adaptive thật**: `generate-practice` tôn trọng `difficulty`; thêm `pickTowerSkill`/`towerDifficulty` thuần (adaptive.ts) + endpoint `/api/tower/question?floor=N` (chọn skill yếu nhất xoay vòng + độ khó ZPD+áp-lực-tầng) → câu gắn skillId thật. Live-verify trên dev server: skill đổi mỗi tầng + độ khó leo theo tầng + tương thích ngược (call không-difficulty vẫn Hard). Gate-Exam giữ difficulty hardcode (bài thi chuẩn hóa, không cần ZPD). +9 test. Chi tiết: memory.md block "✅ TOWER ADAPTIVE".
+- [x] **PvP economy** (nợ T7, làm 2026-07-01): RNG trận + lực-chiến-từ-mastery + thưởng đã lên server. `resolvePvpFight` thuần (economy.ts) + consts `PVP_COMBAT_SCALE=40`/`PVP_MIN_POWER_RATIO=0.5`; action `pvp` ở `/api/economy` (basePower từ `computeStats`, RNG `Math.random` server, cổng năng lực khoá thưởng cao sau mastery thật); `fightPvP` client thành async gọi server (xoá RNG client + bỏ phụ thuộc `maxPower` bị item bơm); `pvp/page.tsx` hiển thị combatPower thật từ `/api/stats` + badge cổng. +7 test. Live smoke-test PASS (gate chặn mastery 0). Chi tiết: memory.md block "✅ PVP ECONOMY".
+  - [x] **✅ faucet xu ĐÃ ĐÓNG** (2026-07-02): USER chạy `phase1_5_pvp_mistakes.sql` (thêm `user_economy.pvp_rank/pvp_fights_today/pvp_last_fight_date`). Logic thuần đã wire sẵn (fail-safe, commit `1a329e5`) → **tự kích hoạt** khi cột tồn tại. Verify: log server chứng minh migration thành công (lỗi `22P02 invalid uuid` cho `local-default-user`, KHÔNG phải `42703 column does not exist` → cột tồn tại). rank server-side + cap 10 trận/ngày + server tự tính targetRank (bỏ qua client). ⏳ Win-path authenticated (login uuid thật → thắng→leo rank→cap chặn farm) chưa verify browser.
+
+### 🗂️ Nhóm 7 — CẢI TIẾN CHẤT LƯỢNG HỌC (chọn lọc, rẻ-tác động-lớn)
+- [x] **#6 Mistake → biến thể:** XONG (2026-07-02, commit `0e5e810`). Ôn câu sai → sinh câu *cùng skill khác số liệu* (active recall), kết quả = tín hiệu SRS thật (10.A.4). Cần cột `user_mistakes.skill_id` (đã chạy `phase1_5_pvp_mistakes.sql`). Lib thuần `mistake-variant.ts` (DI) + route `/api/cau-sai/variant` (ZPD difficulty, mirror tower/question) + wire skill_id qua store/CorePracticeUI/MistakeNotebook (nút "🎲 Luyện câu biến thể" chỉ khi có skill_id). Browser-verify: invalid→400, valid→200 câu AI ZPD. ⏳ NỢ: authenticated full-loop (làm biến thể sai → mastery + SRS box gốc). Câu sai từ AITutoring (golden_hour tĩnh, domain thô) = skill_id null = không có nút — chấp nhận được.
+- [x] **#8 Gợi ý theo bậc:** XONG (2026-07-01). Hint cấp 1 (free) = nudge khái niệm; hint cấp 2 (20 xu) nâng từ filler chung → **gợi ý LOẠI TRỪ**: tiết lộ bẫy của MỘT đáp án sai (lấy từ `choice_analysis` #9), KHÔNG lộ đáp án đúng → dạy process-of-elimination trước khi nộp. Fallback text chung khi câu bank thiếu `choice_analysis`. Commit `4e66b50`. ✅ Browser-verified trên `/vocabulary`: hint cấp 2 kéo bẫy thật, không crash.
+- [x] **#9 "Tại sao đáp án kia sai":** XONG + browser-verify MỌI trang (2026-07-01). `generate-practice` thêm trường `choice_analysis` (mảng `{choice_letter,is_correct,analysis}`) vào cả base+math schema + prompt directive dùng chung mọi module (đáp án sai → nêu BẪY GÌ, TV). `CorePracticeUI` render block "🔍 VÌ SAO CÁC ĐÁP ÁN KIA SAI?" sau nộp (tô màu đúng/đáp-án-user-sai/cảnh-báo). Additive + optional → câu cũ bank không vỡ. ✅ Browser-verified trên `/vocabulary`: 4 phân tích khớp 4 choices, đáp án user chọn đánh dấu "(Bạn đã chọn)". **Trang Toán** (`math/page.tsx` dùng UI inline riêng, commit `4501fb0`) — ✅ **ĐÃ browser-verify (2026-07-01)**: bank 20 câu (0 câu có choice_analysis) → câu bank ẩn block đúng (guard degrade sạch); ép `prefer:'ai'` (patch fetch browser, KHÔNG sửa source) → câu AI thật render block đủ 4 dòng + badge "(Bạn đã chọn)". +0 unit test (đường AI/UI). Chi tiết: memory.md "✅ CHOICE ANALYSIS".
+> **Để Phase 2** (cần Social/Parent Dashboard): #1 streak đối thủ ảo, #2 câu vàng hằng ngày, #3 loss-aversion điểm dự đoán, #7 pacing trainer, #10 báo cáo tuần phụ huynh.

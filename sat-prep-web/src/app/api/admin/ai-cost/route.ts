@@ -12,5 +12,5 @@ import { getCostReport } from '@/lib/ai-cost';
  * mở trong môi trường dev; KHÔNG được public khi lên production.
  */
 export async function GET() {
-  return NextResponse.json(getCostReport());
+  return NextResponse.json(await getCostReport());
 }

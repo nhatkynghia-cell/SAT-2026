@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getCurrentUser } from '@/lib/auth';
 import { getUserDataPath } from '@/lib/user-data';
+import { loadProgressRaw } from '@/lib/progress-store';
 import fs from 'fs';
 
 const SECRET_KEY: string = (() => {
@@ -56,17 +57,22 @@ const DEFAULT_STATE = {
 export async function GET() {
   try {
     const user = await getCurrentUser();
-    const filePath = getUserDataPath(user.id, 'streak_data.json');
 
-    if (!fs.existsSync(filePath)) {
-      // Người dùng mới (hoặc chưa có dữ liệu) → state mặc định.
-      return NextResponse.json(DEFAULT_STATE);
+    // Ưu tiên đọc CHUỖI JSON đã ký từ Supabase (bền vững qua deploy). FAIL-SAFE:
+    // bảng chưa có / user không phải uuid / lỗi → null → fallback đọc file cũ.
+    let fileContent = await loadProgressRaw(user.id);
+    if (fileContent == null) {
+      const filePath = getUserDataPath(user.id, 'streak_data.json');
+      if (!fs.existsSync(filePath)) {
+        // Người dùng mới (hoặc chưa có dữ liệu) → state mặc định.
+        return NextResponse.json(DEFAULT_STATE);
+      }
+      fileContent = fs.readFileSync(filePath, 'utf-8');
     }
 
-    const fileContent = fs.readFileSync(filePath, 'utf-8');
     const parsedData = JSON.parse(fileContent);
 
-    // Kiểm tra tính toàn vẹn (HMAC-SHA256)
+    // Kiểm tra tính toàn vẹn (HMAC-SHA256) — logic GIỮ NGUYÊN, chỉ đổi nguồn đọc.
     if (!parsedData.signature) {
       console.warn(`Dữ liệu user ${user.id} không có chữ ký bảo mật. Reset!`);
       return NextResponse.json(DEFAULT_STATE);

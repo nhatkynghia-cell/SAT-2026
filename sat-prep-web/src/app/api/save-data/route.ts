@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getCurrentUser } from '@/lib/auth';
 import { getUserDataPath } from '@/lib/user-data';
+import { saveProgressRaw } from '@/lib/progress-store';
 import fs from 'fs';
 
 const SECRET_KEY: string = (() => {
@@ -51,10 +52,17 @@ export async function POST(req: Request) {
     // được theo dõi ở task #2. Ở đây chỉ thêm scope theo user_id (task #1).
     const signature = generateSignature(data);
     const dataToSave = { ...data, signature };
+    // CHUỖI JSON đã ký — ghi NGUYÊN chuỗi này (raw string) để HMAC verify khi
+    // đọc lại khớp byte-cho-byte (xem progress-store.ts).
+    const serialized = JSON.stringify(dataToSave, null, 2);
 
-    // Ghi vào file dữ liệu RIÊNG của user hiện tại.
-    const filePath = getUserDataPath(user.id, 'streak_data.json');
-    fs.writeFileSync(filePath, JSON.stringify(dataToSave, null, 2), 'utf-8');
+    // Ưu tiên Supabase (bền vững qua deploy serverless). FAIL-SAFE: bảng chưa
+    // có / user không phải uuid / lỗi → false → fallback ghi file như cũ.
+    const savedToDb = await saveProgressRaw(user.id, serialized);
+    if (!savedToDb) {
+      const filePath = getUserDataPath(user.id, 'streak_data.json');
+      fs.writeFileSync(filePath, serialized, 'utf-8');
+    }
 
     return NextResponse.json({ success: true, message: "Data saved securely" });
   } catch (error) {
