@@ -172,7 +172,7 @@ Khi sửa đổi mã nguồn Python của dự án này, bất kỳ Agent nào c
 > **Câu lệnh khởi động phiên sau** đã lưu riêng ở `NEXT_SESSION.md` (thư mục dự án) — user paste vào để mở phiên. Tóm tắt việc phiên sau:
 > - export PATH + verify (tsc·test·build) trong `sat-prep-web/`.
 > - Token đã lưu: `~/.gitcreds-sat2026` (git push/API) + `~/.vercel-token` (Vercel API). ⚠️ NẾU user đã rotate (xem checklist) → token cũ HẾT hiệu lực, xin token mới.
-> - App prod: `https://sat-2026.vercel.app` (sống). Việc chính: **authenticated verify** (user login → Claude kiểm persist Supabase: streak/coins/mastery/bank/kill-switch) + nợ cũ PvP win-path & Mistake variant full-loop.
+> - App prod: `https://sat-2026.vercel.app` (sống). ✅ **authenticated verify + 2 nợ cũ ĐÃ XONG (2026-07-03)** — xem block "✅ AUTHENTICATED VERIFY XONG" ngay dưới. Việc chính phiên sau: **chờ user rotate 4 secret** (đã defer) rồi mới bàn Phase 2, KHÔNG còn nợ verify.
 > - **⚠️ GIỚI HẠN NGỮ CẢNH 80%:** khi dùng tới ~80% context → DỪNG việc mới, cập nhật memory.md + commit + push (thủ tục bàn giao) TRƯỚC khi bị compact. KHÔNG bắt đầu việc lớn khi đã quá 80%.
 >
 > **🔴 CHECKLIST SECRET CẦN ROTATE (user làm — đều đã LỘ; phiên sau HỎI user đã đổi chưa rồi TICK + cập nhật):**
@@ -182,7 +182,26 @@ Khi sửa đổi mã nguồn Python của dự án này, bất kỳ Agent nào c
 > - [ ] DB password Supabase (Settings→Database) → reset
 > - Khi user báo đã đổi xong → sửa `[ ]`→`[x]` ở dòng tương ứng + ghi ngày; nếu đổi git/vercel token thì xin token mới lưu lại `~/.gitcreds-sat2026`/`~/.vercel-token`.
 >
-> **📋 PLAN CÒN LẠI (sau Phase 1.5 — gần xong):** Phase 1.5 gần cạn (chỉ còn authenticated-verify + nợ nhỏ 5.2 `tier` hardcode). Kế tiếp là **Phase 2 MVP**: thanh toán (VNPay/MoMo/Stripe), Parent Dashboard, Diagnostic Onboarding; + Nhóm 7 Phase-2 (câu vàng hằng ngày #2, pacing #7, báo cáo tuần phụ huynh #10). Các mục này LỚN → hỏi user chọn hướng trước khi code, đừng tự mở scope.
+> **📋 PLAN CÒN LẠI (sau Phase 1.5 — XONG verify):** Phase 1.5 cạn (authenticated-verify XONG 2026-07-03; chỉ còn nợ nhỏ 5.2 `tier` hardcode `'free'` chờ subscription). Kế tiếp là **Phase 2 MVP**: thanh toán (VNPay/MoMo/Stripe), Parent Dashboard, Diagnostic Onboarding; + Nhóm 7 Phase-2 (câu vàng hằng ngày #2, pacing #7, báo cáo tuần phụ huynh #10). Các mục này LỚN → hỏi user chọn hướng trước khi code, đừng tự mở scope.
+
+> [!IMPORTANT]
+> ### ✅ AUTHENTICATED VERIFY XONG (2026-07-03) — persist Supabase THẬT + 2 nợ cũ ĐÓNG (login browser dev server)
+> **Cách verify:** dev server local (`preview_start`, port 3000) trỏ CÙNG prod Supabase qua `.env.local` → login browser Claude điều khiển bằng account `truongsonht.xd@gmail.com` (pass user cấp phiên này) → cookie `sb-...-auth-token` set OK, `/api/economy` GET 200 coins 160/xp 400, mastery overall 11/18 skill (state cũ từ phiên trước). Prod tách biệt session nên PHẢI login trên browser-của-Claude, không mượn được session prod của user.
+>
+> **🔑 PHÁT HIỆN LỚN — CẢ 8 BẢNG SUPABASE ĐÃ TỒN TẠI TRÊN PROD** (anon REST probe: `[]` = có bảng + RLS chặn, KHÔNG phải `PGRST205` = thiếu). Gồm 3 bảng memory ghi "⏳ [user] chạy SQL": `user_progress` (4.1), `questions` (2.1), `ai_cost_ledger` (5.1) + `ai_chat_cache` (5.3) — **ĐỀU ĐÃ CHẠY**. → Prod chạy đường Supabase THẬT, KHÔNG còn dùng fallback file/fail-open. Cập nhật: mọi mục "⏳ user chạy SQL" trong master_task_list coi như DONE.
+>
+> **✅ 5 property core persist — VERIFY PASS:**
+> 1. **PvP win-path (nợ cũ ĐÓNG):** POST `/api/economy {action:'pvp'}` 10 lần liên tục. Kết quả HOÀN HẢO: thắng cộng đúng reward opponent (300/500/800/1200/1800/2500/3500), rank leo 11→10→...→4, thua giữ rank; **7 thắng / 3 thua** (RNG thật, thua cụm khi opponent mạnh dần vs combatPower 1480). **Cap 10 trận/ngày CHẶN:** trận 11+ → `eligible:false` "đã đấu đủ 10 trận". Coins 160→10760 (đọc lại qua GET độc lập). **Reload → rank 4 + cap + coins 10760 GIỮ NGUYÊN** (đọc từ cột `pvp_rank/pvp_fights_today/pvp_last_fight_date` Supabase). Server bỏ qua targetRank client, tự tính. → **faucet xu ĐÓNG HẲN, anti-farm verify sống.**
+> 2. **Mistake variant full-loop (nợ cũ ĐÓNG):** seed câu sai skill_id=`algebra.linear_eq` box1 → PATCH remembered=true → box 1→2 → GET `/api/cau-sai/variant?skillId=algebra.linear_eq` → 200 câu AI thật Medium `_source:ai`. Trả lời variant SAI (mirror CorePracticeUI+MistakeNotebook): (a) mastery ghi ĐÚNG skill `algebra.linear_eq` (attempts→8, correct→5, wrong đếm attempt không đếm correct); (b) câu sai MỚI lưu skill_id đúng box1; (c) **box câu GỐC reset 2→1** (`promote(2,false)=1`). Cả 3 hiệu ứng persist Supabase. ⚠️ `skills` là MẢNG object `{id,...}` KHÔNG phải map keyed — đừng tra `skills['x']`, dùng `.find(s=>s.id==='x')`.
+> 3. **Streak (`user_progress` + HMAC):** save streak 137/shield 3 → read-back 137/3 (HMAC verify khớp, KHÔNG bị wipe về DEFAULT_STATE) → **reload → vẫn 137/3 từ Supabase**. Log xác nhận: chỉ `local-default-user` (tab chưa login) lỗi `22P02 invalid uuid` → fallback file; UUID thật ghi Supabase sạch. Đã RESTORE streak về 0/0 (state thật trước test).
+> 4. **Kill-switch (`ai_cost_ledger`):** ledger cộng dồn THẬT calls 0→1→5, costUsd 0→0.0004→0.0018, tokens tích lũy. Persist Supabase (không reset cold-start). 
+> 5. **Quota freemium (5.2, bonus verify):** sau 5 lượt AI/ngày → lượt 6 trả **429 "đã dùng hết 5 lượt"** (đếm `user_ai_usage`). Enforce sống.
+>
+> **⏳ Question Bank hit-rate (2.1) — CHƯA thấy hit SỐNG, nhưng ĐÚNG trạng thái:** bảng `questions` mới tạo, pool mọi module <MIN_POOL=8 → route sinh AI + `saveToBank` (0 log lỗi = ghi thành công). Quota cạn phiên này nên không đẩy pool tới 8 được. Điểm mấu chốt 2.1 (bỏ file reset-về-0 → Supabase tích lũy bền) ĐÃ verify (bảng tồn tại + ghi sống). Hit `_source:'bank'` sẽ xuất hiện tự nhiên khi 1 module đủ 8 câu. Verify hit sống = việc phiên sau (khi pool đủ) hoặc seed thẳng bảng.
+>
+> **🧹 DỮ LIỆU TEST để lại trong account thật (không có route DELETE mistakes):** +2 câu sai seed (`VERIFY-SEED` + `Core Practice VERIFY-VARIANT`) trong sổ tay + mastery `algebra.linear_eq` bị bơm vài attempt + coins lên 10760 + pvp_rank=4 + fights_today=10 (reset ngày mai) + 5 câu trong bank `questions`. Account test chuyên dụng nên chấp nhận được; nếu cần state sạch để demo → xóa 2 row `user_mistakes` + reset `user_economy`/`user_progress` cho user đó.
+>
+> **🔒 SECRET (user chọn "cứ làm để sau" phiên này):** 4 secret checklist CHƯA rotate → token `~/.gitcreds-sat2026`+`~/.vercel-token` VẪN sống (git/Vercel API dùng được). Phiên sau vẫn HỎI lại đã rotate chưa.
 
 
 
