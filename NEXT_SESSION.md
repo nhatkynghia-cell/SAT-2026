@@ -22,13 +22,17 @@ BẢO MẬT — hỏi tôi 4 secret đã rotate chưa rồi TICK vào checklist 
 [ ] GitHub PAT  [ ] Vercel token  [ ] OpenAI key  [ ] Supabase DB password
 Nếu tôi đã đổi git/vercel token → xin token MỚI để lưu lại (token cũ hết hiệu lực).
 
-VIỆC PHIÊN NÀY — theo THỨ TỰ BẮT BUỘC (đừng tự mở scope, hỏi tôi chốt hướng trước khi code lớn):
-1. 🔴 ROOT E (BLOCKER #1): user PATCH thẳng coins/mastery qua PostgREST, bỏ qua
-   server-authoritative. RE-RUN judge-panel design 3 hướng (A service-role key +
-   admin client + REVOKE authenticated write / B security-definer functions /
-   C column-revoke) → TRÌNH tôi chốt hướng → rồi mới code. Mọi fix khác vô nghĩa khi E hở.
-2. ⏳ Nhắc tôi chạy sat-prep-web/atomic_mutations.sql trên Supabase SQL Editor
-   (bật ROOT C atomic — code đã sẵn, fail-safe).
+VIỆC PHIÊN NÀY — theo THỨ TỰ BẮT BUỘC (đừng tự mở scope):
+1. 🔴 ROOT E (BLOCKER #1) — THIẾT KẾ ĐÃ XONG, đọc ROOT_E_FIX_DESIGN.md.
+   Hướng đã chốt: service-role admin client + REVOKE authenticated write.
+   → HỎI tôi xác nhận duyệt SUPABASE_SERVICE_ROLE_KEY (server-only) → rồi CODE:
+   src/lib/supabase/admin.ts (import 'server-only') + refactor 7 store (economy/
+   mastery/gate/ai-usage/cost-ledger/progress/goals — ĐƯỜNG GHI sang admin, ĐỌC giữ
+   createClient) + parameterize 3 RPC (p_user_id uuid default auth.uid() — vì
+   service-role thì auth.uid() NULL) + 2 script root_e_step1_rpc.sql & root_e_step2_revoke.sql.
+   Rollout không-gãy: step1 SQL → deploy → soak 24-48h → step2 REVOKE. Tôi thêm secret + chạy SQL.
+   ⚠️ Rủi ro: key lộ = full DB → import 'server-only' + KHÔNG NEXT_PUBLIC + grep .next/static.
+2. ⏳ Nhắc tôi chạy sat-prep-web/atomic_mutations.sql (bật ROOT C atomic — code sẵn, fail-safe).
 3. Sau khi E xong: ROOT A (grading server-side, Phase 2 lớn) + ROOT B (quest
    claim-state) + rate-limit /api/mastery,/api/economy. Follow-up ROOT C #2/#3.
 
