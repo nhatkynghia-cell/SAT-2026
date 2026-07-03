@@ -38,6 +38,7 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [revealedCorrectChoice, setRevealedCorrectChoice] = useState<string | null>(null);
   const [rewardData, setRewardData] = useState<{xpGiven: number, coinsGiven: number, comboMultiplier: number} | null>(null);
   
   const [timeElapsed, setTimeElapsed] = useState(0);
@@ -87,6 +88,7 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
         const grade = await res.json();
         isAnsCorrect = grade.correct;
         correctChoice = grade.correctChoice;
+        setRevealedCorrectChoice(grade.correctChoice);
       } else {
         isAnsCorrect = selectedAnswer.trim()[0].toUpperCase() === (questionData.correct_choice ?? '').trim()[0]?.toUpperCase();
         correctChoice = questionData.correct_choice ?? '';
@@ -224,7 +226,7 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
           let choiceClass = "bg-[#1b2533] border-[#334155] text-[#e2e8f0]";
           
           if (isSubmitted) {
-            const isThisChoiceCorrect = choice.trim()[0].toUpperCase() === (questionData.correct_choice ?? '').trim()[0]?.toUpperCase();
+            const isThisChoiceCorrect = choice.trim()[0].toUpperCase() === (revealedCorrectChoice ?? questionData.correct_choice ?? '').trim()[0]?.toUpperCase();
             if (isThisChoiceCorrect) {
               choiceClass = "bg-[#064e3b] border-[#10b981] text-[#34d399]";
             } else if (isSelected) {
