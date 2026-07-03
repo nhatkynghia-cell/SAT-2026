@@ -37,7 +37,7 @@ export async function GET() {
   // Lấy ngẫu nhiên 1 câu (route handler, KHÔNG phải render → Math.random an toàn).
   const q = questions[Math.floor(Math.random() * questions.length)];
 
-  const questionId = await issueQuestion(user.id, q.correct, undefined, 'Medium', 'golden_hour');
+  const questionId = await issueQuestion(user.id, q.correct, undefined, 'Medium', { src: 'golden_hour' });
   const { correct: _hidden, ...safe } = q;
   return NextResponse.json({ ...safe, questionId }, { status: 200 });
 }

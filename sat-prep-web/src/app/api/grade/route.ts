@@ -75,6 +75,7 @@ export async function POST(req: Request) {
       correctChoice: result.correctChoice,
       skillId: result.skillId,
       difficulty: result.difficulty,
+      choice_analysis: result.choiceAnalysis, // lộ SAU khi nộp (render block "vì sao đáp án kia sai")
       granted,
       economy: nextEconomy,
     });

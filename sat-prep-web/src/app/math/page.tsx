@@ -49,6 +49,8 @@ export default function MathPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [revealedCorrectChoice, setRevealedCorrectChoice] = useState<string | null>(null);
+  // ROOT A: choice_analysis KHÔNG còn trong payload → nhận từ /api/grade sau nộp.
+  const [revealedAnalysis, setRevealedAnalysis] = useState<{ choice_letter: string; is_correct: boolean; analysis: string }[] | null>(null);
 
   // Chat States
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -97,6 +99,8 @@ export default function MathPage() {
     setLessonData(null);
     setIsSubmitted(false);
     setSelectedAnswer(null);
+    setRevealedCorrectChoice(null);
+    setRevealedAnalysis(null);
     setChatHistory([]);
     setActiveSkills({desmos: false, focus: false});
 
@@ -147,6 +151,7 @@ export default function MathPage() {
         const grade = await res.json();
         isAnsCorrect = grade.correct;
         setRevealedCorrectChoice(grade.correctChoice);
+        if (Array.isArray(grade.choice_analysis)) setRevealedAnalysis(grade.choice_analysis);
         economyState = grade.economy ?? null;
       }
     }
@@ -452,12 +457,13 @@ export default function MathPage() {
                     </div>
 
                     {/* Phân tích TỪNG đáp án (Nhóm 7 #9) — dạy kỹ năng loại trừ bẫy.
-                        Khớp đáp án user theo INDEX (không parse chữ cái đầu). */}
-                    {Array.isArray(lessonData.choice_analysis) && lessonData.choice_analysis.length > 0 && (
+                        ROOT A: lấy từ /api/grade (revealedAnalysis) sau nộp, KHÔNG còn
+                        trong payload. Khớp đáp án user theo INDEX (không parse chữ cái). */}
+                    {Array.isArray(revealedAnalysis) && revealedAnalysis.length > 0 && (
                       <div className="bg-[#0f172a] p-5 rounded-xl border border-[#334155] shadow-lg">
                         <h4 className="text-[#fbbf24] font-bold mb-3 flex items-center gap-2">🔍 VÌ SAO CÁC ĐÁP ÁN KIA SAI?</h4>
                         <div className="space-y-2">
-                          {lessonData.choice_analysis.map((ca, idx) => {
+                          {revealedAnalysis.map((ca, idx) => {
                             const isUserPick = lessonData.choices[idx] === selectedAnswer;
                             const rowClass = ca.is_correct
                               ? 'bg-[#064e3b]/40 border-[#10b981]'

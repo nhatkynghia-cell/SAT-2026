@@ -40,10 +40,13 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [revealedCorrectChoice, setRevealedCorrectChoice] = useState<string | null>(null);
   const [rewardData, setRewardData] = useState<{xpGiven: number, coinsGiven: number, comboMultiplier: number} | null>(null);
-  
+  // ROOT A: choice_analysis KHÔNG còn trong payload → nhận từ /api/grade sau nộp.
+  const [revealedAnalysis, setRevealedAnalysis] = useState<{ choice_letter: string; is_correct: boolean; analysis: string }[] | null>(null);
+
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [hintsRevealed, setHintsRevealed] = useState(0);
   const [hintError, setHintError] = useState("");
+  const [hintTrap, setHintTrap] = useState<{ choice_letter: string; analysis: string } | null>(null);
 
   const isBookmarked = questionData ? bookmarkedQuestions.includes(questionData.practice_question) : false;
 
@@ -65,9 +68,11 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
     setIsSubmitted(false);
     setIsCorrect(null);
     setRewardData(null);
+    setRevealedAnalysis(null);
     setTimeElapsed(0);
     setHintsRevealed(0);
     setHintError("");
+    setHintTrap(null);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [questionData]);
 
@@ -98,6 +103,7 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
         isAnsCorrect = grade.correct;
         correctChoice = grade.correctChoice ?? '';
         setRevealedCorrectChoice(grade.correctChoice);
+        if (Array.isArray(grade.choice_analysis)) setRevealedAnalysis(grade.choice_analysis);
         granted = grade.granted ?? { coins: 0, xp: 0 };
         economyState = grade.economy ?? null;
       }
@@ -142,6 +148,18 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
     } else if (level === 2) {
       if (spendCoins(20)) {
         setHintsRevealed(2);
+        // ROOT A: bẫy KHÔNG còn trong payload → lấy từ /api/hint (server verify sở
+        // hữu, chỉ trả 1 đáp án SAI, không lộ đáp án đúng). Lỗi/không có → fallback text.
+        if (questionData.questionId) {
+          fetch("/api/hint", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ questionId: questionData.questionId }),
+          })
+            .then(r => r.ok ? r.json() : null)
+            .then(trap => { if (trap?.choice_letter) setHintTrap(trap); })
+            .catch(() => {});
+        }
       } else {
         setHintError("Bạn không đủ 20 Xu để mở gợi ý Cấp 2! Hãy luyện tập thêm.");
       }
@@ -265,22 +283,19 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
               {hintError && <p className="text-red-400 text-xs mt-1">{hintError}</p>}
             </div>
           )}
-          {hintsRevealed === 2 && (() => {
+          {hintsRevealed === 2 && (
             // Gợi ý cấp 2 = LOẠI TRỪ: tiết lộ bẫy của MỘT đáp án SAI (không lộ đáp
-            // án đúng) → dạy kỹ năng process-of-elimination trước khi nộp. Dùng
-            // choice_analysis (Nhóm 7 #9); câu cũ trong bank thiếu field → fallback.
-            const firstTrap = questionData.choice_analysis?.find(c => !c.is_correct);
-            return (
-              <div className="bg-[#2e1065] p-3 rounded border border-purple-500/50 text-purple-200 text-sm">
-                <strong>🔮 Gợi ý loại trừ: </strong>
-                {firstTrap ? (
-                  <span>Có thể loại <b>đáp án {firstTrap.choice_letter}</b> — {firstTrap.analysis} Giờ cân nhắc các đáp án còn lại nhé!</span>
-                ) : (
-                  <span>Rất nhiều học sinh chọn sai vì mắc bẫy phân tâm. Hãy loại các đáp án mâu thuẫn với dữ kiện đề trước, rồi đọc kỹ phần còn lại.</span>
-                )}
-              </div>
-            );
-          })()}
+            // án đúng) → dạy process-of-elimination trước khi nộp. ROOT A: bẫy lấy từ
+            // /api/hint (hintTrap state); chưa về / câu thiếu analysis → fallback text.
+            <div className="bg-[#2e1065] p-3 rounded border border-purple-500/50 text-purple-200 text-sm">
+              <strong>🔮 Gợi ý loại trừ: </strong>
+              {hintTrap ? (
+                <span>Có thể loại <b>đáp án {hintTrap.choice_letter}</b> — {hintTrap.analysis} Giờ cân nhắc các đáp án còn lại nhé!</span>
+              ) : (
+                <span>Rất nhiều học sinh chọn sai vì mắc bẫy phân tâm. Hãy loại các đáp án mâu thuẫn với dữ kiện đề trước, rồi đọc kỹ phần còn lại.</span>
+              )}
+            </div>
+          )}
         </div>
       )}
       
@@ -322,15 +337,16 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
             </div>
           </div>
 
-          {/* Phân tích TỪNG đáp án (Nhóm 7 #9) — dạy kỹ năng loại trừ bẫy. Chỉ
-              hiện khi câu có choice_analysis (câu cũ trong bank có thể chưa có). */}
-          {Array.isArray(questionData.choice_analysis) && questionData.choice_analysis.length > 0 && (
+          {/* Phân tích TỪNG đáp án (Nhóm 7 #9) — dạy kỹ năng loại trừ bẫy. ROOT A:
+              choice_analysis lấy từ /api/grade (revealedAnalysis) sau khi nộp, KHÔNG
+              còn trong payload (tránh lộ đáp án). Câu cũ thiếu analysis → ẩn block. */}
+          {Array.isArray(revealedAnalysis) && revealedAnalysis.length > 0 && (
             <div className="bg-[#0f172a] p-5 rounded-xl border border-[#334155] shadow-lg">
               <h4 className="text-[#fbbf24] font-bold mb-3 flex items-center gap-2">
                 <span>🔍 VÌ SAO CÁC ĐÁP ÁN KIA SAI?</span>
               </h4>
               <div className="space-y-2">
-                {questionData.choice_analysis.map((ca, idx) => {
+                {revealedAnalysis.map((ca, idx) => {
                   // Khớp lựa chọn của user theo INDEX (schema đảm bảo choice_analysis[i]
                   // ứng với choices[i] đúng thứ tự) — KHÔNG parse chữ cái đầu, vì choices
                   // có thể là giá trị trần ("x = 3") không mang nhãn "A)".

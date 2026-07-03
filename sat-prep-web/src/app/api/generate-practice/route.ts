@@ -4,7 +4,7 @@ import { checkBudget, recordGlobalCost } from '@/lib/ai-cost';
 import { getCurrentUser } from '@/lib/auth';
 import { checkQuota, recordUsage, type AiTier } from '@/lib/ai-quota';
 import { isValidSkill } from '@/lib/skill-taxonomy';
-import { issueQuestion } from '@/lib/issued-questions';
+import { issueQuestion, type ChoiceAnalysis } from '@/lib/issued-questions';
 
 /**
  * Map (moduleType, topic) → skillId chuẩn trong skill-taxonomy (task #9 Mastery).
@@ -52,6 +52,31 @@ function resolveSkillId(moduleType: string, topic: string): string | undefined {
   return undefined;
 }
 
+/**
+ * Phát 1 câu từ Question Bank an toàn (ROOT A): lưu correct_choice + choice_analysis
+ * SERVER-SIDE (issued_questions), rồi trả payload đã GIẤU cả hai → client không đọc
+ * được đáp án qua network. choice_analysis chỉ lộ lại sau khi chấm (/api/grade).
+ */
+async function issueBankResponse(
+  userId: string,
+  cached: Record<string, unknown>,
+  skillId: string | undefined,
+  extra: Record<string, unknown>
+) {
+  const ca = Array.isArray(cached.choice_analysis)
+    ? (cached.choice_analysis as ChoiceAnalysis[])
+    : undefined;
+  const qId = await issueQuestion(
+    userId,
+    String(cached.correct_choice ?? ''),
+    skillId,
+    String(cached.difficulty ?? 'Medium'),
+    { src: 'bank', choiceAnalysis: ca }
+  );
+  const { correct_choice: _h, choice_analysis: _ca, ...safe } = cached;
+  return NextResponse.json({ ...safe, skillId, questionId: qId, ...extra });
+}
+
 export async function POST(req: Request) {
   try {
     const { moduleType, topic, prefer = 'auto', skillId: clientSkillId, difficulty: reqDiffRaw } = await req.json();
@@ -80,9 +105,7 @@ export async function POST(req: Request) {
     if (prefer !== 'ai' && (await poolSize(moduleType)) >= MIN_POOL) {
       const cached = await getFromBank(moduleType, topic, reqDifficulty) as Record<string, unknown> | null;
       if (cached) {
-        const qId = await issueQuestion(user.id, String(cached.correct_choice ?? ''), skillId, String(cached.difficulty ?? 'Medium'));
-        const { correct_choice: _h, ...safe } = cached;
-        return NextResponse.json({ ...safe, skillId, questionId: qId, _source: 'bank' });
+        return issueBankResponse(user.id, cached, skillId, { _source: 'bank' });
       }
     }
 
@@ -91,9 +114,7 @@ export async function POST(req: Request) {
     if (!apiKey) {
       const fallback = (await getFromBank(moduleType, topic, reqDifficulty) ?? await getFromBank(moduleType, topic)) as Record<string, unknown> | null;
       if (fallback) {
-        const qId = await issueQuestion(user.id, String(fallback.correct_choice ?? ''), skillId, String(fallback.difficulty ?? 'Medium'));
-        const { correct_choice: _h, ...safe } = fallback;
-        return NextResponse.json({ ...safe, skillId, questionId: qId, _source: 'bank' });
+        return issueBankResponse(user.id, fallback, skillId, { _source: 'bank' });
       }
       return NextResponse.json({ error: "Chưa cấu hình OPENAI_API_KEY" }, { status: 500 });
     }
@@ -103,9 +124,7 @@ export async function POST(req: Request) {
     if (!(await checkBudget()).allowed) {
       const fallback = (await getFromBank(moduleType, topic, reqDifficulty) ?? await getFromBank(moduleType, topic)) as Record<string, unknown> | null;
       if (fallback) {
-        const qId = await issueQuestion(user.id, String(fallback.correct_choice ?? ''), skillId, String(fallback.difficulty ?? 'Medium'));
-        const { correct_choice: _h, ...safe } = fallback;
-        return NextResponse.json({ ...safe, skillId, questionId: qId, _source: 'bank', _degraded: 'budget' });
+        return issueBankResponse(user.id, fallback, skillId, { _source: 'bank', _degraded: 'budget' });
       }
       return NextResponse.json(
         { error: "Hệ thống AI tạm đạt giới hạn vận hành trong ngày. Vui lòng thử lại sau.", budgetExceeded: true },
@@ -340,9 +359,17 @@ BẮT BUỘC thêm trường "choice_analysis": MẢNG, mỗi phần tử ứng 
       console.error('Không lưu được vào question bank:', e)
     );
 
-    // ROOT A: lưu đáp án server-side, trả questionId cho client (client dùng /api/grade)
-    const questionId = await issueQuestion(user.id, data.correct_choice, skillId, data.difficulty);
-    const { correct_choice: _hidden, ...safeData } = data;
+    // ROOT A: lưu đáp án + choice_analysis SERVER-SIDE, GIẤU cả hai khỏi payload
+    // (choice_analysis chứa is_correct = lộ đáp án). Client dùng /api/grade để chấm
+    // + nhận lại choice_analysis sau khi nộp, /api/hint để lấy 1 bẫy trước khi nộp.
+    const analysis = Array.isArray(data.choice_analysis)
+      ? (data.choice_analysis as ChoiceAnalysis[])
+      : undefined;
+    const questionId = await issueQuestion(user.id, data.correct_choice, skillId, data.difficulty, {
+      src: 'ai',
+      choiceAnalysis: analysis,
+    });
+    const { correct_choice: _hidden, choice_analysis: _ca, ...safeData } = data;
     return NextResponse.json({ ...safeData, skillId, questionId, _source: 'ai' });
 
   } catch (error: unknown) {

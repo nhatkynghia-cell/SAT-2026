@@ -1,11 +1,49 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 
+export interface ChoiceAnalysis {
+  choice_letter: string;
+  is_correct: boolean;
+  analysis: string;
+}
+
+/**
+ * Envelope lưu trong cột `context` (TEXT) của issued_questions dưới dạng JSON.
+ * Chứa metadata KHÔNG được lộ cho client lúc phát câu:
+ *   - src: nguồn câu (ai/bank/golden_hour) — chỉ để debug/thống kê.
+ *   - ca:  choice_analysis đầy đủ (có is_correct = ĐÁP ÁN) → chỉ trả về SAU khi
+ *          chấm (/api/grade) và cho hint (1 bẫy) qua /api/hint. KHÔNG nằm trong
+ *          payload generate-practice nữa (ROOT A hardening 2026-07-04).
+ */
+interface IssuedContext {
+  src?: string;
+  ca?: ChoiceAnalysis[];
+}
+
+function encodeContext(ctx: IssuedContext): string | null {
+  const clean: IssuedContext = {};
+  if (ctx.src) clean.src = ctx.src;
+  if (Array.isArray(ctx.ca) && ctx.ca.length > 0) clean.ca = ctx.ca;
+  return Object.keys(clean).length > 0 ? JSON.stringify(clean) : null;
+}
+
+function decodeContext(raw: string | null | undefined): IssuedContext {
+  if (!raw) return {};
+  try {
+    const obj = JSON.parse(raw);
+    if (obj && typeof obj === 'object') return obj as IssuedContext;
+  } catch {
+    // Row cũ có thể lưu context dạng chuỗi thô (vd 'golden_hour') → coi như src.
+    return { src: raw };
+  }
+  return {};
+}
+
 export async function issueQuestion(
   userId: string,
   correctChoice: string,
   skillId: string | undefined,
   difficulty: string | undefined,
-  context?: string
+  opts?: { src?: string; choiceAnalysis?: ChoiceAnalysis[] }
 ): Promise<string | null> {
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -15,7 +53,7 @@ export async function issueQuestion(
       correct_choice: correctChoice,
       skill_id: skillId ?? null,
       difficulty: difficulty ?? 'Medium',
-      context: context ?? null,
+      context: encodeContext({ src: opts?.src, ca: opts?.choiceAnalysis }),
     })
     .select('id')
     .single();
@@ -32,6 +70,8 @@ export interface GradeResult {
   correctChoice: string;
   skillId: string | null;
   difficulty: string;
+  /** choice_analysis đầy đủ — chỉ trả về sau khi chấm (không lộ trước lúc nộp). */
+  choiceAnalysis: ChoiceAnalysis[] | null;
 }
 
 export async function gradeAnswer(
@@ -42,7 +82,7 @@ export async function gradeAnswer(
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('issued_questions')
-    .select('correct_choice, skill_id, difficulty, user_id, answered')
+    .select('correct_choice, skill_id, difficulty, user_id, answered, context')
     .eq('id', questionId)
     .single();
 
@@ -71,5 +111,32 @@ export async function gradeAnswer(
     correctChoice: data.correct_choice,
     skillId: data.skill_id,
     difficulty: data.difficulty ?? 'Medium',
+    choiceAnalysis: decodeContext(data.context).ca ?? null,
   };
+}
+
+/**
+ * Lấy 1 GỢI Ý LOẠI TRỪ (hint cấp 2): trả về MỘT đáp án SAI + phân tích bẫy của
+ * nó, KHÔNG lộ đáp án đúng. Verify quyền sở hữu; câu chưa nộp mới cho hint.
+ * Không có choice_analysis (golden_hour / bank cũ) → null → client fallback text.
+ */
+export async function getHintTrap(
+  questionId: string,
+  userId: string
+): Promise<{ choice_letter: string; analysis: string } | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('issued_questions')
+    .select('user_id, answered, context')
+    .eq('id', questionId)
+    .single();
+
+  if (error || !data) return null;
+  if (data.user_id !== userId) return null;
+  if (data.answered) return null; // đã nộp thì không cần hint
+
+  const ca = decodeContext(data.context).ca;
+  const trap = ca?.find((c) => !c.is_correct);
+  if (!trap) return null;
+  return { choice_letter: trap.choice_letter, analysis: trap.analysis };
 }
