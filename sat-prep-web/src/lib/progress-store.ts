@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
  * ============================================================================
@@ -53,8 +54,8 @@ export async function loadProgressRaw(userId: string): Promise<string | null> {
  */
 export async function saveProgressRaw(userId: string, dataJson: string): Promise<boolean> {
   try {
-    const supabase = await createClient();
-    const { error } = await supabase
+    const admin = createAdminClient();
+    const { error } = await admin
       .from('user_progress')
       .upsert({ user_id: userId, data_json: dataJson, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
     if (error) {

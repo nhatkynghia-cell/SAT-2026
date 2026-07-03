@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { GATES_KEY, type GateProgress, type GateResult } from './gate-exam';
 
 /**
@@ -39,8 +40,7 @@ export async function saveGateResult(
   // ⚠️ Bảo vệ chống MẤT DỮ LIỆU: upsert thay TOÀN BỘ cột `skills`. Nếu read lỗi
   // (kể cả "no rows" PGRST116) mà ta vẫn ghi với skills={...} thì sẽ XÓA SẠCH
   // mastery thật. User đủ điều kiện thi cổng LUÔN đã có dòng mastery (avg>=40),
-  // nên bất kỳ lỗi read nào → bail, KHÔNG ghi. (POST đã re-check eligibility nên
-  // user chưa có dòng sẽ bị 403 trước khi tới đây.)
+  // nên bất kỳ lỗi read nào → bail, KHÔNG ghi.
   if (readError) {
     console.error('saveGateResult: read lỗi, hủy ghi để tránh xóa mastery:', readError);
     return;
@@ -53,14 +53,13 @@ export async function saveGateResult(
     passed: result.passed,
     lastAttempt: new Date().toISOString(),
     score: result.score,
-    // Trượt → reset về 0 (phải luyện lại đủ RETRY_CORRECT_NEEDED câu mới thi lại).
-    // Pass → field không còn được đọc (isRetryAllowed/bump no-op khi passed).
     correctSinceFail: 0,
   };
 
   skills[GATES_KEY] = gates;
 
-  const { error } = await supabase
+  const admin = createAdminClient();
+  const { error } = await admin
     .from('user_mastery')
     .upsert(
       { user_id: userId, skills, updated_at: new Date().toISOString() },

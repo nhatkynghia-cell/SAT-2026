@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { DEFAULT_ECONOMY, type EconomyState } from './economy';
 
 /**
@@ -32,10 +33,9 @@ export async function loadEconomy(userId: string): Promise<EconomyState> {
 }
 
 export async function saveEconomy(userId: string, state: EconomyState): Promise<void> {
-  const supabase = await createClient();
+  const admin = createAdminClient();
 
-  // Upsert dữ liệu kinh tế (nếu chưa có thì insert, có rồi thì update)
-  const { error } = await supabase
+  const { error } = await admin
     .from('user_economy')
     .upsert({
       user_id: userId,
@@ -43,7 +43,6 @@ export async function saveEconomy(userId: string, state: EconomyState): Promise<
       xp: state.xp,
       inventory: state.inventory,
       last_spin_date: state.lastSpinDate,
-      // Không ghi đè các cột gamification phụ nếu chúng đã có
     }, { onConflict: 'user_id' });
 
   if (error) {
@@ -109,8 +108,8 @@ export async function loadPvpState(userId: string): Promise<PvpState | null> {
  * Trả false nếu ghi lỗi (route sẽ không leo rank ảo).
  */
 export async function savePvpState(userId: string, pvp: PvpState): Promise<boolean> {
-  const supabase = await createClient();
-  const { error } = await supabase
+  const admin = createAdminClient();
+  const { error } = await admin
     .from('user_economy')
     .update({
       pvp_rank: pvp.pvpRank,
@@ -157,13 +156,15 @@ export interface PvpConsumeResult {
  * ============================================================================
  */
 export async function tryConsumePvpFightAtomic(
+  userId: string,
   targetRank: number,
   won: boolean,
   today: string,
   maxFights: number
 ): Promise<PvpConsumeResult | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc('consume_pvp_fight', {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('consume_pvp_fight', {
+    p_user_id: userId,
     p_target_rank: targetRank,
     p_won: won,
     p_today: today,

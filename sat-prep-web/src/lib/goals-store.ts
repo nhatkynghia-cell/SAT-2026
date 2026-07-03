@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import type { GoalData } from './score-prediction';
 
 /**
@@ -23,8 +24,8 @@ export async function loadGoal(userId: string): Promise<GoalData | null> {
 }
 
 export async function saveGoal(userId: string, goal: GoalData): Promise<void> {
-  const supabase = await createClient();
-  const { error } = await supabase
+  const admin = createAdminClient();
+  const { error } = await admin
     .from('user_goals')
     .upsert(
       { user_id: userId, target_score: goal.targetScore, updated_at: goal.updatedAt },

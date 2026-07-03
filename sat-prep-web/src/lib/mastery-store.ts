@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import type { MasteryStore } from './mastery';
 
 /**
@@ -24,8 +25,8 @@ export async function loadMastery(userId: string): Promise<MasteryStore> {
 }
 
 export async function saveMastery(userId: string, store: MasteryStore): Promise<void> {
-  const supabase = await createClient();
-  const { error } = await supabase
+  const admin = createAdminClient();
+  const { error } = await admin
     .from('user_mastery')
     .upsert(
       { user_id: userId, skills: store.skills, updated_at: new Date().toISOString() },

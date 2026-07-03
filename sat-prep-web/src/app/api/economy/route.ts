@@ -189,6 +189,7 @@ export async function POST(req: Request) {
       // FAIL-SAFE: RPC chưa có (pre-migration) → null → fallback đường non-atomic
       // cũ (0 regression tới khi user chạy atomic_mutations.sql).
       const consumed = await tryConsumePvpFightAtomic(
+        user.id,
         targetRank,
         fight.won,
         today,

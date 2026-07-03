@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
  * ============================================================================
@@ -73,14 +74,9 @@ export async function loadLedger(): Promise<CostLedger> {
  * FAIL-SAFE: lỗi ghi / bảng chưa có → no-op (KHÔNG chặn luồng gọi AI).
  */
 export async function recordCost(tokensIn: number, tokensOut: number, costUsd: number): Promise<void> {
-  const supabase = await createClient();
+  const admin = createAdminClient();
 
-  // Đường ATOMIC (audit 2026-07-03, ROOT C): 1 upsert `x = x + n` ở DB thay cho
-  // đọc-rồi-ghi → 2 AI call đồng thời KHÔNG ghi đè nhau → trần ngân sách chính xác.
-  // Hàm SQL commit atomic: lỗi = KHÔNG ghi gì → fallback bên dưới an toàn (không
-  // double-count). FAIL-SAFE: hàm chưa tồn tại (pre-migration, 42883/PGRST202) →
-  // fallback về đường đọc-sửa-ghi cũ = 0 regression.
-  const { error: rpcError } = await supabase.rpc('increment_ai_cost_ledger', {
+  const { error: rpcError } = await admin.rpc('increment_ai_cost_ledger', {
     p_date: today(),
     p_tokens_in: tokensIn,
     p_tokens_out: tokensOut,
@@ -88,20 +84,15 @@ export async function recordCost(tokensIn: number, tokensOut: number, costUsd: n
   });
   if (!rpcError) return;
 
-  // Review ROOT C (2026-07-03): CHỈ fallback khi hàm CHƯA tồn tại (pre-migration:
-  // PGRST202 = function not found trong schema cache / 42883 = undefined_function).
-  // Với lỗi KHÁC (vd RPC đã commit ở DB nhưng mất response do timeout mạng) →
-  // KHÔNG chạy fallback đọc-sửa-ghi (sẽ +1 lần nữa lên dòng đã tăng = double-count).
-  // Bỏ qua lần ghi này an toàn hơn double-write; đồng bộ với ai-usage/economy store.
   if (rpcError.code !== '42883' && rpcError.code !== 'PGRST202') {
     console.error('increment_ai_cost_ledger RPC lỗi (KHÔNG fallback, tránh double-count):', rpcError.message);
     return;
   }
 
-  // ── Fallback đọc-sửa-ghi (CHỈ pre-migration: hàm chưa tồn tại) ──
+  // Fallback đọc-sửa-ghi (CHỈ pre-migration: hàm chưa tồn tại)
   try {
     const current = await loadLedger();
-    const { error } = await supabase
+    const { error } = await admin
       .from('ai_cost_ledger')
       .upsert(
         {

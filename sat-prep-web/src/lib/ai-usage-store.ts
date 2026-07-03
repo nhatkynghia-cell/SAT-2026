@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
  * ============================================================================
@@ -43,9 +44,10 @@ export async function loadUsage(userId: string): Promise<UsageRecord> {
  * (pre-migration: 42883/PGRST202) hoặc lỗi → caller FALLBACK về load-modify-save
  * cũ = 0 regression. Hàm SQL commit atomic nên lỗi = KHÔNG ghi gì → không double.
  */
-export async function incrementUsageAtomic(date: string, tokensIn: number, tokensOut: number): Promise<boolean> {
-  const supabase = await createClient();
-  const { error } = await supabase.rpc('increment_ai_usage', {
+export async function incrementUsageAtomic(userId: string, date: string, tokensIn: number, tokensOut: number): Promise<boolean> {
+  const admin = createAdminClient();
+  const { error } = await admin.rpc('increment_ai_usage', {
+    p_user_id: userId,
     p_date: date,
     p_tokens_in: tokensIn,
     p_tokens_out: tokensOut,
@@ -62,8 +64,8 @@ export async function incrementUsageAtomic(date: string, tokensIn: number, token
 }
 
 export async function saveUsage(userId: string, rec: UsageRecord): Promise<void> {
-  const supabase = await createClient();
-  const { error } = await supabase
+  const admin = createAdminClient();
+  const { error } = await admin
     .from('user_ai_usage')
     .upsert(
       {

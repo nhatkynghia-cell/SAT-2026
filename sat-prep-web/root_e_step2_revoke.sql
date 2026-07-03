@@ -1,0 +1,40 @@
+-- ============================================================================
+-- ROOT E — Step 2: REVOKE quyền ghi của authenticated trên bảng server-authoritative
+-- ============================================================================
+-- ⚠️ CHỈ CHẠY SAU KHI:
+--   (1) Code mới (dùng service-role admin client) đã deploy THÀNH CÔNG.
+--   (2) Soak 24–48h xác nhận app ghi bình thường qua service-role.
+--   (3) Log KHÔNG có lỗi "permission denied" / fallback.
+--
+-- SAU KHI CHẠY: browser PATCH thẳng DB → 403/42501. App vẫn ghi qua API
+-- (service-role bỏ qua RLS+grant). Rollback: re-GRANT bên dưới.
+-- ============================================================================
+
+-- Khóa ghi trực tiếp của role authenticated trên các bảng server-authoritative
+REVOKE INSERT, UPDATE, DELETE ON user_economy FROM authenticated;
+REVOKE INSERT, UPDATE, DELETE ON user_mastery FROM authenticated;
+REVOKE INSERT, UPDATE, DELETE ON user_ai_usage FROM authenticated;
+REVOKE INSERT, UPDATE, DELETE ON ai_cost_ledger FROM authenticated;
+REVOKE INSERT, UPDATE, DELETE ON user_progress FROM authenticated;
+REVOKE INSERT, UPDATE, DELETE ON user_goals FROM authenticated;
+
+-- Khóa RPC nhạy cảm (client không được gọi trực tiếp)
+REVOKE EXECUTE ON FUNCTION consume_pvp_fight(uuid, int, boolean, text, int) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION increment_ai_usage(uuid, text, int, int) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION increment_ai_cost_ledger(text, int, int, numeric) FROM authenticated;
+
+-- GIỮ SELECT cho authenticated (client cần đọc số dư/mastery/progress)
+-- (Đã có sẵn từ RLS policy using(auth.uid()=user_id) — chỉ cần KHÔNG revoke SELECT)
+
+-- ============================================================================
+-- ROLLBACK (nếu cần khôi phục quyền ghi cho authenticated — quay về trước step2)
+-- ============================================================================
+-- GRANT INSERT, UPDATE, DELETE ON user_economy TO authenticated;
+-- GRANT INSERT, UPDATE, DELETE ON user_mastery TO authenticated;
+-- GRANT INSERT, UPDATE, DELETE ON user_ai_usage TO authenticated;
+-- GRANT INSERT, UPDATE, DELETE ON ai_cost_ledger TO authenticated;
+-- GRANT INSERT, UPDATE, DELETE ON user_progress TO authenticated;
+-- GRANT INSERT, UPDATE, DELETE ON user_goals TO authenticated;
+-- GRANT EXECUTE ON FUNCTION consume_pvp_fight(uuid, int, boolean, text, int) TO authenticated;
+-- GRANT EXECUTE ON FUNCTION increment_ai_usage(uuid, text, int, int) TO authenticated;
+-- GRANT EXECUTE ON FUNCTION increment_ai_cost_ledger(text, int, int, numeric) TO authenticated;
