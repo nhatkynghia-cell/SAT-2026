@@ -4,7 +4,8 @@ export async function issueQuestion(
   userId: string,
   correctChoice: string,
   skillId: string | undefined,
-  difficulty: string | undefined
+  difficulty: string | undefined,
+  context?: string
 ): Promise<string | null> {
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -14,6 +15,7 @@ export async function issueQuestion(
       correct_choice: correctChoice,
       skill_id: skillId ?? null,
       difficulty: difficulty ?? 'Medium',
+      context: context ?? null,
     })
     .select('id')
     .single();
@@ -48,12 +50,12 @@ export async function gradeAnswer(
   if (data.user_id !== userId) return null;
   if (data.answered) return null;
 
+  const correct = userAnswer.trim()[0]?.toUpperCase() === data.correct_choice.trim()[0]?.toUpperCase();
+
   await admin
     .from('issued_questions')
-    .update({ answered: true })
+    .update({ answered: true, was_correct: correct })
     .eq('id', questionId);
-
-  const correct = userAnswer.trim()[0]?.toUpperCase() === data.correct_choice.trim()[0]?.toUpperCase();
 
   return {
     correct,
