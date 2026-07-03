@@ -214,6 +214,20 @@ Khi sửa đổi mã nguồn Python của dự án này, bất kỳ Agent nào c
 > **🧹 Dữ liệu test:** account `truongsonht.xd@gmail.com` có +vài row mastery/coins từ verify (đã dọn hết `issued_questions` seed + reset quota AI hôm nay). ROOT E step2: 2026-07-04 CHƯA tới hạn soak 5-6/7 → chưa chạy revoke.
 
 > [!IMPORTANT]
+> ### 💳 PHASE 2 — TIER FOUNDATION XONG (2026-07-04, commit `fd4d877` pushed origin/main)
+> **Quyết định user 2026-07-04:** thanh toán Combo **VNPay + MoMo**; thứ tự build **(1) tier foundation → (2) gateway → (3) reward-to-real**; gate quyền lợi phiên này **CHỈ AI quota**; billing **Monthly + Yearly**.
+>
+> **✅ Bước 1 XONG:** `src/lib/subscription.ts` (THUẦN: `PaidTier` premium/ultimate, `BillingPeriod` monthly/yearly, `PLANS` 4 tổ hợp, `computeExpiry`/`isActive`/`resolveTier`, +7 test) + `subscription-store.ts` (`getActiveSubscription` ĐỌC RLS, `getUserTier` **fail-safe→'free'**, `grantSubscription` GHI admin service-role — cho webhook thanh toán gọi sau) + `user_subscriptions.sql`. Wire: `chat` + `generate-practice` thay hardcode `tier:'free'` → `await getUserTier(user.id)`. (Type `AiTier`+`DAILY_LIMITS` free=5/premium+ultimate=-1 unlimited đã có sẵn trong ai-quota.ts.)
+>
+> **🔴 BẢO MẬT — RLS bảng `user_subscriptions` CHỈ có policy SELECT** (KHÔNG insert/update/delete cho authenticated) → user KHÔNG tự cấp gói premium (faucet quyền lợi kiểu ROOT E). GHI chỉ service-role.
+>
+> **⚠️ Claude ĐÃ TẠO bảng `user_subscriptions` trên PROD DB** (direct pg connect, idempotent, additive, INERT vì chưa route nào GHI + free fail-safe) → **user KHÔNG cần chạy SQL**. **⚠️ GIÁ trong PLANS là PLACEHOLDER** (premium 99k/990k, ultimate 199k/1990k VND) — CHỐT với user TRƯỚC khi nối cổng thanh toán.
+>
+> **Verify live:** tier matrix — free @ cap5→429; premium→200 câu AI (bypass cap); expired→'free'→429. RLS: pg_policies chỉ SELECT. Dọn test data + temp script. Gates: tsc·test **134/134**·lint 0/0·build 47 pages.
+>
+> **⏳ TIẾP (cần USER):** Bước 2 gateway VNPay/MoMo — cần **credentials merchant/sandbox** mới verify live được (payment-create dùng giá từ PLANS + webhook idempotent verify chữ ký server-side → gọi `grantSubscription`; nên có bảng `payment_transactions` idempotency). Bước 3 reward-to-real: redeem voucher 50000 xu (đã có trong shop `GamificationContext.tsx:39`) qua `applySpend` + bản ghi fulfillment. Chi tiết: memory Claude `sat-prep-phase2-payments.md`.
+
+> [!IMPORTANT]
 > ### ✅ AUTHENTICATED VERIFY XONG (2026-07-03) — persist Supabase THẬT + 2 nợ cũ ĐÓNG (login browser dev server)
 > **Cách verify:** dev server local (`preview_start`, port 3000) trỏ CÙNG prod Supabase qua `.env.local` → login browser Claude điều khiển bằng account `truongsonht.xd@gmail.com` (pass user cấp phiên này) → cookie `sb-...-auth-token` set OK, `/api/economy` GET 200 coins 160/xp 400, mastery overall 11/18 skill (state cũ từ phiên trước). Prod tách biệt session nên PHẢI login trên browser-của-Claude, không mượn được session prod của user.
 >
