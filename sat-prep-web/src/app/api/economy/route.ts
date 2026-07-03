@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { loadEconomy, saveEconomy, loadPvpState, savePvpState, tryConsumePvpFightAtomic } from '@/lib/economy-store';
+import { loadEconomy, saveEconomy, loadPvpState, savePvpState, tryConsumePvpFightAtomic, loadQuestClaims, saveQuestClaim } from '@/lib/economy-store';
 import { getMasterySummary } from '@/lib/mastery';
 import { computeStats } from '@/lib/stats';
 import { PVP_OPPONENTS } from '@/helpers/pvp';
@@ -76,11 +76,19 @@ export async function POST(req: Request) {
     }
 
     if (action === 'quest') {
-      // Phần thưởng NHẬN nhiệm vụ: server tra QUEST_REWARD theo questId.
-      // Client chỉ gửi questId, KHÔNG gửi số xu/XP (trước đây client tự gửi
-      // q.xp/q.coins từ state client → bơm tùy ý). questId lạ → 0 (§9.1).
       const questId = typeof body.questId === 'string' ? body.questId : '';
+      const today = todayStr();
+      const claimed = await loadQuestClaims(user.id, today);
+      if (claimed.includes(questId)) {
+        return NextResponse.json(
+          { success: false, error: 'Quest đã nhận hôm nay', code: 'ALREADY_CLAIMED' },
+          { status: 409 }
+        );
+      }
       const { state: next, granted } = applyQuestReward(state, questId);
+      if (granted.coins > 0 || granted.xp > 0) {
+        await saveQuestClaim(user.id, today, questId);
+      }
       await saveEconomy(user.id, next);
       return NextResponse.json({ success: true, granted, state: next });
     }

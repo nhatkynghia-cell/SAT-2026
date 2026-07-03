@@ -52,6 +52,50 @@ export async function saveEconomy(userId: string, state: EconomyState): Promise<
 
 /**
  * ============================================================================
+ *  QUEST CLAIMS — chống double-claim (ROOT B, audit 2026-07-03)
+ * ============================================================================
+ *  Cột `quest_claims jsonb` trong user_economy: { "2026-07-03": ["q1","q3"] }
+ *  Lưu danh sách questId đã claim THEO NGÀY (quest reset hằng ngày ở client).
+ *  loadQuestClaims trả mảng questId đã claim hôm nay; saveQuestClaim ghi thêm 1.
+ * ============================================================================
+ */
+
+export async function loadQuestClaims(userId: string, today: string): Promise<string[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('user_economy')
+    .select('quest_claims')
+    .eq('user_id', userId)
+    .single();
+
+  if (error || !data?.quest_claims) return [];
+  const claims = data.quest_claims as Record<string, string[]>;
+  return Array.isArray(claims[today]) ? claims[today] : [];
+}
+
+export async function saveQuestClaim(userId: string, today: string, questId: string): Promise<void> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from('user_economy')
+    .select('quest_claims')
+    .eq('user_id', userId)
+    .single();
+
+  const claims = (data?.quest_claims ?? {}) as Record<string, string[]>;
+  if (!Array.isArray(claims[today])) claims[today] = [];
+  claims[today].push(questId);
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('user_economy')
+    .update({ quest_claims: claims })
+    .eq('user_id', userId);
+
+  if (error) console.error('saveQuestClaim error:', error.message);
+}
+
+/**
+ * ============================================================================
  *  PvP STATE (server-authoritative, tách RIÊNG khỏi coins) — anti-faucet
  * ============================================================================
  *  Rank + bộ đếm trận/ngày sống ở cột `user_economy.pvp_*` (migration
