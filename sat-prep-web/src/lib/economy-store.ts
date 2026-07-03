@@ -216,10 +216,11 @@ export async function tryConsumePvpFightAtomic(
   });
 
   if (error) {
-    if (error.code !== '42883' && error.code !== 'PGRST202') {
-      console.error('consume_pvp_fight RPC lỗi (fallback non-atomic):', error.message);
+    if (error.code === '42883' || error.code === 'PGRST202') {
+      return null; // pre-migration: fallback to non-atomic path
     }
-    return null; // pre-migration hoặc lỗi → route fallback
+    console.error('consume_pvp_fight RPC lỗi (fail-closed, KHÔNG fallback):', error.message);
+    return { ok: false, reason: 'rpc_error', pvpRank: 0, fightsToday: 0 };
   }
 
   // data là jsonb {ok, reason, pvpRank, fightsToday}

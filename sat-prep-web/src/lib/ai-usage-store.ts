@@ -53,12 +53,11 @@ export async function incrementUsageAtomic(userId: string, date: string, tokensI
     p_tokens_out: tokensOut,
   });
   if (error) {
-    // Không log ồn ào cho trường hợp pre-migration (hàm chưa có) — đó là fallback
-    // có chủ đích. Chỉ log khi là lỗi khác để dễ soi.
-    if (error.code !== '42883' && error.code !== 'PGRST202') {
-      console.error('increment_ai_usage RPC lỗi (fallback load-modify-save):', error.message);
+    if (error.code === '42883' || error.code === 'PGRST202') {
+      return false; // pre-migration: fallback to load-modify-save
     }
-    return false;
+    console.error('increment_ai_usage RPC lỗi (fail-closed, KHÔNG fallback):', error.message);
+    return true; // fail-closed: pretend success to SKIP non-atomic fallback
   }
   return true;
 }
