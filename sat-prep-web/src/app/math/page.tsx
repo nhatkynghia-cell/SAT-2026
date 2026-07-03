@@ -16,14 +16,13 @@ interface MathLesson {
   sample_example: string;
   practice_question: string;
   choices: string[];
-  correct_choice: string;
+  correct_choice?: string;
   explanation: string;
   difficulty: string;
   trapRate: number;
-  /** skillId từ skill-taxonomy (task #9) — optional, do API gắn kèm. */
   skillId?: string;
-  /** Phân tích từng đáp án (Nhóm 7 #9) — optional: câu cũ trong bank chưa có. */
   choice_analysis?: { choice_letter: string; is_correct: boolean; analysis: string }[];
+  questionId?: string;
 }
 
 interface ChatMessage {
@@ -49,6 +48,7 @@ export default function MathPage() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [revealedCorrectChoice, setRevealedCorrectChoice] = useState<string | null>(null);
 
   // Chat States
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -125,11 +125,27 @@ export default function MathPage() {
     setIsLoading(false);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedAnswer || !lessonData) return;
     setIsSubmitted(true);
 
-    const isAnsCorrect = selectedAnswer.trim()[0].toUpperCase() === lessonData.correct_choice.trim()[0].toUpperCase();
+    let isAnsCorrect: boolean;
+    if (lessonData.questionId) {
+      const res = await fetch("/api/grade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questionId: lessonData.questionId, answer: selectedAnswer }),
+      });
+      if (res.ok) {
+        const grade = await res.json();
+        isAnsCorrect = grade.correct;
+        setRevealedCorrectChoice(grade.correctChoice);
+      } else {
+        isAnsCorrect = selectedAnswer.trim()[0].toUpperCase() === (lessonData.correct_choice ?? '').trim()[0]?.toUpperCase();
+      }
+    } else {
+      isAnsCorrect = selectedAnswer.trim()[0].toUpperCase() === (lessonData.correct_choice ?? '').trim()[0]?.toUpperCase();
+    }
     setIsCorrect(isAnsCorrect);
 
     // Ghi nhận kết quả vào Mastery (task #9) — chỉ khi câu có skillId.
@@ -245,7 +261,7 @@ export default function MathPage() {
     
     // Skill: Nhãn Thuật Desmos removes one wrong answer
     if (activeSkills.desmos && !isSubmitted) {
-      const correctPrefix = lessonData!.correct_choice.trim()[0].toUpperCase();
+      const correctPrefix = (revealedCorrectChoice ?? lessonData!.correct_choice ?? '').trim()[0]?.toUpperCase() ?? '';
       const wrongIndices = choicesToShow.map((c, i) => c.trim()[0].toUpperCase() !== correctPrefix ? i : -1).filter(i => i !== -1);
       if (wrongIndices.length > 0) {
         const newChoices = [...choicesToShow];
@@ -261,7 +277,7 @@ export default function MathPage() {
       let choiceClass = "bg-[#1b2533] border-[#334155] text-[#e2e8f0]";
       if (isEliminated) choiceClass = "bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed opacity-50";
       else if (isSubmitted) {
-        const isThisChoiceCorrect = choice.trim()[0].toUpperCase() === lessonData!.correct_choice.trim()[0].toUpperCase();
+        const isThisChoiceCorrect = choice.trim()[0].toUpperCase() === (revealedCorrectChoice ?? lessonData!.correct_choice ?? '').trim()[0]?.toUpperCase();
         if (isThisChoiceCorrect) choiceClass = "bg-[#064e3b] border-[#10b981] text-[#34d399]";
         else if (isSelected) choiceClass = "bg-[#7f1d1d] border-[#ef4444] text-[#fca5a5]";
       } else if (isSelected) {
