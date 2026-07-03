@@ -1,11 +1,16 @@
 'use client';
 
+import { useState } from 'react';
 import { useGamification, ITEM_CATALOG } from '@/context/GamificationContext';
 import { useToast } from '@/context/ToastContext';
 
 export default function ShopPage() {
-  const { coins, buyItem } = useGamification();
+  const { coins, buyItem, redeemReward } = useGamification();
   const { showToast } = useToast();
+
+  // Quà THẬT cần xác nhận (đổi xong không hoàn) + tránh double-click khi đang gọi API.
+  const [confirmReward, setConfirmReward] = useState<{ id: string; name: string; price: number } | null>(null);
+  const [redeeming, setRedeeming] = useState(false);
 
   const handleBuyItem = (price: number, name: string, id: string) => {
     const success = buyItem(id, price);
@@ -16,9 +21,18 @@ export default function ShopPage() {
     }
   };
 
+  const handleConfirmRedeem = async () => {
+    if (!confirmReward || redeeming) return;
+    setRedeeming(true);
+    const result = await redeemReward(confirmReward.id);
+    setRedeeming(false);
+    setConfirmReward(null);
+    showToast(result.success ? `🎟️ ${result.message}` : `❌ ${result.message}`, result.success ? 'success' : 'error');
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700 relative pb-20">
-      
+
       {/* Header */}
       <div className="math-academy-header epic-shake-active" style={{ background: "linear-gradient(135deg, #14532d 0%, #064e3b 100%)" }}>
         <div className="math-title-container">
@@ -36,20 +50,69 @@ export default function ShopPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {ITEM_CATALOG.map((item, idx) => (
-          <div key={idx} className={`bg-[#1b2533] border border-[#262730] rounded-xl p-6 text-center hover:border-[#fbbf24] transition-all group ${item.effectClass || ''}`}>
-            <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">{item.icon}</div>
-            <h3 className="text-lg font-bold text-white mb-2">{item.name}</h3>
-            <p className="text-[#94a3b8] text-sm mb-6 h-10">Loại: {item.type.toUpperCase()}</p>
-            <button 
-              onClick={() => handleBuyItem(item.price, item.name, item.id)}
-              className="w-full bg-[#fbbf24] hover:bg-[#f59e0b] text-[#78350f] font-bold py-2 rounded transition-colors flex justify-center items-center gap-2"
-            >
-              Mua ngay: {item.price} 💰
-            </button>
-          </div>
-        ))}
+        {ITEM_CATALOG.map((item, idx) => {
+          const isReward = item.type === 'reward';
+          return (
+            <div key={idx} className={`bg-[#1b2533] border border-[#262730] rounded-xl p-6 text-center hover:border-[#fbbf24] transition-all group ${item.effectClass || ''}`}>
+              <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">{item.icon}</div>
+              <h3 className="text-lg font-bold text-white mb-2">{item.name}</h3>
+              <p className="text-[#94a3b8] text-sm mb-6 h-10">
+                {isReward ? '🎁 QUÀ THẬT — đổi bằng Xu (nhận sau khi duyệt)' : `Loại: ${item.type.toUpperCase()}`}
+              </p>
+              {isReward ? (
+                <button
+                  onClick={() => setConfirmReward({ id: item.id, name: item.name, price: item.price })}
+                  className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-bold py-2 rounded transition-colors flex justify-center items-center gap-2"
+                >
+                  Đổi quà: {item.price} 💰
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleBuyItem(item.price, item.name, item.id)}
+                  className="w-full bg-[#fbbf24] hover:bg-[#f59e0b] text-[#78350f] font-bold py-2 rounded transition-colors flex justify-center items-center gap-2"
+                >
+                  Mua ngay: {item.price} 💰
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
+
+      {/* Xác nhận đổi quà THẬT — hành động không hoàn lại */}
+      {confirmReward && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#1b2533] border-2 border-emerald-500 rounded-2xl p-8 max-w-md mx-4 shadow-[0_0_40px_#10b981]">
+            <div className="text-4xl text-center mb-4">🎟️</div>
+            <h3 className="text-xl font-black text-white text-center mb-2">Xác nhận đổi quà thật</h3>
+            <p className="text-[#94a3b8] text-center mb-2">
+              Đổi <span className="text-emerald-400 font-bold">{confirmReward.name}</span>
+            </p>
+            <p className="text-center mb-6">
+              <span className="text-[#fbbf24] font-black text-lg">{confirmReward.price} 💰</span>
+              <span className="text-[#94a3b8] text-sm block mt-1">
+                Xu sẽ bị trừ ngay; phiếu đổi sẽ được đội ngũ xử lý thủ công. Hành động không thể hoàn lại.
+              </span>
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmReward(null)}
+                disabled={redeeming}
+                className="flex-1 bg-[#334155] hover:bg-[#475569] text-white font-bold py-2 rounded transition-colors disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleConfirmRedeem}
+                disabled={redeeming}
+                className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-bold py-2 rounded transition-colors disabled:opacity-50 flex justify-center items-center gap-2"
+              >
+                {redeeming ? 'Đang đổi...' : 'Xác nhận đổi'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

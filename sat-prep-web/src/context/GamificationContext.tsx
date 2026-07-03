@@ -126,6 +126,10 @@ type GamificationState = {
   incrementCorrectAnswers: () => void;
   spinDailyWheel: () => Promise<{ success: boolean, message: string, rewardType: string }>;
   buyItem: (itemId: string, price: number) => boolean;
+  // 🔴 Đổi xu lấy quà THẬT (Phase 2 Bước 3): server tra REWARDS lấy giá + trừ xu
+  // ATOMIC + tạo phiếu fulfillment (/api/redeem). Client CHỈ gửi rewardId, KHÔNG
+  // gửi số xu; đồng bộ số dư MỚI từ server. Trả kết quả để UI hiện toast.
+  redeemReward: (rewardId: string) => Promise<{ success: boolean; message: string }>;
   spendCoins: (amount: number) => boolean;
   toggleBookmark: (questionId: string) => void;
   upgradeItem: (instanceId: string) => { success: boolean, message: string };
@@ -394,6 +398,32 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     return false;
   };
 
+  // 🔴 Đổi xu lấy quà THẬT (Phase 2 Bước 3). KHÁC buyItem (item ẢO, optimistic):
+  // quà thật trừ xu ATOMIC ở server + tạo phiếu fulfillment. Client KHÔNG tự trừ
+  // (không optimistic) — chờ server xác nhận rồi đồng bộ số dư MỚI từ response.
+  const redeemReward = async (rewardId: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      const res = await fetch('/api/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rewardId }),
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        // Đồng bộ số dư MỚI từ server (server-authoritative — không tự trừ).
+        if (typeof data.coins === 'number') {
+          setUserStats(prev => ({ ...prev, coins: data.coins }));
+        }
+        return { success: true, message: data.message ?? 'Đổi quà thành công!' };
+      }
+      return { success: false, message: data?.error ?? 'Không thể đổi quà lúc này.' };
+    } catch (e) {
+      console.error('Failed to redeem reward', e);
+      return { success: false, message: 'Lỗi kết nối, vui lòng thử lại sau.' };
+    }
+  };
+
   // 🔴 Trừ xu qua server (§9.1): optimistic deduct cục bộ để UI phản hồi ngay +
   // giữ chữ ký sync (boolean), rồi POST 'spend' và đồng bộ lại coins từ server.
   // Spend KHÔNG phải vector cheat (chỉ tiêu được xu đang có) nên optimistic an toàn.
@@ -588,7 +618,7 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
 
       unlockedBadges,
 
-      incrementCorrectAnswers, registerGradedResult, syncServerEconomy, spinDailyWheel, buyItem, spendCoins, toggleBookmark, upgradeItem, fightPvP, equipPet,
+      incrementCorrectAnswers, registerGradedResult, syncServerEconomy, spinDailyWheel, buyItem, redeemReward, spendCoins, toggleBookmark, upgradeItem, fightPvP, equipPet,
       updateQuestProgress, claimQuest,
       soundEnabled, setSoundEnabled, focusMode, setFocusMode,
       hideBanner, setHideBanner, learningMode, setLearningMode,
