@@ -195,9 +195,23 @@ Khi sửa đổi mã nguồn Python của dự án này, bất kỳ Agent nào c
 > **✅ ROOT D — DONE** (await accounting, phiên trước).
 > **✅ Rate-limit** — economy 20/min + mastery 30/min per user.
 >
-> **🟢 KẾT LUẬN: AN TOÀN GẮN TIỀN THẬT** (sau step2 REVOKE ngày 5-6/7). Mọi bề mặt money/anti-cheat đã đóng.
+> **🟡 KẾT LUẬN (ĐÃ SỬA 2026-07-04): "AN TOÀN GẮN TIỀN" TRƯỚC ĐÓ SAI ở đường thưởng luyện tập.** Xem block "🔴 ROOT A REWARD HOLE" ngay dưới — ROOT A chấm server-side nhưng coins/XP/mastery vẫn tin client `isCorrect` → faucet (đã VÁ phiên 2026-07-04). Còn 1 bề mặt tiền hở: đường THI (`action:'exam'`) tin `correctCount` client (chưa vá).
 >
-> **📋 PHASE 2 — TIẾP THEO:** Thanh toán (VNPay/MoMo/Stripe) + Subscription tier + Parent Dashboard + Diagnostic Onboarding + Beta Launch 100 users.
+> **📋 PHASE 2 — TIẾP THEO:** Thanh toán (Combo VNPay+MoMo — user chọn 2026-07-04) + Subscription tier + Parent Dashboard + Diagnostic Onboarding + Beta Launch 100 users.
+
+> [!IMPORTANT]
+> ### 🔴 ROOT A REWARD HOLE — PHÁT HIỆN + VÁ (phiên 2026-07-04, 2 commit pushed origin/main)
+> **Bối cảnh:** phiên này verify ROOT A (authenticated browser, dev server → prod Supabase, account test) → happy-path CHẠY (sinh câu → chấm /api/grade → highlight → thưởng) NHƯNG phát hiện **chấm server-side CHỈ để tô màu UI**; coins/XP/mastery vẫn cộng theo `isCorrect` client gửi. **Chứng minh live:** POST `/api/economy {action:'answer',isCorrect:true,difficulty:'Hard'}` KHÔNG trả lời câu nào → +30 xu/+150 XP. Xu đổi quà thật → faucet. → Kết luận "mọi bề mặt money đã đóng" ở block trên SAI.
+>
+> **✅ VÁ 1 — commit `b226269`:** gộp cộng thưởng + ghi mastery VÀO `/api/grade` (nguồn sự thật duy nhất), khóa bằng **compare-and-swap** `answered:false→true` trên `issued_questions` (cộng đúng 1 lần, chống race/replay). GỠ `action:'answer'` khỏi `/api/economy` (→400). GỠ faucet bonus hạ boss ở math. `/api/questions` (golden_hour) giờ issue câu + giấu `correct` + trả questionId → AITutoring cũng chấm qua grade. Client: `handlePracticeAnswer`→`registerGradedResult` (chỉ cập nhật streak/quest/HUD, KHÔNG gọi API tiền).
+>
+> **✅ VÁ 2 — commit `a31abb6`:** đóng lỗ phụ `choice_analysis` (payload giấu `correct_choice` nhưng vẫn trả `choice_analysis[].is_correct` → lộ đáp án trước khi nộp). Lưu analysis server-side trong cột `issued_questions.context` (JSON envelope `{src,ca}` — KHÔNG cần migration), trả lại sau nộp qua `/api/grade`. Thêm `/api/hint` (gợi ý cấp 2 = 1 bẫy, không lộ đáp án đúng). Client render analysis từ grade-response state (`revealedAnalysis`) thay vì payload.
+>
+> **🔍 VERIFY:** cả 2 vá verified live (exploit→400; correct→+coins/xp+mastery 1 lần; replay→404; wrong→0; payload sạch; hint không lộ đáp án; grade trả analysis sau nộp; UI /vocabulary render đủ + 0 console error). Gate cuối: **tsc sạch · test 123/123 · lint 0/0 · build 45 pages.** origin/main HEAD `a31abb6`.
+>
+> **⏳ CÒN HỞ — đường THI (`action:'exam'`):** mock-exams/real-exams/vocab vẫn tin `correctCount` client (gate-exam đã khóa riêng). Kế hoạch chi tiết đã ghi trong memory Claude (`sat-prep-root-a-reward-hole.md`): issue từng câu thi + chấm server-side như ROOT A; ~6-8 file; **làm với context tươi, KHÔNG làm cuối phiên**. ⚠️ Kiểm `mock_exams.json` xem có ship đáp án xuống client không.
+>
+> **🧹 Dữ liệu test:** account `truongsonht.xd@gmail.com` có +vài row mastery/coins từ verify (đã dọn hết `issued_questions` seed + reset quota AI hôm nay). ROOT E step2: 2026-07-04 CHƯA tới hạn soak 5-6/7 → chưa chạy revoke.
 
 > [!IMPORTANT]
 > ### ✅ AUTHENTICATED VERIFY XONG (2026-07-03) — persist Supabase THẬT + 2 nợ cũ ĐÓNG (login browser dev server)
