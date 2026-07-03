@@ -12,7 +12,7 @@ interface VocabWord {
 }
 
 export default function VocabPage() {
-  const { handleExamComplete, updateQuestProgress } = useGamification();
+  const { syncServerEconomy, updateQuestProgress } = useGamification();
   const [words, setWords] = useState<VocabWord[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -37,19 +37,20 @@ export default function VocabPage() {
     const currentWord = words[currentIndex];
     
     try {
-      await fetch('/api/vocab', {
+      // 🔴 ROOT A follow-up: server tự chấm điều kiện thưởng (từ đến hạn + "đã
+      // nhớ") và trả về economy mới. Client KHÔNG còn POST /api/economy tự khai.
+      const res = await fetch('/api/vocab', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wordId: currentWord.id, isRemembered })
       });
-      
-      if (isRemembered) {
-        // Nhớ 1 từ = 1 câu Easy (server thưởng {coins:5, xp:20}) (§9.1).
-        void handleExamComplete(1, 'Easy');
+      if (res.ok) {
+        const data = await res.json();
+        syncServerEconomy(data.economy);
       }
-      
+
       updateQuestProgress('q2', 1);
-      
+
       setIsFlipped(false);
       setCurrentIndex(prev => prev + 1);
     } catch (e) {

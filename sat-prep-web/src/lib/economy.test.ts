@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   applyAnswerReward,
   applyExamReward,
+  applyExamRewardFromDifficulties,
   applyQuestReward,
   applySpend,
   applySpin,
@@ -78,6 +79,35 @@ test('applyExamReward: KẸP correctCount về trần (chống coin-mint phi lý
   // Đúng trần thì KHÔNG bị kẹp (đề thật <= 200 câu vẫn thưởng đủ).
   const exact = applyExamReward(fresh(), MAX_EXAM_QUESTIONS, 'Easy');
   assert.equal(exact.granted.coins, ANSWER_REWARD.Easy.coins * MAX_EXAM_QUESTIONS);
+});
+
+test('applyExamRewardFromDifficulties: cộng đơn giá theo ĐỘ KHÓ THẬT từng câu đúng', () => {
+  // Đề chấm server-side: mỗi câu đúng thưởng theo độ khó CỦA CÂU ĐÓ (từ đề),
+  // KHÔNG phải 1 độ khó client tự chọn cho cả bài.
+  const r = applyExamRewardFromDifficulties(fresh(), ['Easy', 'Medium', 'Hard']);
+  assert.equal(r.granted.coins, ANSWER_REWARD.Easy.coins + ANSWER_REWARD.Medium.coins + ANSWER_REWARD.Hard.coins);
+  assert.equal(r.granted.xp, ANSWER_REWARD.Easy.xp + ANSWER_REWARD.Medium.xp + ANSWER_REWARD.Hard.xp);
+  assert.equal(r.state.coins, DEFAULT_ECONOMY.coins + r.granted.coins);
+});
+
+test('applyExamRewardFromDifficulties: mảng rỗng / không phải mảng → không thưởng', () => {
+  assert.deepEqual(applyExamRewardFromDifficulties(fresh(), []).granted, { coins: 0, xp: 0 });
+  // @ts-expect-error test truyền sai kiểu cố ý
+  assert.deepEqual(applyExamRewardFromDifficulties(fresh(), null).granted, { coins: 0, xp: 0 });
+});
+
+test('applyExamRewardFromDifficulties: KẸP số câu về trần (chống mảng phi lý)', () => {
+  const huge = Array.from({ length: 1000 }, () => 'Hard' as const);
+  const r = applyExamRewardFromDifficulties(fresh(), huge);
+  assert.equal(r.granted.coins, ANSWER_REWARD.Hard.coins * MAX_EXAM_QUESTIONS);
+  assert.equal(r.granted.xp, ANSWER_REWARD.Hard.xp * MAX_EXAM_QUESTIONS);
+});
+
+test('applyExamRewardFromDifficulties: độ khó lạ → fallback Medium (không cộng NaN)', () => {
+  // @ts-expect-error test truyền độ khó không hợp lệ cố ý
+  const r = applyExamRewardFromDifficulties(fresh(), ['Bogus']);
+  assert.equal(r.granted.coins, ANSWER_REWARD.Medium.coins);
+  assert.equal(r.granted.xp, ANSWER_REWARD.Medium.xp);
 });
 
 test('applyQuestReward: questId hợp lệ → thưởng theo bảng cố định server', () => {

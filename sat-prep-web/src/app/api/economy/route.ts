@@ -6,7 +6,6 @@ import { computeStats } from '@/lib/stats';
 import { PVP_OPPONENTS } from '@/helpers/pvp';
 import { rateLimit } from '@/lib/rate-limit';
 import {
-  applyExamReward,
   applyQuestReward,
   applySpend,
   applySpin,
@@ -15,7 +14,6 @@ import {
   bumpPvpCounter,
   nextPvpRank,
   PVP_MAX_FIGHTS_PER_DAY,
-  type Difficulty,
 } from '@/lib/economy';
 
 /**
@@ -24,7 +22,7 @@ import {
  * GET  → trạng thái kinh tế hiện tại { coins, xp, inventory, lastSpinDate }.
  * POST → thực thi 1 HÀNH ĐỘNG; server quyết phần thưởng rồi persist (HMAC).
  *   (action 'answer' ĐÃ GỠ — ROOT A: thưởng câu luyện tập nay ở /api/grade)
- *   { action: 'exam',   correctCount, difficulty }
+ *   (action 'exam'   ĐÃ GỠ — ROOT A đường thi: thi chấm ở /api/exams/grade)
  *   { action: 'quest',  questId }
  *   { action: 'spend',  amount, itemId? }
  *   { action: 'spin' }
@@ -32,8 +30,6 @@ import {
  *
  * 🔴 Client KHÔNG gửi số xu/XP. Mọi con số do server tính từ bảng thưởng cố định.
  */
-
-const VALID_DIFFICULTY: Difficulty[] = ['Easy', 'Medium', 'Hard'];
 
 function todayStr(): string {
   return new Date().toISOString().split('T')[0];
@@ -67,17 +63,11 @@ export async function POST(req: Request) {
     // cần trả lời vẫn cộng xu). Nay CHỈ `/api/grade` trao thưởng, dựa trên đáp án
     // lưu server + CAS answered:false→true. Client KHÔNG còn gọi action 'answer'.
 
-    if (action === 'exam') {
-      // Phần thưởng cho 1 BÀI (thi thử/thi thật): server nhân SỐ CÂU ĐÚNG với
-      // đơn giá cố định theo độ khó. Client chỉ gửi correctCount + difficulty,
-      // KHÔNG gửi số xu/XP → không thể bơm tùy ý (§9.1).
-      const difficulty: Difficulty = VALID_DIFFICULTY.includes(body.difficulty)
-        ? body.difficulty
-        : 'Medium';
-      const { state: next, granted } = applyExamReward(state, body.correctCount, difficulty);
-      await saveEconomy(user.id, next);
-      return NextResponse.json({ success: true, granted, state: next });
-    }
+    // ⚠️ action 'exam' ĐÃ GỠ (ROOT A follow-up đường thi, 2026-07-04): trước đây
+    // tin `correctCount` + `difficulty` client gửi → client POST count/độ khó tùy
+    // ý = faucet xu (đề còn ship đáp án xuống client để tự chấm). Nay bài thi chấm
+    // SERVER-SIDE: /api/exams/start phát câu + lưu đáp án, /api/exams/grade chấm
+    // từng câu (CAS) + thưởng theo độ khó THẬT. Ôn từ vựng thưởng trong /api/vocab.
 
     if (action === 'quest') {
       const questId = typeof body.questId === 'string' ? body.questId : '';

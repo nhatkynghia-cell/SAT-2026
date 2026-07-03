@@ -8,12 +8,14 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 
+// ROOT A follow-up: câu thi KHÔNG còn `correct_choice` (server giấu đáp án) —
+// chỉ có `questionId` để nộp lên server chấm.
 interface ExamQuestion {
   id: string;
+  questionId?: string;
   full_passage?: string;
   practice_question: string;
   choices: string[];
-  correct_choice: string;
 }
 interface ExamModule {
   name: string;
@@ -36,7 +38,7 @@ interface ScoreData {
 }
 
 export default function RealExamsPage() {
-  const { level, handleExamComplete } = useGamification();
+  const { level, syncServerEconomy } = useGamification();
   const { showToast } = useToast();
   const [exams, setExams] = useState<FullExam[]>([]);
   const [selectedExam, setSelectedExam] = useState<FullExam | null>(null);
@@ -59,20 +61,37 @@ export default function RealExamsPage() {
       .catch(err => console.error("Failed to load exams", err));
   }, []);
 
-  const handleStartExam = (exam: FullExam) => {
+  const handleStartExam = async (exam: FullExam) => {
     // Cổng năng lực: cần tinh thông ≥6 kỹ năng (level dẫn xuất = masteredCount+1).
     if (level < 7) {
       showToast("Cần tinh thông 6 kỹ năng để mở khóa đề thi thật QAS!", 'error');
       return;
     }
-    setSelectedExam(exam);
-    setIsExamStarted(true);
-    setCurrentModuleIndex(0);
-    setCurrentQuestionIndex(0);
-    setAnswers({});
-    setIsFinished(false);
-    setScoreData(null);
-    setTimeLeft(exam.modules[0].time_minutes * 60);
+    // ROOT A follow-up: lấy đề từ /api/exams/start (server phát câu + lưu đáp án
+    // + trả questionId). Đề trong danh sách đã bị giấu đáp án + không có questionId.
+    try {
+      const res = await fetch('/api/exams/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ examId: exam.id }),
+      });
+      if (!res.ok) {
+        showToast("Không thể vào phòng thi. Vui lòng thử lại.", 'error');
+        return;
+      }
+      const started: FullExam = await res.json();
+      setSelectedExam(started);
+      setIsExamStarted(true);
+      setCurrentModuleIndex(0);
+      setCurrentQuestionIndex(0);
+      setAnswers({});
+      setIsFinished(false);
+      setScoreData(null);
+      setTimeLeft(started.modules[0].time_minutes * 60);
+    } catch (e) {
+      console.error('Failed to start exam', e);
+      showToast("Không thể vào phòng thi. Vui lòng thử lại.", 'error');
+    }
   };
 
   const handleAnswer = (questionId: string, choice: string) => {
@@ -95,30 +114,46 @@ export default function RealExamsPage() {
     }
   };
 
-  const finishExam = () => {
+  const finishExam = async () => {
     if (!selectedExam) return;
     setIsFinished(true);
-    let correct = 0;
-    let total = 0;
 
+    // 🔴 ROOT A follow-up: đáp án đã bị giấu → KHÔNG tự chấm. Gom {questionId,
+    // answer}[] rồi để SERVER chấm + thưởng theo độ khó THẬT từng câu.
+    let total = 0;
+    const submitted: { questionId: string; answer: string }[] = [];
     selectedExam.modules.forEach((mod: ExamModule) => {
       mod.questions.forEach((q: ExamQuestion) => {
         total++;
         const userAns = answers[q.id];
-        if (userAns && userAns.trim()[0].toUpperCase() === q.correct_choice.trim()[0].toUpperCase()) {
-          correct++;
+        if (q.questionId && userAns) {
+          submitted.push({ questionId: q.questionId, answer: userAns });
         }
       });
     });
 
-    const ratio = correct / total;
+    let correct = 0;
+    try {
+      const res = await fetch('/api/exams/grade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers: submitted }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        correct = data.correct ?? 0;
+        syncServerEconomy(data.economy);
+      }
+    } catch (e) {
+      console.error('Failed to grade exam', e);
+    }
+
+    const ratio = total > 0 ? correct / total : 0;
     const estimatedScore = Math.floor(400 + ratio * 1200);
-    const xpReward = correct * 100; // Thưởng cao hơn thi thử
+    const xpReward = correct * 100; // Thưởng cao hơn thi thử (server chấm Hard)
     const coinsReward = correct * 20;
 
     setScoreData({ correct, total, estimatedScore, xpReward, coinsReward });
-    // 🔴 Server quyết thưởng: thi thật = độ khó Hard × số câu đúng (§9.1).
-    void handleExamComplete(correct, 'Hard');
   };
 
   const handleNextModule = () => {

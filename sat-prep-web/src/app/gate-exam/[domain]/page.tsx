@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { CorePracticeUI, type PracticeQuestion } from '@/components/CorePracticeUI';
-import { useGamification } from '@/context/GamificationContext';
 import { GATE_QUESTIONS, GATE_PASS_THRESHOLD, RETRY_CORRECT_NEEDED } from '@/lib/gate-exam';
 import Link from 'next/link';
 
@@ -19,7 +18,6 @@ interface GateProgress {
 export default function GateExamPage() {
   const params = useParams();
   const domain = params.domain as string;
-  const { handleExamComplete } = useGamification();
 
   const [phase, setPhase] = useState<Phase>('loading');
   const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
@@ -92,9 +90,10 @@ export default function GateExamPage() {
           const data = await res.json();
           setResultData(data.result);
           setGateProgress(data.gateProgress);
-          if (data.result.passed) {
-            void handleExamComplete(correctCount, 'Hard');
-          }
+          // 🔴 ROOT A follow-up: KHÔNG cộng thưởng bài ở đây nữa. Mỗi câu thi cổng
+          // ĐÃ tự trao xu/XP qua /api/grade (CorePracticeUI) khi trả lời. Trước đây
+          // còn gọi handleExamComplete(correctCount,'Hard') → cộng LẦN 2 qua faucet
+          // action:'exam' (vừa là lỗ hổng, vừa là double-reward). Đã gỡ.
         } else {
           // 403/5xx: server từ chối (vd hết điều kiện) — coi như không qua, không crash.
           setResultData({ passed: false, nearMiss: false, score: correctCount });
@@ -106,7 +105,7 @@ export default function GateExamPage() {
     } else {
       setCurrentIdx(nextIdx);
     }
-  }, [currentIdx, correctCount, domain, handleExamComplete, questions]);
+  }, [currentIdx, correctCount, domain, questions]);
 
   const startCountdown = () => {
     setCountdown(3);

@@ -7,12 +7,14 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 
+// ROOT A follow-up: câu thi KHÔNG còn `correct_choice` (server giấu đáp án) —
+// chỉ có `questionId` để nộp lên server chấm.
 interface ExamQuestion {
   id: string;
+  questionId?: string;
   full_passage?: string;
   practice_question: string;
   choices: string[];
-  correct_choice: string;
 }
 interface ExamModule {
   name: string;
@@ -35,7 +37,7 @@ interface ScoreData {
 }
 
 export default function MockExamsPage() {
-  const { handleExamComplete, updateQuestProgress } = useGamification();
+  const { syncServerEconomy, updateQuestProgress } = useGamification();
   const [exams, setExams] = useState<FullExam[]>([]);
   const [selectedExam, setSelectedExam] = useState<FullExam | null>(null);
 
@@ -58,15 +60,29 @@ export default function MockExamsPage() {
       .catch(err => console.error("Failed to load exams", err));
   }, []);
 
-  const handleStartExam = (exam: FullExam) => {
-    setSelectedExam(exam);
-    setIsExamStarted(true);
-    setCurrentModuleIndex(0);
-    setCurrentQuestionIndex(0);
-    setAnswers({});
-    setIsFinished(false);
-    setScoreData(null);
-    setTimeLeft(exam.modules[0].time_minutes * 60);
+  const handleStartExam = async (exam: FullExam) => {
+    // ROOT A follow-up: phải lấy đề từ /api/exams/start — server phát câu + lưu
+    // đáp án riêng, trả về questionId cho từng câu (để nộp chấm server-side). Đề
+    // trong danh sách (/api/exams) đã bị giấu đáp án + KHÔNG có questionId.
+    try {
+      const res = await fetch('/api/exams/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ examId: exam.id }),
+      });
+      if (!res.ok) return;
+      const started: FullExam = await res.json();
+      setSelectedExam(started);
+      setIsExamStarted(true);
+      setCurrentModuleIndex(0);
+      setCurrentQuestionIndex(0);
+      setAnswers({});
+      setIsFinished(false);
+      setScoreData(null);
+      setTimeLeft(started.modules[0].time_minutes * 60);
+    } catch (e) {
+      console.error('Failed to start exam', e);
+    }
   };
 
   const handleAnswer = (questionId: string, choice: string) => {
@@ -89,31 +105,48 @@ export default function MockExamsPage() {
     }
   };
 
-  const finishExam = () => {
+  const finishExam = async () => {
     if (!selectedExam) return;
     setIsFinished(true);
-    let correct = 0;
-    let total = 0;
 
+    // 🔴 ROOT A follow-up: KHÔNG tự chấm client-side nữa (đáp án đã bị giấu). Gom
+    // các câu đã trả lời thành {questionId, answer}[] rồi để SERVER chấm + thưởng.
+    let total = 0;
+    const submitted: { questionId: string; answer: string }[] = [];
     selectedExam.modules.forEach((mod: ExamModule) => {
       mod.questions.forEach((q: ExamQuestion) => {
         total++;
         const userAns = answers[q.id];
-        if (userAns && userAns.trim()[0].toUpperCase() === q.correct_choice.trim()[0].toUpperCase()) {
-          correct++;
+        if (q.questionId && userAns) {
+          submitted.push({ questionId: q.questionId, answer: userAns });
         }
       });
     });
 
-    // Tính điểm SAT (Scale 400 - 1600 giả lập)
-    const ratio = correct / total;
+    let correct = 0;
+    try {
+      const res = await fetch('/api/exams/grade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers: submitted }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        correct = data.correct ?? 0;
+        syncServerEconomy(data.economy);
+      }
+    } catch (e) {
+      console.error('Failed to grade exam', e);
+    }
+
+    // Điểm SAT hiển thị (Scale 400-1600 giả lập) từ số câu đúng SERVER chấm.
+    const ratio = total > 0 ? correct / total : 0;
     const estimatedScore = Math.floor(400 + ratio * 1200);
+    // Hiển thị ước lượng thưởng (số THẬT đã được server cộng + đồng bộ qua economy).
     const xpReward = correct * 50;
     const coinsReward = correct * 10;
 
     setScoreData({ correct, total, estimatedScore, xpReward, coinsReward });
-    // 🔴 Server quyết thưởng: thi thử = độ khó Medium × số câu đúng (§9.1).
-    void handleExamComplete(correct, 'Medium');
 
     updateQuestProgress('q3', 1);
   };

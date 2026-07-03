@@ -117,6 +117,37 @@ export function applyExamReward(
 }
 
 /**
+ * Phần thưởng cho 1 BÀI THI chấm SERVER-SIDE (ROOT A follow-up đường thi): thay
+ * vì tin `correctCount` client gửi, server chấm từng câu với đáp án lưu ở
+ * mock_exams.json rồi truyền vào đây DANH SÁCH độ khó của các câu ĐÚNG. Mỗi câu
+ * đúng cộng đơn giá theo ĐỘ KHÓ THẬT của câu đó (từ đề), không phải 1 độ khó
+ * client tự chọn. Danh sách bị KẸP về MAX_EXAM_QUESTIONS (chống mảng phi lý).
+ */
+export function applyExamRewardFromDifficulties(
+  state: EconomyState,
+  correctDifficulties: Difficulty[]
+): RewardResult {
+  const list = Array.isArray(correctDifficulties)
+    ? correctDifficulties.slice(0, MAX_EXAM_QUESTIONS)
+    : [];
+
+  let coins = 0;
+  let xp = 0;
+  for (const d of list) {
+    const rate = ANSWER_REWARD[d] ?? ANSWER_REWARD.Medium;
+    coins += rate.coins;
+    xp += rate.xp;
+  }
+
+  if (coins === 0 && xp === 0) return { state, granted: { coins: 0, xp: 0 } };
+
+  return {
+    state: { ...state, coins: state.coins + coins, xp: state.xp + xp },
+    granted: { coins, xp },
+  };
+}
+
+/**
  * BẢNG THƯỞNG NHIỆM VỤ CỐ ĐỊNH Ở SERVER, keyed theo questId.
  * Client chỉ gửi questId — KHÔNG gửi số xu/XP. Trước đây client tự gửi
  * `addReward(q.xp, q.coins)` với q.xp/q.coins lấy từ state client (bơm tùy ý).

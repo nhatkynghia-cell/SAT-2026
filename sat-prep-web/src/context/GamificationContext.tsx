@@ -119,7 +119,10 @@ type GamificationState = {
   // Client gọi hàm này SAU grade để cập nhật streak/quest/HUD; truyền economy
   // mới (grade trả về) để đồng bộ coins/xp. KHÔNG gọi API tiền, KHÔNG gửi isCorrect.
   registerGradedResult: (isCorrect: boolean, economy?: { coins?: number; xp?: number; lastSpinDate?: string | null } | null) => { comboMultiplier: number };
-  handleExamComplete: (correctCount: number, difficulty: string) => Promise<{ coins: number, xp: number }>;
+  // Đồng bộ HUD (coins/xp) từ EconomyState mà server trả về. Dùng cho các luồng
+  // chấm/thưởng SERVER-SIDE (thi: /api/exams/grade, ôn từ: /api/vocab) — client
+  // KHÔNG tự tính số tiền, chỉ nhận state mới từ server rồi cập nhật hiển thị.
+  syncServerEconomy: (economy: { coins?: number; xp?: number; lastSpinDate?: string | null } | null | undefined) => void;
   incrementCorrectAnswers: () => void;
   spinDailyWheel: () => Promise<{ success: boolean, message: string, rewardType: string }>;
   buyItem: (itemId: string, price: number) => boolean;
@@ -331,24 +334,14 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     return { comboMultiplier };
   };
 
-  // Phần thưởng cho 1 BÀI (thi thử/thi thật/lượt ôn từ vựng): server nhân
-  // correctCount × đơn giá theo độ khó. Client chỉ gửi số đếm + độ khó.
-  const handleExamComplete = async (correctCount: number, difficulty: string) => {
-    try {
-      const res = await fetch('/api/economy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'exam', correctCount, difficulty }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.state) syncEconomy(data.state);
-        return data.granted ?? { coins: 0, xp: 0 };
-      }
-    } catch (e) {
-      console.error('Failed to grant exam reward', e);
-    }
-    return { coins: 0, xp: 0 };
+  // 🔴 ROOT A follow-up (đường thi): phần thưởng bài THI giờ do server chấm +
+  // trao ở /api/exams/grade (thi) và /api/vocab (ôn từ) — client KHÔNG còn POST
+  // `/api/economy {action:'exam'}` với correctCount tự khai (faucet đã đóng).
+  // Trang thi/ôn tự gọi endpoint mới rồi gọi hàm này để đồng bộ HUD từ state server.
+  const syncServerEconomy = (
+    economy: { coins?: number; xp?: number; lastSpinDate?: string | null } | null | undefined
+  ) => {
+    if (economy) syncEconomy(economy);
   };
 
   const spinDailyWheel = async () => {
@@ -595,7 +588,7 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
 
       unlockedBadges,
 
-      incrementCorrectAnswers, registerGradedResult, handleExamComplete, spinDailyWheel, buyItem, spendCoins, toggleBookmark, upgradeItem, fightPvP, equipPet,
+      incrementCorrectAnswers, registerGradedResult, syncServerEconomy, spinDailyWheel, buyItem, spendCoins, toggleBookmark, upgradeItem, fightPvP, equipPet,
       updateQuestProgress, claimQuest,
       soundEnabled, setSoundEnabled, focusMode, setFocusMode,
       hideBanner, setHideBanner, learningMode, setLearningMode,
