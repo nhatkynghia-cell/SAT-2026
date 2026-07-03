@@ -185,6 +185,24 @@ Khi sửa đổi mã nguồn Python của dự án này, bất kỳ Agent nào c
 > **📋 PLAN CÒN LẠI (sau Phase 1.5 — XONG verify):** Phase 1.5 cạn (authenticated-verify XONG 2026-07-03; chỉ còn nợ nhỏ 5.2 `tier` hardcode `'free'` chờ subscription). Kế tiếp là **Phase 2 MVP**: thanh toán (VNPay/MoMo/Stripe), Parent Dashboard, Diagnostic Onboarding; + Nhóm 7 Phase-2 (câu vàng hằng ngày #2, pacing #7, báo cáo tuần phụ huynh #10). Các mục này LỚN → hỏi user chọn hướng trước khi code, đừng tự mở scope.
 
 > [!IMPORTANT]
+> ### 🔐 SECURITY AUDIT MONEY/ANTI-CHEAT XONG (2026-07-03) — CHẶN gắn tiền thật cho tới khi đóng ROOT A/B/C
+> **Báo cáo đầy đủ: `SECURITY_AUDIT_2026-07-03.md` (ROOT workspace).** Chạy bằng adversarial workflow (8 finder → 2 skeptic/finding: **36 raw → 21 survivor → 15 bác bỏ**). Commit `3491f7c` (đã push origin/main). App XANH: tsc · **test 123/123** · lint 0/0 · build 43 pages.
+>
+> **⚠️ KẾT LUẬN: CHƯA AN TOÀN gắn thanh toán + Reward-to-Real.** Server authoritative về SỐ TIỀN (client không gửi số xu) NHƯNG tin mù SỰ KIỆN học tập client khẳng định + nhiều read-modify-write không atomic. 4 root cause:
+> - **ROOT A (11 finding)** — client tự khai `isCorrect`/`correctCount`/`skillId`/`difficulty` không có bằng chứng câu hỏi. `POST /api/economy {answer}` loop xu; `POST /api/mastery` spam → mastery 100 (~5-10 lần, EWMA Hard α=0.28) → basePower→PvP xu thật + mở gate + reset cooldown; gate-exam `correctCount` client-reported (eligibility ĐÃ re-check ✅ nhưng điểm thì không). **Fix gốc = server sinh+lưu câu+đáp án, chấm server, KHÔNG trả `correct_choice` cho client → REDESIGN Phase 2, cần user quyết.**
+> - **ROOT B (1)** — quest double-claim: `POST /api/economy {quest,q3}` không kiểm "đã claim" server-side → re-POST vô hạn +100xu+500xp. Cần schema claim-state.
+> - **ROOT C (5)** — race read-modify-write: PvP cap (10 request đồng thời cùng đọc fightsToday=0 → vượt cap = faucet), cost ledger (vượt trần ngân sách dưới tải), quota, gate progress, coins. Fix = atomic DB (`UPDATE x=x+n`/rpc/advisory lock) → Claude viết migration, user chạy SQL prod.
+> - **ROOT D (2) — ĐÃ FIX phiên này.**
+>
+> **✅ FIX AN TOÀN ĐÃ ÁP (commit `3491f7c`):**
+> 1. **ROOT A phần exam:** `applyExamReward` kẹp `correctCount` về `MAX_EXAM_QUESTIONS=200` (economy.ts) → chặn `{correctCount:1e9}`=~20 tỉ xu/request. +1 test (123 total). Đề SAT thật ~98 câu nên 200 KHÔNG chặn nhầm.
+> 2. **ROOT D:** `await` `recordGlobalCost`+`recordUsage` (generate-practice `Promise.allSettled`) + `recordGlobalCost` (chat) — serverless không kill trước khi ghi kế toán cost/quota. Giữ `.catch` để lỗi DB không hỏng response.
+>
+> **🟢 XÁC NHẬN AN TOÀN (15 bác bỏ = phòng thủ đang chạy đúng):** PvP power-gate + rank tuần tự + server tự tính targetRank; HMAC save-data (T7 blob không còn coins/xp); RLS chặn IDOR cross-user; gate-exam POST re-check eligibility (Fix A cũ còn sống); generate-practice checkQuota trước OpenAI; spin RNG server 1 lượt/ngày; applySpend clamp âm/thiếu số dư.
+>
+> **🔴 VIỆC PHIÊN SAU (trước khi gắn tiền thật — cần user quyết hướng, ĐỪNG tự mở scope):** đóng ROOT A gốc (server-side question grading, hạng mục Phase 2 LỚN) + ROOT B (quest claim-state) + ROOT C (atomic mutations — Claude viết migration, user chạy SQL) + rate-limit `/api/mastery`+`/api/economy`. Xem mục "PHẢI LÀM TRƯỚC KHI GẮN TIỀN THẬT" trong báo cáo.
+
+> [!IMPORTANT]
 > ### ✅ AUTHENTICATED VERIFY XONG (2026-07-03) — persist Supabase THẬT + 2 nợ cũ ĐÓNG (login browser dev server)
 > **Cách verify:** dev server local (`preview_start`, port 3000) trỏ CÙNG prod Supabase qua `.env.local` → login browser Claude điều khiển bằng account `truongsonht.xd@gmail.com` (pass user cấp phiên này) → cookie `sb-...-auth-token` set OK, `/api/economy` GET 200 coins 160/xp 400, mastery overall 11/18 skill (state cũ từ phiên trước). Prod tách biệt session nên PHẢI login trên browser-của-Claude, không mượn được session prod của user.
 >
