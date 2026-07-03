@@ -1,8 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useGamification, ITEM_CATALOG } from '@/context/GamificationContext';
 import { useToast } from '@/context/ToastContext';
+import type { RedemptionRecord, RedemptionStatus } from '@/lib/rewards';
+
+// Nhãn + màu cho trạng thái phiếu đổi quà (khớp bảng màu toast/banner của app).
+const STATUS_META: Record<RedemptionStatus, { label: string; cls: string }> = {
+  pending: { label: '⏳ Đang xử lý', cls: 'bg-[#1e293b] border-[#3b82f6] text-[#93c5fd]' },
+  fulfilled: { label: '✅ Đã giao', cls: 'bg-[#064e3b] border-[#10b981] text-[#34d399]' },
+  cancelled: { label: '✖ Đã hủy', cls: 'bg-[#450a0a] border-[#ef4444] text-[#fca5a5]' },
+};
 
 export default function ShopPage() {
   const { coins, buyItem, redeemReward } = useGamification();
@@ -11,6 +19,39 @@ export default function ShopPage() {
   // Quà THẬT cần xác nhận (đổi xong không hoàn) + tránh double-click khi đang gọi API.
   const [confirmReward, setConfirmReward] = useState<{ id: string; name: string; price: number } | null>(null);
   const [redeeming, setRedeeming] = useState(false);
+
+  // Lịch sử phiếu đổi quà của user (GET /api/redeem).
+  const [redemptions, setRedemptions] = useState<RedemptionRecord[]>([]);
+
+  const loadRedemptions = async () => {
+    try {
+      const res = await fetch('/api/redeem');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.redemptions)) setRedemptions(data.redemptions);
+      }
+    } catch (e) {
+      console.error('Failed to load redemptions', e);
+    }
+  };
+
+  // Tải lịch sử phiếu 1 lần khi vào trang. Mẫu như GamificationContext: async
+  // ĐỊNH NGHĨA TRONG effect (không gọi hàm component-scope) → setState post-await
+  // hợp lệ với react-hooks/set-state-in-effect.
+  useEffect(() => {
+    async function initLoad() {
+      try {
+        const res = await fetch('/api/redeem');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.redemptions)) setRedemptions(data.redemptions);
+        }
+      } catch (e) {
+        console.error('Failed to load redemptions', e);
+      }
+    }
+    initLoad();
+  }, []);
 
   const handleBuyItem = (price: number, name: string, id: string) => {
     const success = buyItem(id, price);
@@ -28,6 +69,7 @@ export default function ShopPage() {
     setRedeeming(false);
     setConfirmReward(null);
     showToast(result.success ? `🎟️ ${result.message}` : `❌ ${result.message}`, result.success ? 'success' : 'error');
+    if (result.success) loadRedemptions(); // làm mới lịch sử sau khi đổi thành công
   };
 
   return (
@@ -78,6 +120,31 @@ export default function ShopPage() {
           );
         })}
       </div>
+
+      {/* Lịch sử đổi quà thật — user theo dõi trạng thái phiếu */}
+      {redemptions.length > 0 && (
+        <div className="bg-[#1b2533] border border-[#262730] rounded-xl p-6">
+          <h2 className="text-xl font-black text-white mb-4 flex items-center gap-2">🎟️ Lịch sử đổi quà</h2>
+          <div className="space-y-3">
+            {redemptions.map((r) => {
+              const meta = STATUS_META[r.status] ?? STATUS_META.pending;
+              return (
+                <div key={r.id} className="flex items-center justify-between gap-4 bg-[#0f172a] border border-[#262730] rounded-lg px-4 py-3">
+                  <div className="min-w-0">
+                    <div className="text-white font-bold truncate">{r.rewardName}</div>
+                    <div className="text-[#94a3b8] text-xs">
+                      {new Date(r.createdAt).toLocaleString('vi-VN')} · {r.costCoins} 💰
+                    </div>
+                  </div>
+                  <span className={`shrink-0 px-3 py-1 rounded-full border text-xs font-bold ${meta.cls}`}>
+                    {meta.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Xác nhận đổi quà THẬT — hành động không hoàn lại */}
       {confirmReward && (
