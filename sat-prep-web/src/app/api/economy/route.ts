@@ -6,7 +6,6 @@ import { computeStats } from '@/lib/stats';
 import { PVP_OPPONENTS } from '@/helpers/pvp';
 import { rateLimit } from '@/lib/rate-limit';
 import {
-  applyAnswerReward,
   applyExamReward,
   applyQuestReward,
   applySpend,
@@ -24,7 +23,7 @@ import {
  *
  * GET  → trạng thái kinh tế hiện tại { coins, xp, inventory, lastSpinDate }.
  * POST → thực thi 1 HÀNH ĐỘNG; server quyết phần thưởng rồi persist (HMAC).
- *   { action: 'answer', isCorrect, difficulty, streak }
+ *   (action 'answer' ĐÃ GỠ — ROOT A: thưởng câu luyện tập nay ở /api/grade)
  *   { action: 'exam',   correctCount, difficulty }
  *   { action: 'quest',  questId }
  *   { action: 'spend',  amount, itemId? }
@@ -63,15 +62,10 @@ export async function POST(req: Request) {
 
     const state = await loadEconomy(user.id);
 
-    if (action === 'answer') {
-      const difficulty: Difficulty = VALID_DIFFICULTY.includes(body.difficulty)
-        ? body.difficulty
-        : 'Medium';
-      const streak = Number.isInteger(body.streak) && body.streak >= 0 ? body.streak : 0;
-      const { state: next, granted } = applyAnswerReward(state, !!body.isCorrect, difficulty, streak);
-      await saveEconomy(user.id, next);
-      return NextResponse.json({ success: true, granted, state: next });
-    }
+    // ⚠️ action 'answer' ĐÃ GỠ (ROOT A, 2026-07-04): phần thưởng 1 câu luyện tập
+    // trước đây tin `isCorrect` client gửi → faucet xu (POST isCorrect:true không
+    // cần trả lời vẫn cộng xu). Nay CHỈ `/api/grade` trao thưởng, dựa trên đáp án
+    // lưu server + CAS answered:false→true. Client KHÔNG còn gọi action 'answer'.
 
     if (action === 'exam') {
       // Phần thưởng cho 1 BÀI (thi thử/thi thật): server nhân SỐ CÂU ĐÚNG với

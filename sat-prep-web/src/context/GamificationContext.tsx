@@ -115,7 +115,10 @@ type GamificationState = {
   // 🔴 Economy server-authoritative (§9.1): coins/xp do SERVER quyết. Các hàm
   // grant (answer/exam) là ASYNC — số thưởng lấy từ response server, client
   // KHÔNG tự cộng. Các hàm spend gate trên coins đã đồng bộ rồi POST 'spend'.
-  handlePracticeAnswer: (isCorrect: boolean, difficulty: string) => Promise<{ xpGiven: number, coinsGiven: number, comboMultiplier: number }>;
+  // ROOT A: phần thưởng câu luyện tập do /api/grade trao (server-authoritative).
+  // Client gọi hàm này SAU grade để cập nhật streak/quest/HUD; truyền economy
+  // mới (grade trả về) để đồng bộ coins/xp. KHÔNG gọi API tiền, KHÔNG gửi isCorrect.
+  registerGradedResult: (isCorrect: boolean, economy?: { coins?: number; xp?: number; lastSpinDate?: string | null } | null) => { comboMultiplier: number };
   handleExamComplete: (correctCount: number, difficulty: string) => Promise<{ coins: number, xp: number }>;
   incrementCorrectAnswers: () => void;
   spinDailyWheel: () => Promise<{ success: boolean, message: string, rewardType: string }>;
@@ -306,35 +309,26 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     updateQuestProgress('q1', 1);
   };
 
-  // 🔴 Server-authoritative (§9.1): client gửi {isCorrect, difficulty, streak},
-  // SERVER tra ANSWER_REWARD + combo rồi trả coins/xp. Client KHÔNG gửi số tiền.
-  const handlePracticeAnswer = async (isCorrect: boolean, difficulty: string) => {
+  // 🔴 ROOT A (2026-07-04): phần thưởng 1 câu luyện tập giờ do `/api/grade` quyết
+  // (dựa trên đáp án lưu server + CAS answered:false→true) — client KHÔNG còn POST
+  // số tiền/isCorrect. Hàm này CHỈ cập nhật streak/quest/HUD SAU khi grade đã trao
+  // thưởng, và nhận `economy` mới từ grade để đồng bộ HUD. Trả comboMultiplier để
+  // hiển thị (thuần cosmetic — số xu thật đã do server tính trong granted).
+  const registerGradedResult = (
+    isCorrect: boolean,
+    economy?: { coins?: number; xp?: number; lastSpinDate?: string | null } | null
+  ): { comboMultiplier: number } => {
     if (!isCorrect) {
       setUserStats(prev => ({ ...prev, streak: 0 }));
-      return { xpGiven: 0, coinsGiven: 0, comboMultiplier: 1.0 };
+      return { comboMultiplier: 1.0 };
     }
 
     const newStreak = userStats.streak + 1;
     const comboMultiplier = newStreak >= 5 ? 1.5 : 1.0;
     setUserStats(prev => ({ ...prev, streak: newStreak }));
     incrementCorrectAnswers();
-
-    try {
-      const res = await fetch('/api/economy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'answer', isCorrect: true, difficulty, streak: newStreak }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.state) syncEconomy(data.state);
-        const granted = data.granted ?? { coins: 0, xp: 0 };
-        return { xpGiven: granted.xp, coinsGiven: granted.coins, comboMultiplier };
-      }
-    } catch (e) {
-      console.error('Failed to grant answer reward', e);
-    }
-    return { xpGiven: 0, coinsGiven: 0, comboMultiplier };
+    if (economy) syncEconomy(economy);
+    return { comboMultiplier };
   };
 
   // Phần thưởng cho 1 BÀI (thi thử/thi thật/lượt ôn từ vựng): server nhân
@@ -601,7 +595,7 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
 
       unlockedBadges,
 
-      incrementCorrectAnswers, handlePracticeAnswer, handleExamComplete, spinDailyWheel, buyItem, spendCoins, toggleBookmark, upgradeItem, fightPvP, equipPet,
+      incrementCorrectAnswers, registerGradedResult, handleExamComplete, spinDailyWheel, buyItem, spendCoins, toggleBookmark, upgradeItem, fightPvP, equipPet,
       updateQuestProgress, claimQuest,
       soundEnabled, setSoundEnabled, focusMode, setFocusMode,
       hideBanner, setHideBanner, learningMode, setLearningMode,

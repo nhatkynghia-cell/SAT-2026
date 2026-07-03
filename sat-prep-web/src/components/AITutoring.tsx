@@ -10,21 +10,23 @@ interface QuestionData {
   passage?: string;
   question: string;
   choices: string[];
-  correct: string;
+  correct?: string; // ROOT A: server GIẤU đáp án — không còn gửi về client
   explanation: string;
   translation?: string;
+  questionId?: string;
 }
 
 export function AITutoring() {
-  const { handlePracticeAnswer, practiceStreak, questionKey, incrementQuestionKey } = useGamification();
+  const { registerGradedResult, practiceStreak, questionKey, incrementQuestionKey } = useGamification();
   const [currentQuestion, setCurrentQuestion] = useState<QuestionData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
+  const [revealedCorrect, setRevealedCorrect] = useState<string | null>(null); // ROOT A: đáp án đúng do /api/grade trả sau khi nộp
   const [rewardData, setRewardData] = useState<{xpGiven: number, coinsGiven: number, comboMultiplier: number} | null>(null);
-  
+
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<{role: 'user'|'ai', text: string}[]>([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -46,6 +48,7 @@ export function AITutoring() {
       setSelectedAnswer(null);
       setIsSubmitted(false);
       setIsCorrect(null);
+      setRevealedCorrect(null);
       setChatMessages([]);
     };
     
@@ -82,7 +85,7 @@ export function AITutoring() {
         },
         body: JSON.stringify({
           question: currentQuestion.question,
-          correctAnswer: currentQuestion.correct,
+          correctAnswer: revealedCorrect ?? '',
           selectedAnswer: selectedAnswer,
           explanation: currentQuestion.explanation,
           history: chatMessages,
@@ -118,14 +121,38 @@ export function AITutoring() {
   const handleSubmit = async () => {
     if (!selectedAnswer || !currentQuestion) return;
     setIsSubmitted(true);
-    
-    const correct = selectedAnswer === currentQuestion.correct;
+
+    // 🔴 ROOT A: chấm + thưởng qua /api/grade (đáp án lưu server). correct đã bị
+    // GIẤU → grade lỗi/thiếu questionId → coi như chưa đúng, không trao thưởng.
+    let correct = false;
+    let correctChoice = '';
+    let granted = { coins: 0, xp: 0 };
+    let economyState: { coins?: number; xp?: number; lastSpinDate?: string | null } | null = null;
+
+    if (currentQuestion.questionId) {
+      const res = await fetch("/api/grade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          questionId: currentQuestion.questionId,
+          answer: selectedAnswer,
+          streak: practiceStreak + 1,
+        }),
+      });
+      if (res.ok) {
+        const grade = await res.json();
+        correct = grade.correct;
+        correctChoice = grade.correctChoice ?? '';
+        setRevealedCorrect(grade.correctChoice ?? null);
+        granted = grade.granted ?? { coins: 0, xp: 0 };
+        economyState = grade.economy ?? null;
+      }
+    }
+
     setIsCorrect(correct);
-    
-    // Câu của AITutoring không gắn difficulty → mặc định 'Medium' (server tra bảng).
-    const result = await handlePracticeAnswer(correct, 'Medium');
-    setRewardData(result);
-    
+    const { comboMultiplier } = registerGradedResult(correct, economyState);
+    setRewardData({ xpGiven: granted.xp, coinsGiven: granted.coins, comboMultiplier });
+
     if (!correct) {
       try {
         await fetch("/api/cau-sai", {
@@ -135,7 +162,7 @@ export function AITutoring() {
             passage: currentQuestion.passage || "",
             question: currentQuestion.question,
             choices: currentQuestion.choices,
-            correct_choice: currentQuestion.correct,
+            correct_choice: correctChoice,
             user_choice: selectedAnswer,
             explanation: currentQuestion.explanation,
             source: "Luyện AI (Next.js)"
@@ -236,7 +263,7 @@ export function AITutoring() {
               <span className="text-2xl">❌</span>
               <div>
                 <div className="font-bold">Chưa đúng rồi Chiến binh ơi!</div>
-                <div className="text-sm">Đáp án đúng là: {currentQuestion.correct}. Câu này đã được lưu vào sổ tay ôn lỗi sai.</div>
+                <div className="text-sm">Đáp án đúng là: {revealedCorrect ?? '—'}. Câu này đã được lưu vào sổ tay ôn lỗi sai.</div>
               </div>
             </div>
           ) : null}

@@ -33,7 +33,7 @@ interface CorePracticeUIProps {
 }
 
 export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSubmitted, hideNextUntilSubmitted }: CorePracticeUIProps) {
-  const { handlePracticeAnswer, spendCoins, toggleBookmark, bookmarkedQuestions } = useGamification();
+  const { registerGradedResult, spendCoins, toggleBookmark, bookmarkedQuestions, practiceStreak } = useGamification();
   
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -75,53 +75,44 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
     if (!selectedAnswer) return;
     setIsSubmitted(true);
 
-    let isAnsCorrect: boolean;
-    let correctChoice: string;
+    // 🔴 ROOT A: chấm + trao thưởng + ghi mastery đều ở /api/grade (server-authoritative,
+    // dựa trên đáp án lưu server). correct_choice đã bị GIẤU khỏi payload nên KHÔNG còn
+    // chấm client-side; grade lỗi → coi như chưa đúng, KHÔNG trao thưởng (hướng an toàn).
+    let isAnsCorrect = false;
+    let correctChoice = '';
+    let granted = { coins: 0, xp: 0 };
+    let economyState: { coins?: number; xp?: number; lastSpinDate?: string | null } | null = null;
 
     if (questionData.questionId) {
       const res = await fetch("/api/grade", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questionId: questionData.questionId, answer: selectedAnswer }),
+        body: JSON.stringify({
+          questionId: questionData.questionId,
+          answer: selectedAnswer,
+          streak: practiceStreak + 1,
+        }),
       });
       if (res.ok) {
         const grade = await res.json();
         isAnsCorrect = grade.correct;
-        correctChoice = grade.correctChoice;
+        correctChoice = grade.correctChoice ?? '';
         setRevealedCorrectChoice(grade.correctChoice);
-      } else {
-        isAnsCorrect = selectedAnswer.trim()[0].toUpperCase() === (questionData.correct_choice ?? '').trim()[0]?.toUpperCase();
-        correctChoice = questionData.correct_choice ?? '';
+        granted = grade.granted ?? { coins: 0, xp: 0 };
+        economyState = grade.economy ?? null;
       }
-    } else {
-      isAnsCorrect = selectedAnswer.trim()[0].toUpperCase() === (questionData.correct_choice ?? '').trim()[0]?.toUpperCase();
-      correctChoice = questionData.correct_choice ?? '';
     }
 
     setIsCorrect(isAnsCorrect);
 
-    const result = await handlePracticeAnswer(isAnsCorrect, questionData.difficulty);
-    setRewardData(result);
+    // Cập nhật streak/quest/HUD (đồng bộ coins/xp từ economy grade trả về). Mastery
+    // đã ghi trong /api/grade → KHÔNG POST /api/mastery ở client nữa.
+    const { comboMultiplier } = registerGradedResult(isAnsCorrect, economyState);
+    setRewardData({ xpGiven: granted.xp, coinsGiven: granted.coins, comboMultiplier });
 
     if (onAnswer) onAnswer(isAnsCorrect);
 
     if (onSubmitted) onSubmitted();
-
-    if (questionData.skillId) {
-      try {
-        await fetch("/api/mastery", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            skillId: questionData.skillId,
-            isCorrect: isAnsCorrect,
-            difficulty: questionData.difficulty,
-          })
-        });
-      } catch (e) {
-        console.error("Failed to record mastery", e);
-      }
-    }
 
     if (!isAnsCorrect) {
       try {

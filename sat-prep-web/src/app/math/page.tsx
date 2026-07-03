@@ -31,7 +31,7 @@ interface ChatMessage {
 }
 
 export default function MathPage() {
-  const { userStats, inventory, spendCoins, handlePracticeAnswer } = useGamification();
+  const { userStats, inventory, spendCoins, registerGradedResult, practiceStreak } = useGamification();
   const { showToast } = useToast();
   const [currentTopic, setCurrentTopic] = useState<string | null>(null);
   const [currentSkillId, setCurrentSkillId] = useState<string | null>(null);
@@ -129,42 +129,37 @@ export default function MathPage() {
     if (!selectedAnswer || !lessonData) return;
     setIsSubmitted(true);
 
-    let isAnsCorrect: boolean;
+    // 🔴 ROOT A: chấm + trao thưởng + ghi mastery đều ở /api/grade. correct_choice
+    // đã bị GIẤU nên KHÔNG còn chấm client-side; grade lỗi → coi như chưa đúng.
+    let isAnsCorrect = false;
+    let economyState: { coins?: number; xp?: number; lastSpinDate?: string | null } | null = null;
     if (lessonData.questionId) {
       const res = await fetch("/api/grade", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ questionId: lessonData.questionId, answer: selectedAnswer }),
+        body: JSON.stringify({
+          questionId: lessonData.questionId,
+          answer: selectedAnswer,
+          streak: practiceStreak + 1,
+        }),
       });
       if (res.ok) {
         const grade = await res.json();
         isAnsCorrect = grade.correct;
         setRevealedCorrectChoice(grade.correctChoice);
-      } else {
-        isAnsCorrect = selectedAnswer.trim()[0].toUpperCase() === (lessonData.correct_choice ?? '').trim()[0]?.toUpperCase();
+        economyState = grade.economy ?? null;
       }
-    } else {
-      isAnsCorrect = selectedAnswer.trim()[0].toUpperCase() === (lessonData.correct_choice ?? '').trim()[0]?.toUpperCase();
     }
     setIsCorrect(isAnsCorrect);
 
-    // Ghi nhận kết quả vào Mastery (task #9) — chỉ khi câu có skillId.
-    // Fire-and-forget: không chặn UI, lỗi chỉ log.
-    if (lessonData.skillId) {
-      fetch("/api/mastery", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          skillId: lessonData.skillId,
-          isCorrect: isAnsCorrect,
-          difficulty: lessonData.difficulty,
-        })
-      }).catch((e) => console.error("Failed to record mastery", e));
-    }
+    // Cập nhật streak/quest/HUD (đồng bộ coins/xp từ economy grade trả về). Mastery
+    // + phần thưởng đã do /api/grade xử lý server-side.
+    registerGradedResult(isAnsCorrect, economyState);
 
     if (isBossEncounter) {
       if (isAnsCorrect) {
-        // Calculate damage
+        // Sát thương boss (thuần hiệu ứng RPG — KHÔNG trao thưởng tiền tệ ở client;
+        // mỗi câu boss đã được /api/grade thưởng per-câu theo độ khó lưu server).
         let damage = Math.floor(userStats.maxPower * 0.5);
         if (activeSkills.focus) {
           damage *= 2;
@@ -172,16 +167,10 @@ export default function MathPage() {
         }
         const newHp = Math.max(0, bossHp - damage);
         setBossHp(newHp);
-        if (newHp === 0) {
-          // Hạ boss = câu khó → thưởng theo độ khó 'Hard' (server quyết số xu/XP).
-          void handlePracticeAnswer(true, 'Hard');
-        }
       } else {
         // Lose heart
         setPlayerHearts(prev => prev - 1);
       }
-    } else {
-      void handlePracticeAnswer(isAnsCorrect, lessonData.difficulty);
     }
 
     // Prefetch câu kế ngay khi submit (user đang đọc giải thích) → "Tải bài

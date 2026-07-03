@@ -48,14 +48,23 @@ export async function gradeAnswer(
 
   if (error || !data) return null;
   if (data.user_id !== userId) return null;
-  if (data.answered) return null;
+  if (data.answered) return null; // fast-fail cho replay hiển nhiên
 
   const correct = userAnswer.trim()[0]?.toUpperCase() === data.correct_choice.trim()[0]?.toUpperCase();
 
-  await admin
+  // 🔒 COMPARE-AND-SWAP (ROOT A): chỉ chấm-và-trao-thưởng khi CHÍNH request này
+  // lật answered false→true. `.eq('answered', false)` khiến 2 request đua nhau
+  // chỉ 1 cái update trúng dòng → cái kia nhận 0 row → return null. Đây là chốt
+  // atomic đảm bảo phần thưởng (tính ở route dựa trên kết quả này) cộng ĐÚNG 1 LẦN.
+  const { data: updated, error: updErr } = await admin
     .from('issued_questions')
     .update({ answered: true, was_correct: correct })
-    .eq('id', questionId);
+    .eq('id', questionId)
+    .eq('answered', false)
+    .select('id')
+    .maybeSingle();
+
+  if (updErr || !updated) return null; // thua race hoặc đã trả lời
 
   return {
     correct,
