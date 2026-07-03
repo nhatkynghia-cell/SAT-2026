@@ -5,10 +5,30 @@
 > Kết quả: **36 raw → 21 sống sót → 15 bác bỏ**. Claude đọc độc lập economy.ts / mastery.ts / stats.ts / economy-store.ts / các route để đối chiếu.
 >
 > ⚠️ **Kết luận điều hành: CHƯA AN TOÀN để gắn tiền thật.** Server authoritative về SỐ TIỀN (client không gửi được số xu) NHƯNG tin mù SỰ KIỆN học tập do client khẳng định (isCorrect/correctCount/skillId) + nhiều read-modify-write không atomic. Phải đóng ROOT A + B + C trước khi 1 xu quy ra giá trị thật.
+>
+> 🔴🔴 **CẬP NHẬT 2026-07-03 (bổ sung sau, NGHIÊM TRỌNG NHẤT — ROOT E):** RLS chỉ bảo vệ QUYỀN SỞ HỮU DÒNG, KHÔNG bảo vệ GIÁ TRỊ CỘT. User đã đăng nhập có thể `PATCH` thẳng `user_economy.coins` / `user_mastery.skills` của CHÍNH MÌNH qua PostgREST (dùng anon key + JWT session, cả hai đều lộ ở client) → **bỏ qua HOÀN TOÀN `/api/economy` + toàn bộ thiết kế server-authoritative + mọi fix ROOT A/B/C.** Đã xác minh SỐNG (non-destructive, ghi lại đúng giá trị cũ): PATCH coins→**200**, PATCH mastery skills→**200**, cross-user INSERT→**403** (RLS chặn đúng phần sở hữu). **Đây là đường NGẮN NHẤT tới voucher 50.000 xu. Phải đóng TRƯỚC A/B/C** (chúng vô nghĩa nếu E còn hở). Chi tiết + cách vá: mục ROOT E bên dưới.
 
 ---
 
-## 🎯 4 ROOT CAUSE (21 finding gộp lại)
+## 🎯 5 ROOT CAUSE (21 finding + ROOT E bổ sung)
+
+### 🔴🔴 ROOT E — RLS bảo vệ DÒNG chứ KHÔNG bảo vệ GIÁ TRỊ CỘT: user PATCH thẳng coins/mastery của mình qua PostgREST (NGHIÊM TRỌNG NHẤT — đóng TRƯỚC A/B/C)
+**Bản chất:** policy RLS trên `user_economy`/`user_mastery`/... là `auth.uid() = user_id` — chỉ giới hạn user chạm ĐÚNG DÒNG của mình, KHÔNG giới hạn user GHI GIÁ TRỊ GÌ vào cột nào của dòng đó. Supabase expose PostgREST public; anon key nằm trong bundle client (`sb_publishable_...`), JWT session đọc được từ cookie `sb-...-auth-token` bằng JS. → User đã đăng nhập mở devtools chạy:
+```js
+fetch(`${SUPABASE_URL}/rest/v1/user_economy?user_id=eq.<chính mình>`, {
+  method:'PATCH', headers:{ apikey:<anon>, Authorization:`Bearer <jwt>`, 'Content-Type':'application/json' },
+  body: JSON.stringify({ coins: 999999999 })   // hoặc mastery.skills = full 100
+})
+```
+→ **Set coins/mastery tùy ý, BỎ QUA hoàn toàn `/api/economy` + thiết kế server-authoritative + MỌI fix ROOT A/B/C/D.** Đây là đường ngắn nhất tới voucher lệ phí SAT 50.000 xu (§9.6 = giá trị thật).
+**✅ ĐÃ XÁC MINH SỐNG (2026-07-03, non-destructive — ghi lại đúng giá trị cũ, KHÔNG đổi dữ liệu):** `PATCH user_economy.coins`→**HTTP 200**; `PATCH user_mastery.skills`→**HTTP 200**; `POST user_economy` với `user_id` người khác→**HTTP 403** (RLS chặn đúng phần sở hữu — nên bug CHỈ ở phạm vi ghi-đè dòng-của-mình, không phải cross-user).
+**Vì sao lộ ra bây giờ:** T7 chuyển economy sang server-authoritative qua `/api/economy`, NHƯNG chưa bao giờ THU HỒI quyền ghi trực tiếp của `authenticated` trên các bảng đó. App ghi bằng chính JWT user (`.env.local` KHÔNG có `SUPABASE_SERVICE_ROLE_KEY`) nên các bảng buộc phải để `authenticated` ghi được → client cũng ghi được y hệt.
+**Cách vá (kiến trúc, VIỆC USER — cần secret mới + đổi RLS prod):**
+- [ ] Thêm `SUPABASE_SERVICE_ROLE_KEY` vào env (server-only, KHÔNG `NEXT_PUBLIC`). Tạo 1 admin client riêng ở server dùng service-role cho MỌI ghi kinh tế/mastery/gate/quota/ledger.
+- [ ] REVOKE quyền INSERT/UPDATE/DELETE của role `authenticated` trên các bảng server-authoritative (`user_economy`, `user_mastery`, `user_ai_usage`, `ai_cost_ledger`, `user_progress` nếu muốn siết) — GIỮ SELECT nếu client cần đọc (hoặc bỏ luôn, đọc qua API). Service-role bỏ qua RLS nên server vẫn ghi được.
+- [ ] Các bảng client ĐƯỢC PHÉP tự ghi (nếu có, vd bookmark thuần cá nhân) thì giữ; còn lại đóng.
+- [ ] Sau khi đóng: các store hiện dùng anon-client-với-session sẽ MẤT quyền ghi → phải chuyển sang admin client. Đây là refactor tầng store (Claude làm được) + đổi RLS (user chạy SQL) — làm CÙNG nhau.
+- **Phải xong TRƯỚC khi bật thanh toán.** Trong lúc chưa vá: coi như economy KHÔNG chống gian lận với bất kỳ user đăng nhập nào biết mở devtools.
 
 ### ROOT A — Client tự khẳng định "đã trả lời đúng" mà server KHÔNG có bằng chứng câu hỏi (11 finding)
 Server không lưu câu hỏi đã phát + đáp án đúng, nên mọi endpoint chấm điểm đều tin client:
@@ -64,4 +84,24 @@ Mọi mutation đều `load() → compute → save()` không khóa dòng → 2 r
 - Idempotency key cho mọi economy POST (chống double-submit do retry mạng).
 
 ---
-_Nguồn: workflow `money-anti-cheat-audit` (82 agent, 21 survivor). Synthesis agent cuối chết vì lỗi kết nối tạm thời → báo cáo này do Claude tổng hợp từ survivor list + đọc code trực tiếp._
+
+## 🛠️ ROOT C — ĐÃ TRIỂN KHAI + REVIEW (2026-07-03)
+
+**Đã làm:** chuyển 3 mutation kinh tế sang ATOMIC (fail-safe, 0 regression pre-migration).
+- **SQL:** `atomic_mutations.sql` (MỚI) — 3 hàm `SECURITY INVOKER`: `increment_ai_cost_ledger` (upsert x=x+n), `increment_ai_usage` (per-user, reset ngày, `auth.uid()`), `consume_pvp_fight` (SELECT FOR UPDATE khóa dòng → reset ngày → check rank tuần tự → check cap → +1 + leo rank nếu thắng). ⏳ [user] chạy trên SQL Editor prod.
+- **Code:** `cost-ledger-store.ts` (recordCost→RPC), `ai-usage-store.ts` (incrementUsageAtomic), `ai-quota.ts` (recordUsage→RPC), `economy-store.ts` (tryConsumePvpFightAtomic), `economy/route.ts` (pvp action dùng atomic, fallback non-atomic khi RPC vắng).
+- **FAIL-SAFE:** RPC chưa có (pre-migration 42883/PGRST202) → fallback về đường cũ = 0 regression. Runtime-verified SỐNG (login browser, prod chưa có RPC): PvP fight qua fallback sạch (eligible/lost/rank giữ/0 lỗi log).
+- App XANH: tsc · **test 123/123** · lint 0/0 · build 43 pages.
+
+**Adversarial review (workflow `rootc-atomic-review`, 25 agent, 18 raw → 15 survivor):** **VERDICT = GO — an toàn commit as-is.** Fail-safe pre-migration đúng; mọi bug là edge-case POST-migration, KHÔNG làm hệ thống tệ hơn hiện tại.
+- ✅ **FIX trong PR này (#1):** `recordCost` fallback trên MỌI lỗi → nếu RPC commit rồi mất response (timeout) sẽ +1 lần nữa = double-count. Đã sửa: chỉ fallback khi 42883/PGRST202 (đồng bộ 2 store kia). *(Review đính chính: double-count này INFLATE cost → kill-switch trip SỚM hơn = an toàn hướng, không phải bypass ngân sách.)*
+- 📌 **Review đính chính 2 finding "critical" bị thổi phồng:** (a) `consume_pvp_fight(p_won=true)` gọi thẳng KHÔNG phải hố MỚI — nó bị bao trùm bởi ROOT E (user PATCH thẳng `user_economy` được RỒI hôm nay); RPC còn THÊM ràng buộc (rank tuần tự, cap, row-lock) và KHÔNG đụng coins. (b) "PvP double-execute on network error" sai cơ chế: khi `consumed===null` nhánh atomic bị BỎ QUA hoàn toàn, chỉ 1 đường chạy.
+- ⏳ **FOLLOW-UP (chưa làm, tracked — money-core control-flow tinh tế, KHÔNG vội cuối phiên):**
+  - **#2 (medium):** post-migration RPC lỗi THẬT (RLS 42501 / constraint / transient) hiện bị coi là "hàm vắng" → fallback non-atomic (mở lại race dưới tải đồng thời). Nên fail-CLOSED trên mã lỗi không-phải-pre-migration + verify mã lỗi thật của supabase-js bằng 1 call hàm-vắng thực tế.
+  - **#3 (low, defense-in-depth):** atomic dùng `auth.uid()`, fallback dùng `userId` param — cùng session cookie nên bằng nhau trong vận hành thường; truyền `p_user_id` tường minh + `raise if auth.uid() <> p_user_id` để 2 đường provably giống nhau.
+  - **fallback partial-success (medium):** `saveEconomy` (void, nuốt lỗi) + `savePvpState` (bỏ qua boolean trả về) là 2 transaction riêng → có thể ghi 1 nửa mà route vẫn trả success=true. Cân nhắc gộp hoặc kiểm trả về.
+
+> ⚠️ **QUAN TRỌNG:** ROOT C atomic đóng RACE, nhưng **KHÔNG phải ranh giới chống gian lận** khi ROOT E còn hở — user vẫn PATCH thẳng DB được. Thứ tự đúng: **đóng ROOT E TRƯỚC**, rồi A/B/C mới có ý nghĩa. `consume_pvp_fight` tin `p_won` từ client chỉ CHẤP NHẬN ĐƯỢC vì dòng DB vốn đã client-writable (ROOT E); sau khi đóng E, cần re-check: p_won phải do server tính, không nhận từ client gọi RPC trực tiếp (khi đó revoke execute RPC cho authenticated, chỉ service-role gọi).
+
+---
+_Nguồn: workflow `money-anti-cheat-audit` (82 agent, 21 survivor) + `rootc-atomic-review` (25 agent, GO verdict). Báo cáo do Claude tổng hợp từ survivor list + đọc code trực tiếp + xác minh live non-destructive._

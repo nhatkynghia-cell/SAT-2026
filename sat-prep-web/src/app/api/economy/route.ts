@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { loadEconomy, saveEconomy, loadPvpState, savePvpState } from '@/lib/economy-store';
+import { loadEconomy, saveEconomy, loadPvpState, savePvpState, tryConsumePvpFightAtomic } from '@/lib/economy-store';
 import { getMasterySummary } from '@/lib/mastery';
 import { computeStats } from '@/lib/stats';
 import { PVP_OPPONENTS } from '@/helpers/pvp';
@@ -14,6 +14,7 @@ import {
   checkPvpAttempt,
   bumpPvpCounter,
   nextPvpRank,
+  PVP_MAX_FIGHTS_PER_DAY,
   type Difficulty,
 } from '@/lib/economy';
 
@@ -182,7 +183,54 @@ export async function POST(req: Request) {
         });
       }
 
-      // Đã đánh 1 trận hợp lệ (thắng hoặc thua): tính vào cap, cập nhật rank.
+      // Đã qua cổng năng lực. TIÊU 1 suất trận ATOMIC (audit 2026-07-03, ROOT C):
+      // hàm SQL khóa dòng → kiểm cap + rank tuần tự + tăng đếm + leo rank trong 1
+      // transaction → chống race 10 request `pvp` đồng thời vượt cap (faucet xu).
+      // FAIL-SAFE: RPC chưa có (pre-migration) → null → fallback đường non-atomic
+      // cũ (0 regression tới khi user chạy atomic_mutations.sql).
+      const consumed = await tryConsumePvpFightAtomic(
+        targetRank,
+        fight.won,
+        today,
+        PVP_MAX_FIGHTS_PER_DAY
+      );
+
+      if (consumed) {
+        // ── Đường ATOMIC (authoritative) ──
+        // Bị chặn do đua đồng thời (cap đầy / rank không còn tuần tự) → KHÔNG cộng xu.
+        if (!consumed.ok) {
+          return NextResponse.json({
+            success: true,
+            eligible: false,
+            won: false,
+            granted: { coins: 0, xp: 0 },
+            combatPower: fight.combatPower,
+            pvpRank: consumed.pvpRank || pvp.pvpRank,
+            fightsRemaining: Math.max(0, PVP_MAX_FIGHTS_PER_DAY - consumed.fightsToday),
+            reason:
+              consumed.reason === 'cap'
+                ? `Hôm nay bạn đã đấu đủ ${PVP_MAX_FIGHTS_PER_DAY} trận. Quay lại vào ngày mai nhé!`
+                : 'Chỉ được thách đấu đối thủ kế tiếp trong bảng xếp hạng. Hãy leo tuần tự!',
+          });
+        }
+        // Hàm SQL ĐÃ cập nhật rank + đếm trận atomic. Chỉ còn cộng xu (khi thắng).
+        if (fight.won) {
+          await saveEconomy(user.id, fight.state);
+        }
+        return NextResponse.json({
+          success: true,
+          eligible: true,
+          won: fight.won,
+          granted: fight.granted,
+          combatPower: fight.combatPower,
+          pvpRank: consumed.pvpRank,
+          fightsRemaining: Math.max(0, PVP_MAX_FIGHTS_PER_DAY - consumed.fightsToday),
+          state: fight.state,
+        });
+      }
+
+      // ── FALLBACK non-atomic (pre-migration) — hành vi cũ, race vẫn hở tới khi
+      // chạy SQL. Giữ y nguyên để 0 regression. ──
       const counter = bumpPvpCounter(pvp.fightsToday, pvp.lastFightDate, today);
       const newRank = nextPvpRank(pvp.pvpRank, fight.won);
 

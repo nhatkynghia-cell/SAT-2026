@@ -1,4 +1,4 @@
-import { loadUsage, saveUsage, type UsageRecord } from './ai-usage-store';
+import { loadUsage, saveUsage, incrementUsageAtomic, type UsageRecord } from './ai-usage-store';
 
 /**
  * ============================================================================
@@ -59,6 +59,12 @@ export async function checkQuota(userId: string, tier: AiTier = 'free'): Promise
 
 /** Ghi nhận 1 lượt gọi AI đã hoàn tất (tăng count + cộng dồn token). */
 export async function recordUsage(userId: string, tokensIn = 0, tokensOut = 0): Promise<void> {
+  // Đường ATOMIC (audit 2026-07-03, ROOT C): tăng count qua RPC (upsert x=x+1 +
+  // reset ngày mới ở DB) → 2 request đồng thời không ghi đè → quota/ngày chính
+  // xác. FAIL-SAFE: RPC chưa có (pre-migration) → false → fallback load-modify-save.
+  if (await incrementUsageAtomic(today(), tokensIn, tokensOut)) return;
+
+  // ── Fallback đọc-sửa-ghi (pre-migration hoặc RPC lỗi) ──
   const rec = await loadToday(userId);
   rec.count += 1;
   rec.tokensIn += tokensIn;

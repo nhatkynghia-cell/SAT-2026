@@ -125,3 +125,64 @@ export async function savePvpState(userId: string, pvp: PvpState): Promise<boole
   }
   return true;
 }
+
+export interface PvpConsumeResult {
+  ok: boolean;
+  reason: string;
+  pvpRank: number;
+  fightsToday: number;
+}
+
+/**
+ * ============================================================================
+ *  TIÊU 1 SUẤT TRẬN PvP — ATOMIC (audit 2026-07-03, ROOT C — chốt chống FAUCET)
+ * ============================================================================
+ *  Vấn đề cũ: route làm checkPvpAttempt (đọc) → resolve → bumpPvpCounter →
+ *  savePvpState (ghi) KHÔNG khóa dòng → 10 request `pvp` đồng thời cùng đọc
+ *  fights_today=0 → tất cả qua cap → vượt trần 10 trận/ngày = faucet xu thật.
+ *
+ *  Vá: hàm SQL `consume_pvp_fight` khóa dòng (SELECT ... FOR UPDATE) rồi trong
+ *  CÙNG transaction: reset ngày mới → kiểm rank tuần tự → kiểm cap → +1 trận +
+ *  leo rank nếu thắng. 2 request đồng thời bị tuần tự hóa trên dòng → hết race.
+ *
+ *  Gọi hàm này SAU khi app đã qua CỔNG NĂNG LỰC (power gate) + đã có kết quả
+ *  won (RNG ở app, dựa combatPower từ mastery). Route CHỈ cộng xu khi ok=true.
+ *
+ *  Trả:
+ *    • PvpConsumeResult — RPC chạy được (ok=true đã tiêu suất + leo rank;
+ *      ok=false bị chặn: 'cap' hết lượt / 'bad_rank' sai tuần tự / 'no_row').
+ *    • null — hàm CHƯA tồn tại (pre-migration 42883/PGRST202) hoặc lỗi khác →
+ *      route FALLBACK về đường checkPvpAttempt + bumpPvpCounter + savePvpState
+ *      cũ (0 regression; race vẫn hở như trước tới khi user chạy SQL).
+ * ============================================================================
+ */
+export async function tryConsumePvpFightAtomic(
+  targetRank: number,
+  won: boolean,
+  today: string,
+  maxFights: number
+): Promise<PvpConsumeResult | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('consume_pvp_fight', {
+    p_target_rank: targetRank,
+    p_won: won,
+    p_today: today,
+    p_max_fights: maxFights,
+  });
+
+  if (error) {
+    if (error.code !== '42883' && error.code !== 'PGRST202') {
+      console.error('consume_pvp_fight RPC lỗi (fallback non-atomic):', error.message);
+    }
+    return null; // pre-migration hoặc lỗi → route fallback
+  }
+
+  // data là jsonb {ok, reason, pvpRank, fightsToday}
+  const r = (data ?? {}) as Partial<PvpConsumeResult>;
+  return {
+    ok: !!r.ok,
+    reason: typeof r.reason === 'string' ? r.reason : 'unknown',
+    pvpRank: typeof r.pvpRank === 'number' ? r.pvpRank : 0,
+    fightsToday: typeof r.fightsToday === 'number' ? r.fightsToday : 0,
+  };
+}

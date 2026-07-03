@@ -33,6 +33,34 @@ export async function loadUsage(userId: string): Promise<UsageRecord> {
   };
 }
 
+/**
+ * Tăng usage ATOMIC qua RPC `increment_ai_usage` (audit 2026-07-03, ROOT C):
+ * 1 upsert `count = count + 1` (kèm reset khi sang ngày mới) ở DB → 2 request
+ * đồng thời KHÔNG ghi đè nhau → quota/ngày enforce chính xác dưới tải. Hàm SQL
+ * dùng auth.uid() nội bộ (chỉ ghi dòng của chính user).
+ *
+ * Trả true nếu RPC chạy được (đã ghi atomic); false nếu hàm CHƯA tồn tại
+ * (pre-migration: 42883/PGRST202) hoặc lỗi → caller FALLBACK về load-modify-save
+ * cũ = 0 regression. Hàm SQL commit atomic nên lỗi = KHÔNG ghi gì → không double.
+ */
+export async function incrementUsageAtomic(date: string, tokensIn: number, tokensOut: number): Promise<boolean> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('increment_ai_usage', {
+    p_date: date,
+    p_tokens_in: tokensIn,
+    p_tokens_out: tokensOut,
+  });
+  if (error) {
+    // Không log ồn ào cho trường hợp pre-migration (hàm chưa có) — đó là fallback
+    // có chủ đích. Chỉ log khi là lỗi khác để dễ soi.
+    if (error.code !== '42883' && error.code !== 'PGRST202') {
+      console.error('increment_ai_usage RPC lỗi (fallback load-modify-save):', error.message);
+    }
+    return false;
+  }
+  return true;
+}
+
 export async function saveUsage(userId: string, rec: UsageRecord): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase
