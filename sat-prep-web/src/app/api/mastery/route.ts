@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { recordAnswer, getMasterySummary, type Difficulty } from '@/lib/mastery';
 import { isValidSkill } from '@/lib/skill-taxonomy';
+import { rateLimit } from '@/lib/rate-limit';
 
 /**
  * MASTERY API (implementation_plan.md §10.A.3, task #9)
@@ -25,6 +26,15 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
+
+    const rl = rateLimit(`mastery:${user.id}`, 30, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Quá nhiều request. Thử lại sau.', retryAfterMs: rl.retryAfterMs },
+        { status: 429 }
+      );
+    }
+
     const { skillId, isCorrect, difficulty } = await req.json();
 
     if (typeof skillId !== 'string' || !isValidSkill(skillId)) {

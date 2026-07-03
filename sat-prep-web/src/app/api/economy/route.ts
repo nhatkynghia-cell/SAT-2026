@@ -4,6 +4,7 @@ import { loadEconomy, saveEconomy, loadPvpState, savePvpState, tryConsumePvpFigh
 import { getMasterySummary } from '@/lib/mastery';
 import { computeStats } from '@/lib/stats';
 import { PVP_OPPONENTS } from '@/helpers/pvp';
+import { rateLimit } from '@/lib/rate-limit';
 import {
   applyAnswerReward,
   applyExamReward,
@@ -48,6 +49,15 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
+
+    const rl = rateLimit(`economy:${user.id}`, 20, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Quá nhiều request. Thử lại sau.', retryAfterMs: rl.retryAfterMs },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const action = body?.action;
 
