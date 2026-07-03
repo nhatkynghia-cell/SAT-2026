@@ -10,14 +10,13 @@ export interface PracticeQuestion {
   archaic_words?: { word: string; meaning: string }[];
   practice_question: string;
   choices: string[];
-  correct_choice: string;
+  correct_choice?: string;
   explanation: string;
   difficulty: string;
   trapRate: number;
-  /** skillId từ skill-taxonomy (task #9) — optional để các trang cũ không vỡ. */
   skillId?: string;
-  /** Phân tích từng đáp án (Nhóm 7 #9) — optional: câu cũ trong bank chưa có. */
   choice_analysis?: { choice_letter: string; is_correct: boolean; analysis: string }[];
+  questionId?: string;
 }
 
 interface CorePracticeUIProps {
@@ -74,21 +73,38 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
   const handleSubmit = async () => {
     if (!selectedAnswer) return;
     setIsSubmitted(true);
-    
-    // Convert e.g. "A) option" to just the letter, or exact match
-    const isAnsCorrect = selectedAnswer.trim()[0].toUpperCase() === questionData.correct_choice.trim()[0].toUpperCase();
+
+    let isAnsCorrect: boolean;
+    let correctChoice: string;
+
+    if (questionData.questionId) {
+      const res = await fetch("/api/grade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questionId: questionData.questionId, answer: selectedAnswer }),
+      });
+      if (res.ok) {
+        const grade = await res.json();
+        isAnsCorrect = grade.correct;
+        correctChoice = grade.correctChoice;
+      } else {
+        isAnsCorrect = selectedAnswer.trim()[0].toUpperCase() === (questionData.correct_choice ?? '').trim()[0]?.toUpperCase();
+        correctChoice = questionData.correct_choice ?? '';
+      }
+    } else {
+      isAnsCorrect = selectedAnswer.trim()[0].toUpperCase() === (questionData.correct_choice ?? '').trim()[0]?.toUpperCase();
+      correctChoice = questionData.correct_choice ?? '';
+    }
+
     setIsCorrect(isAnsCorrect);
-    
+
     const result = await handlePracticeAnswer(isAnsCorrect, questionData.difficulty);
     setRewardData(result);
 
     if (onAnswer) onAnswer(isAnsCorrect);
 
-    // Prefetch câu kế ngay khi submit (user đang đọc giải thích) — 2.2.
     if (onSubmitted) onSubmitted();
 
-    // Ghi nhận kết quả vào Mastery (task #9) — chỉ khi câu có skillId.
-    // Fire-and-forget như /api/cau-sai: không chặn UI, lỗi chỉ log.
     if (questionData.skillId) {
       try {
         await fetch("/api/mastery", {
@@ -114,11 +130,10 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
             passage: questionData.full_passage || "",
             question: questionData.practice_question,
             choices: questionData.choices,
-            correct_choice: questionData.correct_choice,
+            correct_choice: correctChoice,
             user_choice: selectedAnswer,
             explanation: questionData.explanation,
             source: "Core Practice (Next.js)",
-            // Gắn skillId để sổ tay sinh câu BIẾN THỂ cùng kỹ năng khi ôn (Nhóm 7 #6).
             skill_id: questionData.skillId ?? null,
           })
         });
@@ -209,7 +224,7 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
           let choiceClass = "bg-[#1b2533] border-[#334155] text-[#e2e8f0]";
           
           if (isSubmitted) {
-            const isThisChoiceCorrect = choice.trim()[0].toUpperCase() === questionData.correct_choice.trim()[0].toUpperCase();
+            const isThisChoiceCorrect = choice.trim()[0].toUpperCase() === (questionData.correct_choice ?? '').trim()[0]?.toUpperCase();
             if (isThisChoiceCorrect) {
               choiceClass = "bg-[#064e3b] border-[#10b981] text-[#34d399]";
             } else if (isSelected) {

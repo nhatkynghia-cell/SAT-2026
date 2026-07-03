@@ -4,6 +4,7 @@ import { checkBudget, recordGlobalCost } from '@/lib/ai-cost';
 import { getCurrentUser } from '@/lib/auth';
 import { checkQuota, recordUsage, type AiTier } from '@/lib/ai-quota';
 import { isValidSkill } from '@/lib/skill-taxonomy';
+import { issueQuestion } from '@/lib/issued-questions';
 
 /**
  * Map (moduleType, topic) → skillId chuẩn trong skill-taxonomy (task #9 Mastery).
@@ -54,6 +55,7 @@ function resolveSkillId(moduleType: string, topic: string): string | undefined {
 export async function POST(req: Request) {
   try {
     const { moduleType, topic, prefer = 'auto', skillId: clientSkillId, difficulty: reqDiffRaw } = await req.json();
+    const user = await getCurrentUser();
 
     // Độ khó YÊU CẦU (Easy/Medium/Hard) — tham số adaptive (Tower/Gate). Khi caller
     // KHÔNG truyền → reqDifficulty = undefined → giữ NGUYÊN hành vi cũ (math mặc định
@@ -76,20 +78,22 @@ export async function POST(req: Request) {
     // Ưu tiên lấy câu từ Question Bank khi pool đã đủ lớn → cắt chi phí OpenAI.
     // prefer='ai' để ép sinh câu mới (nút "câu mới hoàn toàn"); mặc định 'auto'.
     if (prefer !== 'ai' && (await poolSize(moduleType)) >= MIN_POOL) {
-      const cached = await getFromBank(moduleType, topic, reqDifficulty);
+      const cached = await getFromBank(moduleType, topic, reqDifficulty) as Record<string, unknown> | null;
       if (cached) {
-        return NextResponse.json({ ...cached, skillId, _source: 'bank' });
+        const qId = await issueQuestion(user.id, String(cached.correct_choice ?? ''), skillId, String(cached.difficulty ?? 'Medium'));
+        const { correct_choice: _h, ...safe } = cached;
+        return NextResponse.json({ ...safe, skillId, questionId: qId, _source: 'bank' });
       }
     }
 
     const apiKey = process.env.OPENAI_API_KEY;
 
     if (!apiKey) {
-      // Nếu không có key mà bank còn câu nào khớp module → dùng tạm (degrade mềm).
-      // Degrade mềm: ưu tiên đúng độ khó yêu cầu, nếu bank không có thì lấy bất kỳ.
-      const fallback = (await getFromBank(moduleType, topic, reqDifficulty)) ?? (await getFromBank(moduleType, topic));
+      const fallback = (await getFromBank(moduleType, topic, reqDifficulty) ?? await getFromBank(moduleType, topic)) as Record<string, unknown> | null;
       if (fallback) {
-        return NextResponse.json({ ...fallback, skillId, _source: 'bank' });
+        const qId = await issueQuestion(user.id, String(fallback.correct_choice ?? ''), skillId, String(fallback.difficulty ?? 'Medium'));
+        const { correct_choice: _h, ...safe } = fallback;
+        return NextResponse.json({ ...safe, skillId, questionId: qId, _source: 'bank' });
       }
       return NextResponse.json({ error: "Chưa cấu hình OPENAI_API_KEY" }, { status: 500 });
     }
@@ -97,10 +101,11 @@ export async function POST(req: Request) {
     // Kill-switch ngân sách (§9.5): nếu đã vượt trần chi phí ngày, degrade mềm
     // về Question Bank thay vì gọi OpenAI. Nếu bank trống → báo bận.
     if (!(await checkBudget()).allowed) {
-      // Degrade mềm: ưu tiên đúng độ khó yêu cầu, nếu bank không có thì lấy bất kỳ.
-      const fallback = (await getFromBank(moduleType, topic, reqDifficulty)) ?? (await getFromBank(moduleType, topic));
+      const fallback = (await getFromBank(moduleType, topic, reqDifficulty) ?? await getFromBank(moduleType, topic)) as Record<string, unknown> | null;
       if (fallback) {
-        return NextResponse.json({ ...fallback, skillId, _source: 'bank', _degraded: 'budget' });
+        const qId = await issueQuestion(user.id, String(fallback.correct_choice ?? ''), skillId, String(fallback.difficulty ?? 'Medium'));
+        const { correct_choice: _h, ...safe } = fallback;
+        return NextResponse.json({ ...safe, skillId, questionId: qId, _source: 'bank', _degraded: 'budget' });
       }
       return NextResponse.json(
         { error: "Hệ thống AI tạm đạt giới hạn vận hành trong ngày. Vui lòng thử lại sau.", budgetExceeded: true },
@@ -111,7 +116,6 @@ export async function POST(req: Request) {
     // Enforce quota freemium TRƯỚC khi gọi OpenAI (cùng engine với /api/chat,
     // task 5.2). Chỉ tính khi THỰC SỰ gọi AI — câu lấy từ Question Bank ở trên
     // KHÔNG tốn token nên đã return sớm, không chạm tới đây.
-    const user = await getCurrentUser();
     // TODO(Phase 2): lấy tier thật từ subscription. Tạm coi mọi user là 'free'.
     const tier: AiTier = 'free';
     const quota = await checkQuota(user.id, tier);
@@ -336,7 +340,10 @@ BẮT BUỘC thêm trường "choice_analysis": MẢNG, mỗi phần tử ứng 
       console.error('Không lưu được vào question bank:', e)
     );
 
-    return NextResponse.json({ ...data, skillId, _source: 'ai' });
+    // ROOT A: lưu đáp án server-side, trả questionId cho client (client dùng /api/grade)
+    const questionId = await issueQuestion(user.id, data.correct_choice, skillId, data.difficulty);
+    const { correct_choice: _hidden, ...safeData } = data;
+    return NextResponse.json({ ...safeData, skillId, questionId, _source: 'ai' });
 
   } catch (error: unknown) {
     console.error("Generate practice error:", error);
