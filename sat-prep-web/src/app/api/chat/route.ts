@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { checkQuota, recordUsage, type AiTier } from '@/lib/ai-quota';
+import { checkQuota, recordUsage } from '@/lib/ai-quota';
+import { getUserTier } from '@/lib/subscription-store';
 import { checkBudget, recordGlobalCost } from '@/lib/ai-cost';
 import {
   chatCacheHash,
@@ -54,8 +55,8 @@ export async function POST(request: Request) {
   try {
     const user = await getCurrentUser();
 
-    // TODO(task #2/Phase 2): lấy tier thật từ subscription. Tạm coi mọi user là 'free'.
-    const tier: AiTier = 'free';
+    // Phase 2: tier THẬT từ subscription (fail-safe → 'free' khi lỗi/không có gói).
+    const tier = await getUserTier(user.id);
 
     const body: ChatRequest = await request.json();
 

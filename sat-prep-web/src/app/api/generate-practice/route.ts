@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { getFromBank, saveToBank, poolSize, MIN_POOL } from '@/lib/question-bank';
 import { checkBudget, recordGlobalCost } from '@/lib/ai-cost';
 import { getCurrentUser } from '@/lib/auth';
-import { checkQuota, recordUsage, type AiTier } from '@/lib/ai-quota';
+import { checkQuota, recordUsage } from '@/lib/ai-quota';
+import { getUserTier } from '@/lib/subscription-store';
 import { isValidSkill } from '@/lib/skill-taxonomy';
 import { issueQuestion, type ChoiceAnalysis } from '@/lib/issued-questions';
 
@@ -135,8 +136,8 @@ export async function POST(req: Request) {
     // Enforce quota freemium TRƯỚC khi gọi OpenAI (cùng engine với /api/chat,
     // task 5.2). Chỉ tính khi THỰC SỰ gọi AI — câu lấy từ Question Bank ở trên
     // KHÔNG tốn token nên đã return sớm, không chạm tới đây.
-    // TODO(Phase 2): lấy tier thật từ subscription. Tạm coi mọi user là 'free'.
-    const tier: AiTier = 'free';
+    // Phase 2: tier THẬT từ subscription (fail-safe → 'free' khi lỗi/không có gói).
+    const tier = await getUserTier(user.id);
     const quota = await checkQuota(user.id, tier);
     if (!quota.allowed) {
       return NextResponse.json(
