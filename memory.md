@@ -228,6 +228,20 @@ Khi sửa đổi mã nguồn Python của dự án này, bất kỳ Agent nào c
 > **⏳ TIẾP (cần USER):** Bước 2 gateway VNPay/MoMo — cần **credentials merchant/sandbox** mới verify live được (payment-create dùng giá từ PLANS + webhook idempotent verify chữ ký server-side → gọi `grantSubscription`; nên có bảng `payment_transactions` idempotency). Bước 3 reward-to-real: redeem voucher 50000 xu (đã có trong shop `GamificationContext.tsx:39`) qua `applySpend` + bản ghi fulfillment. Chi tiết: memory Claude `sat-prep-phase2-payments.md`.
 
 > [!IMPORTANT]
+> ### ✅ PHASE 2 — BƯỚC 3 REWARD-TO-REAL XONG (2026-07-04, commit `acf2729` pushed origin/main)
+> **xu → quà THẬT** (rw_1 Voucher lệ phí thi 50k xu / rw_2 tài liệu 10k / rw_3 gói AI VIP 20k — 3 item `type:'reward'` trong ITEM_CATALOG). Độc lập với cổng thanh toán, làm được ngay không cần creds. Server-authoritative giống mọi money surface (§9.1): client gửi `rewardId`, SERVER tra giá + trừ xu.
+>
+> **7 file (2 lib mới + 1 test + 1 SQL + 1 route + 2 sửa):** `src/lib/rewards.ts` (THUẦN, `REWARDS` catalog = nguồn sự thật GIÁ mirror ITEM_CATALOG, `getReward` validate, +3 test → **137**) · `reward_redemptions.sql` (bảng phiếu RLS **SELECT-own only** ghi chỉ service-role + RPC atomic `redeem_reward` **FOR UPDATE khóa dòng user_economy → check balance → trừ xu + INSERT phiếu 'pending' 1 transaction**, SECURITY INVOKER grant chỉ service_role) · `src/lib/redemption-store.ts` (`tryRedeemReward` admin rpc **FAIL-CLOSED** nếu RPC chưa có — KHÁC PvP: KHÔNG fallback non-atomic vì money-out+phiếu quà thật → thà chặn còn hơn phát quà sai; `listRedemptions` read own) · `/api/redeem` (POST {rewardId} server tra cost từ REWARDS, rate-limit 10/min, forge→400, insufficient→400, RPC missing→503; GET list) · `GamificationContext.redeemReward` (đồng bộ số dư server, KHÔNG optimistic) · `shop/page.tsx` (reward → dialog xác nhận "không hoàn lại" → redeemReward; item ảo giữ buyItem).
+>
+> **⚠️ ĐÃ CHẠY `reward_redemptions.sql` trên PROD DB** (direct pg, idempotent, additive) — table+RPC+policy confirmed live. **User KHÔNG cần chạy SQL.**
+>
+> **🔍 Verify live prod DB (test acct c43f015e):** direct pg — insufficient(5000<10000)→0 record; sufficient(60000→10000)→1 phiếu pending đúng name/cost; bad_cost(0) guard. **service_role rpc() (exact store path):** 25000→5000 success+record; insufficient chặn. **Double-spend race: 5 concurrent redeem balance đủ ĐÚNG 1 → ok=1/insufficient=4, coins=0, 1 record = KHÔNG faucet** (FOR UPDATE serialize OK). Curl dev :3000: forge rw_999→400, skin_1(ảo)→400, GET→200. Test data cleaned (coins restored 10930). Gates: tsc·test **137/137**·lint 0/0·build **48 pages**.
+>
+> **⚠️ CHƯA click-verify browser UI** (preview MCP không tới :3000 chat khác; Next singleton chặn preview_start của mình — KHÔNG kill server chat khác). Route+RPC+forge đã verify curl+pg; UI là React thuần đường đã kiểm. Click-verify + trang lịch sử đổi (listRedemptions chưa có UI hiển thị) + admin fulfill (phiếu 'pending' chưa có route đánh dấu 'fulfilled') = nice-to-have phiên sau.
+>
+> **⏳ CÒN LẠI Phase 2:** Bước 2 VNPay/MoMo gateway — cần USER cấp **merchant/sandbox creds** + **chốt giá 4 gói** (user chọn "decide later" 2026-07-04). ROOT E step2 revoke: 2026-07-04 vẫn CHƯA tới hạn soak 5-6/7. Chi tiết: memory Claude `sat-prep-phase2-payments.md`.
+
+> [!IMPORTANT]
 > ### ✅ AUTHENTICATED VERIFY XONG (2026-07-03) — persist Supabase THẬT + 2 nợ cũ ĐÓNG (login browser dev server)
 > **Cách verify:** dev server local (`preview_start`, port 3000) trỏ CÙNG prod Supabase qua `.env.local` → login browser Claude điều khiển bằng account `truongsonht.xd@gmail.com` (pass user cấp phiên này) → cookie `sb-...-auth-token` set OK, `/api/economy` GET 200 coins 160/xp 400, mastery overall 11/18 skill (state cũ từ phiên trước). Prod tách biệt session nên PHẢI login trên browser-của-Claude, không mượn được session prod của user.
 >
