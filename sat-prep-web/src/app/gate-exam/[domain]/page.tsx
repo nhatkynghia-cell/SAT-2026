@@ -82,10 +82,11 @@ export default function GateExamPage() {
     const nextIdx = currentIdx + 1;
     if (nextIdx >= GATE_QUESTIONS) {
       try {
+        const questionIds = questions.map((q) => (q as unknown as Record<string, unknown>).questionId).filter(Boolean);
         const res = await fetch('/api/gate-exam', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ domain, correctCount }),
+          body: JSON.stringify({ domain, questionIds, correctCount }),
         });
         if (res.ok) {
           const data = await res.json();
@@ -105,7 +106,7 @@ export default function GateExamPage() {
     } else {
       setCurrentIdx(nextIdx);
     }
-  }, [currentIdx, correctCount, domain, handleExamComplete]);
+  }, [currentIdx, correctCount, domain, handleExamComplete, questions]);
 
   const startCountdown = () => {
     setCountdown(3);
