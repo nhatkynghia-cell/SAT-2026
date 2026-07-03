@@ -178,8 +178,11 @@ export async function POST(request: Request) {
     const tokIn = data.usage?.prompt_tokens ?? 0;
     const tokOut = data.usage?.completion_tokens ?? 0;
     await recordUsage(user.id, tokIn, tokOut);
-    // Cộng chi phí vào sổ cái toàn hệ thống (kill-switch ngày — §9.5).
-    recordGlobalCost(tokIn, tokOut, MODEL).catch((e) => console.error('recordGlobalCost:', e));
+    // Cộng chi phí vào sổ cái toàn hệ thống (kill-switch ngày — §9.5). AWAIT
+    // (audit 2026-07-03, ROOT D): fire-and-forget trên serverless có thể bị
+    // kill trước khi ghi → thất thoát trần ngân sách. .catch giữ để lỗi ghi
+    // KHÔNG làm hỏng reply.
+    await recordGlobalCost(tokIn, tokOut, MODEL).catch((e) => console.error('recordGlobalCost:', e));
 
     // 6) Lưu vào cache chia sẻ để HS sau hỏi giống thì khỏi gọi OpenAI (§5.3).
     if (cacheable && reply) {

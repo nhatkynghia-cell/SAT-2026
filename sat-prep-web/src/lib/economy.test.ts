@@ -18,6 +18,7 @@ import {
   QUEST_REWARD,
   DEFAULT_ECONOMY,
   SPIN_VIRTUAL_ITEMS,
+  MAX_EXAM_QUESTIONS,
   type EconomyState,
 } from './economy.ts';
 
@@ -67,6 +68,16 @@ test('applyExamReward: KHÔNG áp combo (combo chỉ cho chuỗi trả lời đ�
   const r = applyExamReward(fresh(), 3, 'Easy');
   assert.equal(r.granted.coins, ANSWER_REWARD.Easy.coins * 3);
   assert.equal(r.granted.xp, ANSWER_REWARD.Easy.xp * 3);
+});
+
+test('applyExamReward: KẸP correctCount về trần (chống coin-mint phi lý — audit 2026-07-03)', () => {
+  // POST {correctCount: 1e9} trước đây → ~20 tỉ xu. Nay kẹp về MAX_EXAM_QUESTIONS.
+  const r = applyExamReward(fresh(), 1_000_000_000, 'Hard');
+  assert.equal(r.granted.coins, ANSWER_REWARD.Hard.coins * MAX_EXAM_QUESTIONS);
+  assert.equal(r.granted.xp, ANSWER_REWARD.Hard.xp * MAX_EXAM_QUESTIONS);
+  // Đúng trần thì KHÔNG bị kẹp (đề thật <= 200 câu vẫn thưởng đủ).
+  const exact = applyExamReward(fresh(), MAX_EXAM_QUESTIONS, 'Easy');
+  assert.equal(exact.granted.coins, ANSWER_REWARD.Easy.coins * MAX_EXAM_QUESTIONS);
 });
 
 test('applyQuestReward: questId hợp lệ → thưởng theo bảng cố định server', () => {

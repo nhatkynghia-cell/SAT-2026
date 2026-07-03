@@ -291,19 +291,22 @@ BẮT BUỘC thêm trường "choice_analysis": MẢNG, mỗi phần tử ứng 
 
     if (!content) throw new Error("No content generated");
 
-    // Ghi chi phí vào sổ cái toàn hệ thống (§9.5).
-    recordGlobalCost(
-      responseData.usage?.prompt_tokens ?? 0,
-      responseData.usage?.completion_tokens ?? 0,
-      'gpt-4o-mini'
-    ).catch((e) => console.error('recordGlobalCost:', e));
-
-    // Ghi nhận 1 lượt gọi AI vào quota của user (chỉ khi thật sự gọi OpenAI).
-    recordUsage(
-      user.id,
-      responseData.usage?.prompt_tokens ?? 0,
-      responseData.usage?.completion_tokens ?? 0
-    ).catch((e) => console.error('recordUsage:', e));
+    // Ghi kế toán cost + quota TRƯỚC khi trả response. AWAIT (audit 2026-07-03,
+    // ROOT D): fire-and-forget trên serverless có thể bị freeze/kill sau khi
+    // response trả về → mất bản ghi → thất thoát trần ngân sách/quota. Vẫn giữ
+    // .catch để lỗi DB KHÔNG làm hỏng câu trả lời AI đã sinh thành công.
+    await Promise.allSettled([
+      recordGlobalCost(
+        responseData.usage?.prompt_tokens ?? 0,
+        responseData.usage?.completion_tokens ?? 0,
+        'gpt-4o-mini'
+      ).catch((e) => console.error('recordGlobalCost:', e)),
+      recordUsage(
+        user.id,
+        responseData.usage?.prompt_tokens ?? 0,
+        responseData.usage?.completion_tokens ?? 0
+      ).catch((e) => console.error('recordUsage:', e)),
+    ]);
 
     const data = JSON.parse(content);
     
