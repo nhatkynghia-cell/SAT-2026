@@ -188,11 +188,13 @@ Khi sửa đổi mã nguồn Python của dự án này, bất kỳ Agent nào c
 > ### 🔐 SECURITY AUDIT MONEY/ANTI-CHEAT XONG (2026-07-03) — CHẶN gắn tiền thật cho tới khi đóng ROOT A/B/C
 > **Báo cáo đầy đủ: `SECURITY_AUDIT_2026-07-03.md` (ROOT workspace).** Chạy bằng adversarial workflow (8 finder → 2 skeptic/finding: **36 raw → 21 survivor → 15 bác bỏ**). Commit `3491f7c` (đã push origin/main). App XANH: tsc · **test 123/123** · lint 0/0 · build 43 pages.
 >
-> **⚠️ KẾT LUẬN: CHƯA AN TOÀN gắn thanh toán + Reward-to-Real.** Server authoritative về SỐ TIỀN (client không gửi số xu) NHƯNG tin mù SỰ KIỆN học tập client khẳng định + nhiều read-modify-write không atomic. 4 root cause:
+> **🔴🔴 CẬP NHẬT QUAN TRỌNG NHẤT (2026-07-03) — ROOT E = BLOCKER #1, đóng TRƯỚC A/B/C:** RLS chỉ bảo vệ QUYỀN SỞ HỮU DÒNG, KHÔNG bảo vệ GIÁ TRỊ CỘT. User đăng nhập PATCH thẳng `user_economy.coins` / `user_mastery.skills` của CHÍNH MÌNH qua PostgREST (anon key `sb_publishable_...` trong bundle + JWT đọc từ cookie `sb-...-auth-token` bằng JS) → **bỏ qua HOÀN TOÀN `/api/economy` + mọi fix A/B/C/D**. XÁC MINH SỐNG non-destructive: PATCH coins→**200**, mastery→**200**, cross-user INSERT→**403**. Gốc: T7 chuyển server-authoritative nhưng chưa REVOKE quyền ghi của `authenticated`; `.env.local` KHÔNG có service-role key nên app ghi bằng JWT user → client ghi được y hệt. **Fix (VIỆC USER, cần secret mới + đổi RLS prod):** thêm `SUPABASE_SERVICE_ROLE_KEY` (server-only) + admin client cho MỌI ghi kinh tế/mastery + REVOKE `authenticated` INSERT/UPDATE/DELETE trên `user_economy`/`user_mastery`/`user_ai_usage`/`ai_cost_ledger` (service-role bỏ qua RLS nên server vẫn ghi). Refactor store anon→admin (Claude làm) + đổi RLS (user chạy SQL) làm CÙNG nhau. **Mọi fix khác vô nghĩa khi E còn hở.** Task #9. Chi tiết: report mục ROOT E.
+>
+> **⚠️ KẾT LUẬN: CHƯA AN TOÀN gắn thanh toán + Reward-to-Real.** Server authoritative về SỐ TIỀN (client không gửi số xu) NHƯNG tin mù SỰ KIỆN học tập client khẳng định + nhiều read-modify-write không atomic. 5 root cause (E ở trên + 4 dưới):
 > - **ROOT A (11 finding)** — client tự khai `isCorrect`/`correctCount`/`skillId`/`difficulty` không có bằng chứng câu hỏi. `POST /api/economy {answer}` loop xu; `POST /api/mastery` spam → mastery 100 (~5-10 lần, EWMA Hard α=0.28) → basePower→PvP xu thật + mở gate + reset cooldown; gate-exam `correctCount` client-reported (eligibility ĐÃ re-check ✅ nhưng điểm thì không). **Fix gốc = server sinh+lưu câu+đáp án, chấm server, KHÔNG trả `correct_choice` cho client → REDESIGN Phase 2, cần user quyết.**
 > - **ROOT B (1)** — quest double-claim: `POST /api/economy {quest,q3}` không kiểm "đã claim" server-side → re-POST vô hạn +100xu+500xp. Cần schema claim-state.
-> - **ROOT C (5)** — race read-modify-write: PvP cap (10 request đồng thời cùng đọc fightsToday=0 → vượt cap = faucet), cost ledger (vượt trần ngân sách dưới tải), quota, gate progress, coins. Fix = atomic DB (`UPDATE x=x+n`/rpc/advisory lock) → Claude viết migration, user chạy SQL prod.
-> - **ROOT D (2) — ĐÃ FIX phiên này.**
+> - **ROOT C (5) — ĐÃ TRIỂN KHAI + review GO (commit `ce39cb1`).** Atomic DB: `atomic_mutations.sql` (3 hàm SECURITY INVOKER: increment_ai_cost_ledger / increment_ai_usage / consume_pvp_fight khóa dòng). Wiring fail-safe (RPC vắng→fallback cũ=0 regression), runtime-verified live qua fallback. ⏳ **[user] chạy `sat-prep-web/atomic_mutations.sql` trên SQL Editor prod** để bật đường atomic. Follow-up (report): #2 fail-closed real RPC errors, #3 explicit userId param, fallback partial-success — money-core tinh tế, chưa làm. ⚠️ ROOT C đóng RACE nhưng KHÔNG phải ranh giới anti-cheat khi E còn hở.
+> - **ROOT D (2) — ĐÃ FIX (commit `3491f7c`).**
 >
 > **✅ FIX AN TOÀN ĐÃ ÁP (commit `3491f7c`):**
 > 1. **ROOT A phần exam:** `applyExamReward` kẹp `correctCount` về `MAX_EXAM_QUESTIONS=200` (economy.ts) → chặn `{correctCount:1e9}`=~20 tỉ xu/request. +1 test (123 total). Đề SAT thật ~98 câu nên 200 KHÔNG chặn nhầm.
@@ -200,7 +202,12 @@ Khi sửa đổi mã nguồn Python của dự án này, bất kỳ Agent nào c
 >
 > **🟢 XÁC NHẬN AN TOÀN (15 bác bỏ = phòng thủ đang chạy đúng):** PvP power-gate + rank tuần tự + server tự tính targetRank; HMAC save-data (T7 blob không còn coins/xp); RLS chặn IDOR cross-user; gate-exam POST re-check eligibility (Fix A cũ còn sống); generate-practice checkQuota trước OpenAI; spin RNG server 1 lượt/ngày; applySpend clamp âm/thiếu số dư.
 >
-> **🔴 VIỆC PHIÊN SAU (trước khi gắn tiền thật — cần user quyết hướng, ĐỪNG tự mở scope):** đóng ROOT A gốc (server-side question grading, hạng mục Phase 2 LỚN) + ROOT B (quest claim-state) + ROOT C (atomic mutations — Claude viết migration, user chạy SQL) + rate-limit `/api/mastery`+`/api/economy`. Xem mục "PHẢI LÀM TRƯỚC KHI GẮN TIỀN THẬT" trong báo cáo.
+> **🔴 VIỆC PHIÊN SAU (trước khi gắn tiền thật — thứ tự BẮT BUỘC, cần user quyết hướng, ĐỪNG tự mở scope):**
+> 1. **ROOT E TRƯỚC TIÊN (BLOCKER #1, task #9):** service-role key + admin client + REVOKE authenticated write. Mọi thứ khác vô nghĩa khi E hở. Refactor store (Claude) + RLS/SQL (user) làm cùng.
+> 2. **[user] chạy `atomic_mutations.sql`** để bật ROOT C atomic (code đã sẵn, fail-safe).
+> 3. **ROOT A gốc** (server-side question grading — KHÔNG trả `correct_choice` cho client, chấm ở server; hạng mục Phase 2 LỚN) + **ROOT B** (quest claim-state server-side) + rate-limit `/api/mastery`+`/api/economy`.
+> 4. Follow-up ROOT C (#2/#3/partial-success) trong report.
+> Xem mục "PHẢI LÀM TRƯỚC KHI GẮN TIỀN THẬT" + "ROOT E" + "ROOT C — ĐÃ TRIỂN KHAI" trong `SECURITY_AUDIT_2026-07-03.md`.
 
 > [!IMPORTANT]
 > ### ✅ AUTHENTICATED VERIFY XONG (2026-07-03) — persist Supabase THẬT + 2 nợ cũ ĐÓNG (login browser dev server)
