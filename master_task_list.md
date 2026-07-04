@@ -33,7 +33,7 @@ Tài liệu này theo dõi toàn bộ tiến độ của dự án Ivy League Mat
 ## 🔷 Phase 2: MVP Launch & Hợp nhất Học tập - RPG
 > **Mục tiêu:** Ra mắt bản Beta có thanh toán, hợp nhất cơ chế Game vào thành tựu học tập thật.
 
-- [ ] **Hệ thống Thanh toán:** Tích hợp VNPay / MoMo / Stripe (Gói Premium/Ultimate).
+- [~] **Hệ thống Thanh toán:** VNPay + MoMo — **KHUNG XONG** (2026-07-04, `55ff53b`). Bước 1 tier foundation (`fd4d877`) + bước 2 gateway khung (lib payment + MoMo HMAC-SHA256 tự viết + wrapper lib vnpay SHA512 + `payment_transactions` + RPC atomic `confirm_payment` idempotent chống double-grant + 4 route `/api/payment/*` + UI `/upgrade`) + bước 3 reward-to-real (`acf2729`, xu→quà thật RPC `redeem_reward`). Verify no-creds đầy đủ (RPC race live, VNPay URL SHA512, IPN chữ ký giả→0 cấp gói). **⏳ CÒN [user]: chốt giá 4 gói (placeholder) + cấp creds sandbox/merchant VNPay+MoMo → verify roundtrip LIVE + xác nhận field-order chữ ký IPN MoMo.** (Stripe chưa làm — chỉ VN gateway.)
 - [ ] **Parent Dashboard:** Màn hình theo dõi tiến độ và nhận báo cáo dành cho phụ huynh. *(Phụ thuộc Score Prediction đã chảy dữ liệu — xem T2.)*
 - [~] **Mastery Tracking (Lõi học tập) (10.A.3):** `src/lib/mastery.ts` + `/api/mastery` + test **đã xây xong** nhưng **chưa có dữ liệu chảy vào** — luồng trả lời câu hỏi (`CorePracticeUI`) chưa gắn `skillId` và chưa POST `/api/mastery`. Đây là **nút thắt trung tâm** (xem T1).
 - [~] **Diagnostic Onboarding (10.A.2 & 10.A.5):** Score Prediction (`/api/score`) đã xây; Diagnostic onboarding (bài test xếp lớp đầu vào) **chưa có**. Score hiện luôn = 0 vì thiếu mastery (T1).

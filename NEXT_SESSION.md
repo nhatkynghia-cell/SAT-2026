@@ -7,69 +7,73 @@ Copy nguyên khối dưới đây, dán vào ô chat để mở phiên mới:
 ```
 Đọc memory.md, master_task_list.md trong
 D:\10.SAT_Prep_App 30.6\10.SAT_Prep_App 30.6\10.SAT_Prep_App\10.SAT_Prep_App\
-rồi tiếp tục dự án. Đọc block "💳 PHASE 2 — TIER FOUNDATION" và "ĐƯỜNG THI ĐÃ VÁ" trong memory.md.
+rồi tiếp tục dự án. Đọc block "PHASE 2 — BƯỚC 2 CỔNG THANH TOÁN (KHUNG)" và
+"BƯỚC 3 REWARD-TO-REAL" trong memory.md. Trả lời tiếng Việt.
 
 Trước khi làm gì: export PATH="$PATH:/c/Program Files/nodejs" rồi verify môi trường
 (tsc + test + build + lint) trong sat-prep-web/. Baseline mong đợi:
-tsc sạch · test 134/134 · lint 0/0 · build 47 pages. origin/main = 8ebce50.
+tsc sạch · test 149/149 · lint 0/0 · build 53 pages. origin/main = 29081b2.
 
 Token đã lưu: ~/.gitcreds-sat2026 (git push/GitHub API) + ~/.vercel-token (Vercel API).
 Team Vercel: sat-2027 | project: sat-2026 | app prod: https://sat-2026.vercel.app
 Repo: github.com/nhatkynghia-cell/SAT-2026 (main). Account test: truongsonht.xd@gmail.com / Nghia@123
 DB direct: postgresql://postgres:SatPrep2026@db.yynszcfqcvbnuvguwtfy.supabase.co:5432/postgres
 Service-role: trong .env.local + Vercel (sensitive) — KHÔNG ghi vào git
+Cài SQL trực tiếp: pg module cài `npm i pg --no-save --legacy-peer-deps` (KHÔNG vào package.json).
 
-ROOT E STEP2 — hỏi tôi đã chạy root_e_step2_revoke.sql chưa:
-- Nếu ĐÃ CHẠY → verify browser PATCH user_economy.coins → 403 → ghi memory ROOT E đóng hoàn toàn
-- Nếu CHƯA (đã qua 2026-07-05) → nhắc tôi chạy NGAY (file sẵn trong sat-prep-web/)
-- Nếu CHƯA tới 2026-07-05 → bỏ qua, tiếp việc khác
+✅ ĐÃ ĐÓNG HẾT BLOCKER BẢO MẬT — ROOT A–E + rate-limit. ROOT E step2 revoke ĐÃ CHẠY
+2026-07-05 (browser PATCH user_economy.coins → 403). KHÔNG còn việc bảo mật tồn đọng.
 
-SECRET chưa rotate (defer — tôi chọn để sau):
+SECRET chưa rotate (defer — tôi chọn để sau; HỎI tôi đã đổi chưa rồi TICK):
 [ ] GitHub PAT ghp_...HETIG (lộ ảnh)
 [ ] Vercel token (lộ chat)
 [ ] OpenAI key (trong .anv ROOT + Vercel)
 [x] DB password (đã reset SatPrep2026 ngày 2026-07-03)
-Nếu đã đổi git/vercel token → xin token MỚI lưu lại.
+Nếu đã đổi git/vercel token → token cũ trong ~/.gitcreds-sat2026 / ~/.vercel-token HẾT hiệu lực → xin token MỚI lưu lại.
 
 VIỆC PHIÊN SAU — theo THỨ TỰ:
-1. 🟡 PHASE 2 BƯỚC 2 — CỔNG THANH TOÁN (VNPay + MoMo). CẦN TÔI cung cấp trước:
+1. 🟡 HOÀN TẤT CỔNG THANH TOÁN (khung đã xong `55ff53b`) — CẦN TÔI cung cấp:
    a. CHỐT GIÁ 4 gói (hiện placeholder: premium 99k/990k, ultimate 199k/1990k VND)
-   b. Credentials sandbox/merchant VNPay + MoMo (không có → KHÔNG verify live được)
-   Kế hoạch: payment-create (giá lấy từ PLANS server-side) → redirect cổng →
-   webhook IDEMPOTENT (verify chữ ký server-side, dedupe txn id) → gọi
-   grantSubscription() khi thành công. Nên thêm bảng payment_transactions.
-   Chi tiết trong memory Claude "sat-prep-phase2-payments.md".
-2. 🟢 PHASE 2 BƯỚC 3 — REWARD-TO-REAL (xu → quà) — ĐỘC LẬP, KHÔNG cần credentials,
-   làm được ngay nếu chưa có creds cổng: redeem voucher 50000 xu (đã có trong shop
-   GamificationContext.tsx:39) qua applySpend server-side + bản ghi fulfillment.
-3. ⏳ Sau thanh toán: Parent Dashboard + Diagnostic Onboarding + Beta 100 users
+   b. Credentials sandbox/merchant: VNPay (TMN_CODE + HASH_SECRET) + MoMo
+      (PARTNER_CODE + ACCESS_KEY + SECRET_KEY) → set vào .env.local + Vercel (sensitive)
+   Khi có creds → Claude verify ROUNDTRIP THẬT (redirect cổng → thanh toán sandbox →
+   IPN cấp gói) + XÁC NHẬN field-order chữ ký IPN MoMo (unit test đã phủ theo spec v2,
+   nhưng CHƯA đối chiếu payload IPN thật — đây là điểm dễ sai nhất, PHẢI verify).
+2. 🟢 ADMIN FULFILLMENT (đánh dấu phiếu quà/giao dịch pending→fulfilled) — CHẶN bởi
+   quyết định role system (§9.3 chưa có). Cần tôi chọn: (a) xây role system đầy đủ,
+   hay (b) shared-secret env nhẹ cho 1 route admin. KHÔNG tự làm endpoint ghi money
+   surface không auth.
+3. ⏳ Sau thanh toán: Parent Dashboard + Diagnostic Onboarding + Beta 100 users.
 
 ⚠️ GIỚI HẠN NGỮ CẢNH ~85%: khi tới → DỪNG, cập nhật memory + commit + push.
 
-Việc user-side tôi đã làm: [điền: đã chạy step2 chưa / rotate secret nào / chốt giá + cấp creds cổng chưa]
+Việc user-side tôi đã làm: [điền: chốt giá + cấp creds cổng chưa / rotate secret nào]
 ```
 
 ---
 
-## 📋 ĐỐI CHIẾU KẾ HOẠCH (trạng thái sau phiên 2026-07-04)
+## 📋 ĐỐI CHIẾU KẾ HOẠCH (trạng thái sau phiên 2026-07-04→05)
 
 ### ĐÃ ĐÓNG HOÀN TOÀN
 - [x] Phase 1 + 1.5 TRỌN (Persistence, Auth, RLS, Deploy, CI)
 - [x] ROOT A–D + Rate-limit (audit bảo mật 2026-07-03)
-- [x] **ROOT A REWARD HOLE** — thưởng luyện tập + choice_analysis leak (2026-07-04, b226269/a31abb6)
-- [x] **ĐƯỜNG THI (exam path)** — server-side grading, đóng faucet cuối (2026-07-04, `a4e57c3`).
-      Mọi bề mặt tiền giờ chấm server-side, KHÔNG chỗ nào client tự khai isCorrect/correctCount.
-- [x] **PHASE 2 BƯỚC 1 — TIER FOUNDATION** (2026-07-04, `fd4d877`): subscription.ts +
-      subscription-store.ts (getUserTier) + user_subscriptions.sql (RLS SELECT-only) +
-      wire chat/generate-practice. Gate AI quota (free=5/ngày, paid=unlimited).
+- [x] **ROOT A REWARD HOLE** + choice_analysis leak (2026-07-04, b226269/a31abb6)
+- [x] **ĐƯỜNG THI (exam path)** server-side grading (2026-07-04, `a4e57c3`)
+- [x] **ROOT E step2 REVOKE** — đóng BLOCKER #1 (2026-07-05, `29081b2`). Browser PATCH
+      user_economy.coins bằng JWT test user → 403 (42501). Cửa hậu bơm xu qua REST ĐÓNG.
+      → **TẤT CẢ BLOCKER MONEY/ANTI-CHEAT ĐÓNG HOÀN TOÀN.**
+- [x] **PHASE 2 BƯỚC 1 — TIER FOUNDATION** (2026-07-04, `fd4d877`)
+- [x] **PHASE 2 BƯỚC 3 — REWARD-TO-REAL** (2026-07-04, `acf2729`+`59487ab`): xu→quà thật,
+      RPC atomic redeem_reward (chống double-spend race verify live), UI shop + lịch sử phiếu.
+- [x] **PHASE 2 BƯỚC 2 — CỔNG THANH TOÁN (KHUNG)** (2026-07-04, `55ff53b`): lib payment +
+      MoMo HMAC-SHA256 tự viết + wrapper lib vnpay (SHA512) + payment_transactions + RPC
+      atomic confirm_payment (idempotent + race chống double-grant verify live) + 4 route +
+      UI /upgrade. Verify no-creds đầy đủ; roundtrip live CHỜ creds.
 - [x] Integration Sprint T1–T5 + Tower adaptive + PvP economy + Nhóm 7 (#6/#8/#9)
 
-### CÒN LẠI NGẮN
-- [ ] root_e_step2_revoke.sql → verify PATCH→403 (chờ soak, ≥2026-07-05)
-
-### PHASE 2 — MVP LAUNCH (việc chính phiên sau)
-- [ ] **Cổng thanh toán VNPay + MoMo** (bước 2 — CẦN user chốt giá + cấp credentials)
-- [ ] **Reward-to-real** (bước 3 — độc lập, làm được ngay)
+### PHASE 2 — MVP LAUNCH (còn lại)
+- [ ] **Cổng thanh toán — verify roundtrip LIVE** (CẦN user: creds + chốt giá)
+- [ ] **Admin fulfillment** (CẦN user: quyết role system)
 - [ ] Parent Dashboard
 - [ ] Diagnostic Onboarding
 - [ ] Beta Launch 100 users
@@ -82,13 +86,24 @@ Việc user-side tôi đã làm: [điền: đã chạy step2 chưa / rotate secr
 
 ## Ghi chú kỹ thuật
 
-- **HEAD:** `8ebce50` (phiên 2026-07-04: exam-path fix `a4e57c3` + tier foundation `fd4d877` + 2 docs). Push GitHub, tree sạch.
-- **Baseline:** tsc sạch · test **134/134** · lint 0/0 · build **47 pages**.
+- **HEAD:** `29081b2` (phiên 2026-07-04→05: reward-to-real `acf2729`/`59487ab` + payment
+  gateway khung `55ff53b` + ROOT E step2 `29081b2` + docs). Push GitHub, tree sạch.
+- **Baseline:** tsc sạch · test **149/149** · lint 0/0 · build **53 pages**.
 - **Bảng mới trên prod DB (Claude đã tạo qua direct pg — user KHÔNG cần chạy SQL):**
-  `user_subscriptions` (idempotent, RLS SELECT-only, INERT vì chưa route nào GHI).
-- **⚠️ GIÁ PLANS là PLACEHOLDER** (premium 99k/990k, ultimate 199k/1990k VND) — CHỐT trước khi nối cổng.
-- **`getUserTier` fail-safe → 'free'** khi lỗi/không có gói (lỗi hạ tầng KHÔNG mở khóa quyền lợi trả phí).
-- **RLS bảo mật:** `user_subscriptions` CHỈ policy SELECT dòng của mình → user KHÔNG tự cấp premium; GHI chỉ service-role (webhook gọi `grantSubscription`).
-- **`pg` module:** đã có trong node_modules (dùng chạy SQL trực tiếp). Nếu `npm ci` mà thiếu → cài lại `--no-save`.
-- **Bug deploy Vercel (nhớ):** `NEXT_PUBLIC_*` env PHẢI `plain` không `sensitive`. SERVICE_ROLE_KEY = sensitive (đúng).
-- **Verify pattern:** dev server (preview_start "sat-prep-web", port 3000) → login browser account test → prod Supabase chung. Dọn sạch test data + temp script sau verify.
+  `user_subscriptions`, `reward_redemptions`, `payment_transactions` (đều RLS SELECT-only,
+  ghi chỉ service-role) + RPC `redeem_reward` + `confirm_payment` (atomic FOR UPDATE).
+- **⚠️ GIÁ PLANS là PLACEHOLDER** (premium 99k/990k, ultimate 199k/1990k VND) — CHỐT trước khi cổng nhận tiền thật.
+- **⚠️ MUST-VERIFY khi có creds:** field-order chữ ký IPN MoMo (`payment-momo.ts buildMomoIpnRawSignature`)
+  — làm theo spec v2 đã biết, chưa đối chiếu payload IPN thật. VNPay dùng lib nên đã yên tâm.
+- **Env cổng thanh toán (server-only, .env.example đã có mẫu):** VNPAY_TMN_CODE/HASH_SECRET/HOST,
+  MOMO_PARTNER_CODE/ACCESS_KEY/SECRET_KEY/CREATE_URL, APP_BASE_URL. Thiếu → route 503, KHÔNG crash.
+- **Money surface — nguyên tắc:** client gửi ý định, SERVER quyết số tiền (từ PLANS/REWARDS);
+  chỉ IPN server-to-server đã verify chữ ký mới cấp gói; RPC atomic idempotent chống double-grant/spend.
+- **`vnpay@2.5.0`** trong package.json (cài `--legacy-peer-deps` vì react 19). Dùng enum
+  `HashAlgorithm.SHA512` (không phải string). `pg` KHÔNG trong package.json (cài `--no-save` khi cần chạy SQL).
+- **Bug deploy Vercel (nhớ):** `NEXT_PUBLIC_*` env PHẢI `plain` không `sensitive`. SERVICE_ROLE_KEY + creds cổng = sensitive.
+- **Verify pattern:** dev server (preview_start "sat-prep-web", port 3000) → login browser account
+  test → prod Supabase chung. Dọn sạch test data + temp script sau verify. RPC/money verify được
+  headless qua service-role (không cần browser) — dùng khi :3000 bận.
+- **AGENTS.md:** đây là Next.js 16 BIẾN ĐỔI (Turbopack, proxy.ts thay middleware) — đọc
+  node_modules/next/dist/docs/ khi nghi ngờ API.
