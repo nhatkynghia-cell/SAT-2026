@@ -225,7 +225,19 @@ Khi sửa đổi mã nguồn Python của dự án này, bất kỳ Agent nào c
 >
 > **Verify live:** tier matrix — free @ cap5→429; premium→200 câu AI (bypass cap); expired→'free'→429. RLS: pg_policies chỉ SELECT. Dọn test data + temp script. Gates: tsc·test **134/134**·lint 0/0·build 47 pages.
 >
-> **⏳ TIẾP (cần USER):** Bước 2 gateway VNPay/MoMo — cần **credentials merchant/sandbox** mới verify live được (payment-create dùng giá từ PLANS + webhook idempotent verify chữ ký server-side → gọi `grantSubscription`; nên có bảng `payment_transactions` idempotency). Bước 3 reward-to-real: redeem voucher 50000 xu (đã có trong shop `GamificationContext.tsx:39`) qua `applySpend` + bản ghi fulfillment. Chi tiết: memory Claude `sat-prep-phase2-payments.md`.
+> **✅ Bước 2 (gateway) + Bước 3 (reward-to-real) ĐÃ XONG** — xem 2 block riêng bên dưới. Chi tiết: memory Claude `sat-prep-phase2-payments.md`.
+
+> [!IMPORTANT]
+> ### ✅ PHASE 2 — BƯỚC 2 CỔNG THANH TOÁN (KHUNG) XONG (2026-07-04, commit `55ff53b` pushed origin/main)
+> **Khung cổng VNPay + MoMo** để user nâng gói premium/ultimate. User chốt: **VNPay dùng lib `vnpay`, MoMo TỰ VIẾT HMAC-SHA256**; phạm vi backend đầy đủ + UI cơ bản. Nguyên tắc money surface (§9.1): client gửi ý định (gateway+tier+period), SERVER quyết giá từ PLANS; **CHỈ IPN server-to-server đã verify chữ ký mới cấp gói** (KHÔNG tin Return URL — browser giả mạo được); **IPN idempotent chống double-grant**.
+>
+> **13 file:** `src/lib/payment.ts` (THUẦN: types + validate + `generateOrderId` uuid + `buildOrderInfo` ASCII, +5 test) · `src/lib/payment-momo.ts` (HMAC-SHA256 tự viết theo sample chính thức momo-wallet/nodejs/MoMo.js — rawSignature field-order alphabet CỐ ĐỊNH + verify IPN timing-safe + createMomoPayment fetch, +7 test round-trip/tamper/test-vector) · `src/lib/payment-vnpay.ts` (wrapper lib `vnpay@2.5.0` MIT chỉ dayjs, HMAC-SHA512, tự ×100 amount, tái dụng IpnResponse constants) · `payment_transactions.sql` (bảng order_id UNIQUE, RLS **SELECT-own** ghi service-role + RPC atomic **`confirm_payment` FOR UPDATE → kiểm tiền → CAS pending→paid 1 lần** chống double-grant) · `src/lib/payment-store.ts` (create pending + confirmPaymentAtomic FAIL-CLOSED + get + list own) · 4 route `/api/payment/{create,vnpay-ipn,momo-ipn,return}` · `/upgrade` UI (4 gói PLANS + chọn cổng → create → redirect payUrl) · Sidebar +link · `.env.example` +7 biến.
+>
+> **⚠️ ĐÃ CHẠY `payment_transactions.sql` PROD DB** (direct pg, idempotent) — table+RPC+policy confirmed. **User KHÔNG cần chạy SQL.** `pg` chỉ cài `--no-save` để verify (KHÔNG vào package.json/lock); `vnpay` cài `--legacy-peer-deps` (đồng bộ CI react 19).
+>
+> **🔍 Verify (no creds):** gates tsc·test **149/149**·lint 0/0·build **53 pages**. RPC confirm_payment live prod (service-role): idempotent (confirm lần 2 → alreadyConfirmed KHÔNG cấp lại), amount_mismatch chặn, not_found, **RACE 5 concurrent → firstGrant=1/already=4 = KHÔNG double-grant**. VNPay URL builder: amount ×100 đúng, SHA512 hex 128, roundtrip verifyReturnUrl.isVerified=true. IPN chữ ký giả → 0 cấp gói. UI /upgrade render 4 gói đúng giá. Test data dọn sạch.
+>
+> **⏳ CÒN LẠI (cần USER) verify roundtrip LIVE:** (1) creds sandbox/merchant VNPay (TMN_CODE+HASH_SECRET) + MoMo (PARTNER_CODE+ACCESS_KEY+SECRET_KEY) → .env.local + Vercel sensitive; (2) chốt giá 4 gói (placeholder 99k/990k/199k/1990k, user "decide later"); (3) khi có creds → roundtrip thật + **XÁC NHẬN field-order chữ ký IPN MoMo** (unit test đã phủ theo spec v2, nhưng chưa có sample IPN thật). Admin fulfill (đánh dấu phiếu/giao dịch) vẫn chờ role system §9.3.
 
 > [!IMPORTANT]
 > ### ✅ PHASE 2 — BƯỚC 3 REWARD-TO-REAL XONG (2026-07-04, commit `acf2729` pushed origin/main)
