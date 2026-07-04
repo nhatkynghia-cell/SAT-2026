@@ -188,7 +188,7 @@ Khi sửa đổi mã nguồn Python của dự án này, bất kỳ Agent nào c
 > ### 🔐 SECURITY AUDIT — TẤT CẢ BLOCKER ĐÃ ĐÓNG (2026-07-03, phiên này)
 > **10 commit bảo mật đã push origin/main (HEAD `81b2d73`).** App XANH: tsc · test 123/123 · lint 0/0 · build 44 pages. Prod READY `https://sat-2026.vercel.app`.
 >
-> **✅ ROOT E (BLOCKER #1) — DONE:** service-role admin client + 7 store refactored + `root_e_step1_rpc.sql` chạy prod + `SUPABASE_SERVICE_ROLE_KEY` trên Vercel. ⏳ Step2 REVOKE chờ soak → chạy `root_e_step2_revoke.sql` ngày 2026-07-05/06 → verify browser PATCH→403.
+> **✅ ROOT E (BLOCKER #1) — ĐÓNG HOÀN TOÀN (step2 chạy 2026-07-05):** service-role admin client + 7 store refactored + `root_e_step1_rpc.sql` chạy prod + `SUPABASE_SERVICE_ROLE_KEY` trên Vercel. **Step2 REVOKE ĐÃ CHẠY prod (direct pg):** revoke INSERT/UPDATE/DELETE của `authenticated` khỏi 6 bảng money + EXECUTE 3 RPC nhạy cảm khỏi CẢ authenticated LẪN public (Postgres mặc định grant PUBLIC → chỉ revoke authenticated CHƯA ĐỦ; đã vá file `root_e_step2_revoke.sql`). SELECT giữ. Verify live: browser PATCH `user_economy.coins` bằng JWT test user → **403 (42501)**; service-role write + RPC vẫn OK (app write path còn sống). → cửa hậu bơm xu/quyền qua REST ĐÓNG.
 > **✅ ROOT A — DONE:** Server-side grading hoàn chỉnh: `issued_questions` table + `/api/grade` endpoint + generate-practice giấu `correct_choice` trả `questionId` + CorePracticeUI/math/page dùng /api/grade + gate-exam POST verify `was_correct` từ DB (không tin client `correctCount`).
 > **✅ ROOT B — DONE:** `quest_claims` jsonb + route check double-claim → 409.
 > **✅ ROOT C — DONE:** `atomic_mutations.sql` chạy prod + follow-up #2 fail-closed + #3 explicit userId (via ROOT E refactor).

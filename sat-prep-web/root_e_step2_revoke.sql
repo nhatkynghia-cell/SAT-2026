@@ -19,9 +19,17 @@ REVOKE INSERT, UPDATE, DELETE ON user_progress FROM authenticated;
 REVOKE INSERT, UPDATE, DELETE ON user_goals FROM authenticated;
 
 -- Khóa RPC nhạy cảm (client không được gọi trực tiếp)
+-- ⚠️ PHẢI revoke CẢ authenticated LẪN public: Postgres mặc định grant EXECUTE
+-- cho PUBLIC khi tạo function → chỉ revoke authenticated là CHƯA ĐỦ (authenticated
+-- vẫn thừa hưởng EXECUTE qua PUBLIC). service_role có grant tường minh (step1) nên
+-- KHÔNG bị ảnh hưởng. (Dù 3 RPC là SECURITY INVOKER nên đã "defanged" — lệnh ghi
+-- bên trong chạy dưới quyền caller đã bị revoke — vẫn khóa EXECUTE cho sạch/rõ ý định.)
 REVOKE EXECUTE ON FUNCTION consume_pvp_fight(uuid, int, boolean, text, int) FROM authenticated;
 REVOKE EXECUTE ON FUNCTION increment_ai_usage(uuid, text, int, int) FROM authenticated;
 REVOKE EXECUTE ON FUNCTION increment_ai_cost_ledger(text, int, int, numeric) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION consume_pvp_fight(uuid, int, boolean, text, int) FROM public;
+REVOKE EXECUTE ON FUNCTION increment_ai_usage(uuid, text, int, int) FROM public;
+REVOKE EXECUTE ON FUNCTION increment_ai_cost_ledger(text, int, int, numeric) FROM public;
 
 -- GIỮ SELECT cho authenticated (client cần đọc số dư/mastery/progress)
 -- (Đã có sẵn từ RLS policy using(auth.uid()=user_id) — chỉ cần KHÔNG revoke SELECT)
