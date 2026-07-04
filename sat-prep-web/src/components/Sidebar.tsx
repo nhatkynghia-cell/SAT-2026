@@ -14,6 +14,7 @@ const MENU_GROUPS = [
       { name: '✨ Ôn Luyện Hằng Ngày', path: '/' },
       { name: '🌳 Cây Năng Lực SAT', path: '/skill-tree' },
       { name: '📊 Nhật Ký Trưởng Thành', path: '/dashboard' },
+      { name: '💎 Nâng Cấp Gói VIP', path: '/upgrade' },
     ]
   },
   {
