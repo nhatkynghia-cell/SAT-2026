@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test \"src/**/*.test.ts\""
+    "test": "node --import ./src/test-int/loader-register.mjs --test \"src/**/*.test.ts\" \"src/test-int/**/*.test.mjs\""
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
