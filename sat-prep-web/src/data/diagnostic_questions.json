@@ -1,0 +1,241 @@
+[
+  {
+    "id": "d1",
+    "skillId": "algebra.linear_eq",
+    "difficulty": "Medium",
+    "title": "Heart of Algebra — Phương trình bậc nhất",
+    "practice_question": "If $3x - 5 = 16$, what is the value of $x$?",
+    "choices": ["A) 7", "B) 21", "C) 3", "D) 11"],
+    "correct_choice": "A) 7",
+    "explanation": "Cộng 5 vào hai vế: $3x = 21$, chia cho 3: $x = 7$.",
+    "trapRate": 35,
+    "choice_analysis": [
+      { "choice_letter": "A", "is_correct": true, "analysis": "Đúng: $3x = 21 \\Rightarrow x = 7$." },
+      { "choice_letter": "B", "is_correct": false, "analysis": "Bẫy: dừng ở bước $3x = 21$ mà quên chia cho 3." },
+      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy: trừ 5 thay vì cộng ($3x = 11$ rồi làm tròn nhầm)." },
+      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: cộng 5 vào 16 rồi trừ 3 vô căn cứ." }
+    ]
+  },
+  {
+    "id": "d2",
+    "skillId": "algebra.linear_fn",
+    "difficulty": "Medium",
+    "title": "Heart of Algebra — Hàm số bậc nhất",
+    "practice_question": "A line in the $xy$-plane passes through $(0, 3)$ and has slope $2$. What is the $y$-value when $x = 4$?",
+    "choices": ["A) 8", "B) 11", "C) 5", "D) 14"],
+    "correct_choice": "B) 11",
+    "explanation": "Phương trình đường thẳng: $y = 2x + 3$. Thay $x = 4$: $y = 2(4) + 3 = 11$.",
+    "trapRate": 40,
+    "choice_analysis": [
+      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: chỉ tính $2 \\times 4 = 8$, quên cộng tung độ gốc 3." },
+      { "choice_letter": "B", "is_correct": true, "analysis": "Đúng: $y = 2(4) + 3 = 11$." },
+      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy: cộng slope vào tung độ gốc ($2 + 3$) thay vì thay $x$." },
+      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: nhân cả $(4+3)$ với 2." }
+    ]
+  },
+  {
+    "id": "d3",
+    "skillId": "algebra.systems",
+    "difficulty": "Medium",
+    "title": "Heart of Algebra — Hệ phương trình",
+    "practice_question": "If $x + y = 10$ and $x - y = 4$, what is the value of $x$?",
+    "choices": ["A) 3", "B) 6", "C) 7", "D) 5"],
+    "correct_choice": "C) 7",
+    "explanation": "Cộng hai phương trình: $2x = 14 \\Rightarrow x = 7$.",
+    "trapRate": 40,
+    "choice_analysis": [
+      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: đây là giá trị của $y$, không phải $x$." },
+      { "choice_letter": "B", "is_correct": false, "analysis": "Bẫy: chia trung bình sai (10 và 4 chia đôi)." },
+      { "choice_letter": "C", "is_correct": true, "analysis": "Đúng: cộng hai vế được $2x = 14 \\Rightarrow x = 7$." },
+      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: lấy $10 \\div 2 = 5$ mà bỏ qua phương trình thứ hai." }
+    ]
+  },
+  {
+    "id": "d4",
+    "skillId": "algebra.inequalities",
+    "difficulty": "Medium",
+    "title": "Heart of Algebra — Bất phương trình",
+    "practice_question": "What is the greatest integer value of $x$ that satisfies $2x + 1 < 9$?",
+    "choices": ["A) 4", "B) 3", "C) 5", "D) 2"],
+    "correct_choice": "B) 3",
+    "explanation": "$2x < 8 \\Rightarrow x < 4$. Số nguyên lớn nhất nhỏ hơn 4 là 3.",
+    "trapRate": 45,
+    "choice_analysis": [
+      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: $x < 4$ nghĩa là 4 KHÔNG thỏa (dấu < không phải ≤)." },
+      { "choice_letter": "B", "is_correct": true, "analysis": "Đúng: $x < 4$, số nguyên lớn nhất là 3." },
+      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy: giải sai chiều bất phương trình." },
+      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: chọn quá thấp, chưa phải giá trị lớn nhất." }
+    ]
+  },
+  {
+    "id": "d5",
+    "skillId": "algebra.linear_eq",
+    "difficulty": "Hard",
+    "title": "Heart of Algebra — Phương trình vô số nghiệm",
+    "practice_question": "For a constant $c$, the equation $2(x + 3) = 2x + c$ has infinitely many solutions. What is the value of $c$?",
+    "choices": ["A) 3", "B) 0", "C) 6", "D) There is no such value"],
+    "correct_choice": "C) 6",
+    "explanation": "Khai triển vế trái: $2x + 6 = 2x + c$. Để vô số nghiệm, hai vế phải trùng nhau nên $c = 6$.",
+    "trapRate": 60,
+    "choice_analysis": [
+      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: lấy hằng số 3 trong ngoặc mà chưa nhân 2." },
+      { "choice_letter": "B", "is_correct": false, "analysis": "Bẫy: nhầm điều kiện vô nghiệm với vô số nghiệm." },
+      { "choice_letter": "C", "is_correct": true, "analysis": "Đúng: $2x + 6 = 2x + c \\Rightarrow c = 6$ để hai vế đồng nhất." },
+      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: tưởng luôn vô nghiệm vì hệ số $x$ bằng nhau — thực ra chỉnh $c$ được." }
+    ]
+  },
+  {
+    "id": "d6",
+    "skillId": "advanced.quadratic",
+    "difficulty": "Medium",
+    "title": "Advanced Math — Phương trình bậc hai",
+    "practice_question": "The vertex of the parabola $y = x^2 - 6x + c$ is at $(3, 5)$. What is the value of $c$?",
+    "choices": ["A) 5", "B) 9", "C) 14", "D) -4"],
+    "correct_choice": "C) 14",
+    "explanation": "Dạng đỉnh $y = (x-3)^2 + 5 = x^2 - 6x + 14$. So sánh: $c = 14$.",
+    "trapRate": 55,
+    "choice_analysis": [
+      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: lấy thẳng tung độ đỉnh $k = 5$." },
+      { "choice_letter": "B", "is_correct": false, "analysis": "Bẫy: chỉ lấy $(-3)^2 = 9$ mà quên cộng 5." },
+      { "choice_letter": "C", "is_correct": true, "analysis": "Đúng: $(x-3)^2 + 5 = x^2 - 6x + 14 \\Rightarrow c = 14$." },
+      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: trừ nhầm $5 - 9$." }
+    ]
+  },
+  {
+    "id": "d7",
+    "skillId": "advanced.exponential",
+    "difficulty": "Medium",
+    "title": "Advanced Math — Hàm số mũ",
+    "practice_question": "A population is modeled by $P = 200 \\cdot 2^{t}$, where $t$ is in years. What is the population when $t = 3$?",
+    "choices": ["A) 1200", "B) 1600", "C) 800", "D) 600"],
+    "correct_choice": "B) 1600",
+    "explanation": "$P = 200 \\cdot 2^3 = 200 \\cdot 8 = 1600$.",
+    "trapRate": 45,
+    "choice_analysis": [
+      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: tính $200 \\cdot 2 \\cdot 3 = 1200$ (nhân thay vì lũy thừa)." },
+      { "choice_letter": "B", "is_correct": true, "analysis": "Đúng: $2^3 = 8$, nên $200 \\cdot 8 = 1600$." },
+      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy: quên nhân hệ số 200 ($200 \\cdot 4$)." },
+      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: tính $200 \\cdot 3$." }
+    ]
+  },
+  {
+    "id": "d8",
+    "skillId": "data.ratios",
+    "difficulty": "Medium",
+    "title": "Data Analysis — Tỷ lệ",
+    "practice_question": "A recipe uses 3 cups of flour for every 2 cups of sugar. If a baker uses 12 cups of flour, how many cups of sugar are needed?",
+    "choices": ["A) 6", "B) 8", "C) 18", "D) 10"],
+    "correct_choice": "B) 8",
+    "explanation": "Tỷ lệ $3:2$. Với 12 cốc bột, hệ số $\\times 4$, nên đường $= 2 \\times 4 = 8$.",
+    "trapRate": 40,
+    "choice_analysis": [
+      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: chia đôi 12 thay vì dùng tỷ lệ." },
+      { "choice_letter": "B", "is_correct": true, "analysis": "Đúng: $12 \\div 3 = 4$, đường $= 2 \\times 4 = 8$." },
+      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy: đảo tỷ lệ ($12 \\times 3 \\div 2$)." },
+      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: cộng chênh lệch thay vì nhân tỷ lệ." }
+    ]
+  },
+  {
+    "id": "d9",
+    "skillId": "data.statistics",
+    "difficulty": "Medium",
+    "title": "Data Analysis — Thống kê",
+    "practice_question": "What is the median of the data set $\\{4, 8, 6, 10, 2\\}$?",
+    "choices": ["A) 6", "B) 8", "C) 5", "D) 10"],
+    "correct_choice": "A) 6",
+    "explanation": "Sắp xếp: $2, 4, 6, 8, 10$. Trung vị là giá trị giữa: 6.",
+    "trapRate": 35,
+    "choice_analysis": [
+      { "choice_letter": "A", "is_correct": true, "analysis": "Đúng: sắp xếp lại, giá trị giữa của 5 số là 6." },
+      { "choice_letter": "B", "is_correct": false, "analysis": "Bẫy: lấy số giữa của dãy CHƯA sắp xếp." },
+      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy: tính trung bình cộng ($30 \\div 5 = 6$ đúng ra, nhưng 5 là sai số)." },
+      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: lấy giá trị lớn nhất." }
+    ]
+  },
+  {
+    "id": "d10",
+    "skillId": "geo.triangles",
+    "difficulty": "Medium",
+    "title": "Geometry — Tam giác",
+    "practice_question": "In a right triangle, the two legs have lengths 6 and 8. What is the length of the hypotenuse?",
+    "choices": ["A) 10", "B) 14", "C) 12", "D) 48"],
+    "correct_choice": "A) 10",
+    "explanation": "Định lý Pythagoras: $\\sqrt{6^2 + 8^2} = \\sqrt{36 + 64} = \\sqrt{100} = 10$.",
+    "trapRate": 35,
+    "choice_analysis": [
+      { "choice_letter": "A", "is_correct": true, "analysis": "Đúng: $\\sqrt{36 + 64} = \\sqrt{100} = 10$." },
+      { "choice_letter": "B", "is_correct": false, "analysis": "Bẫy: cộng hai cạnh $6 + 8 = 14$." },
+      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy: nhân đôi cạnh nhỏ." },
+      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: nhân hai cạnh $6 \\times 8$." }
+    ]
+  },
+  {
+    "id": "d11",
+    "skillId": "geo.circles",
+    "difficulty": "Medium",
+    "title": "Geometry — Đường tròn",
+    "practice_question": "A circle has radius 5. What is its area? (Use $\\pi$ symbolically.)",
+    "choices": ["A) $10\\pi$", "B) $25\\pi$", "C) $5\\pi$", "D) $50\\pi$"],
+    "correct_choice": "B) $25\\pi$",
+    "explanation": "Diện tích $= \\pi r^2 = \\pi \\cdot 5^2 = 25\\pi$.",
+    "trapRate": 40,
+    "choice_analysis": [
+      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: dùng công thức chu vi $2\\pi r$." },
+      { "choice_letter": "B", "is_correct": true, "analysis": "Đúng: $\\pi r^2 = 25\\pi$." },
+      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy: quên bình phương bán kính." },
+      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: tính $2 r^2$ (nhân đôi thừa)." }
+    ]
+  },
+  {
+    "id": "d12",
+    "skillId": "rw.vocab",
+    "difficulty": "Medium",
+    "title": "Reading & Writing — Từ vựng trong ngữ cảnh",
+    "practice_question": "The scientist's findings were considered __________; no other researcher could reproduce the same results.",
+    "choices": ["A) conclusive", "B) dubious", "C) trivial", "D) exhaustive"],
+    "correct_choice": "B) dubious",
+    "explanation": "Không ai tái lập được kết quả → các phát hiện bị nghi ngờ. 'Dubious' (đáng ngờ) khớp ngữ cảnh.",
+    "trapRate": 50,
+    "choice_analysis": [
+      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy nghĩa ngược: 'conclusive' (chắc chắn) mâu thuẫn với việc không ai tái lập được." },
+      { "choice_letter": "B", "is_correct": true, "analysis": "Đúng: 'dubious' = đáng ngờ, khớp mệnh đề sau." },
+      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy: 'trivial' (tầm thường) không liên quan đến độ tin cậy." },
+      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: 'exhaustive' (toàn diện) không phù hợp ngữ cảnh." }
+    ]
+  },
+  {
+    "id": "d13",
+    "skillId": "rw.vocab",
+    "difficulty": "Hard",
+    "title": "Reading & Writing — Từ vựng nâng cao",
+    "practice_question": "Although initially met with __________, the composer's avant-garde symphony was later hailed as a masterpiece.",
+    "choices": ["A) acclaim", "B) indifference", "C) derision", "D) enthusiasm"],
+    "correct_choice": "C) derision",
+    "explanation": "'Although' báo hiệu tương phản với 'masterpiece' (được ca ngợi sau). Ban đầu phải bị chế nhạo → 'derision'.",
+    "trapRate": 65,
+    "choice_analysis": [
+      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: 'acclaim' (tán dương) không tạo tương phản với 'although'." },
+      { "choice_letter": "B", "is_correct": false, "analysis": "Bẫy gần đúng: 'indifference' (thờ ơ) có tương phản nhưng yếu; 'derision' mạnh và chuẩn ngữ cảnh hơn." },
+      { "choice_letter": "C", "is_correct": true, "analysis": "Đúng: 'derision' (chế nhạo) tương phản rõ với việc sau này được xem là kiệt tác." },
+      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy nghĩa ngược: 'enthusiasm' (hào hứng) mâu thuẫn với 'although'." }
+    ]
+  },
+  {
+    "id": "d14",
+    "skillId": "rw.literature",
+    "difficulty": "Medium",
+    "title": "Reading & Writing — Đọc hiểu văn bản",
+    "full_passage": "The old lighthouse keeper had watched the sea for forty years. He knew its moods better than his own — the way it turned slate-grey before a storm, the deceptive calm that preceded the fiercest gales. Yet each morning he still climbed the spiral stair with a sense of wonder, as though the ocean might reveal something he had never seen.",
+    "practice_question": "The passage most strongly suggests that the lighthouse keeper views the sea with:",
+    "choices": ["A) fear and resentment", "B) familiarity yet enduring wonder", "C) complete indifference", "D) scientific detachment"],
+    "correct_choice": "B) familiarity yet enduring wonder",
+    "explanation": "Đoạn văn nhấn mạnh ông hiểu biển như bản thân (familiarity) nhưng vẫn leo lên với 'sense of wonder' mỗi sáng (enduring wonder).",
+    "trapRate": 50,
+    "choice_analysis": [
+      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: đoạn văn không nêu sợ hãi hay oán giận, chỉ mô tả sự am hiểu." },
+      { "choice_letter": "B", "is_correct": true, "analysis": "Đúng: kết hợp 'knew its moods' (quen thuộc) với 'sense of wonder' (kinh ngạc bền bỉ)." },
+      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy nghĩa ngược: 'wonder' loại trừ sự thờ ơ hoàn toàn." },
+      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: giọng văn giàu cảm xúc, không phải khách quan khoa học." }
+    ]
+  }
+]

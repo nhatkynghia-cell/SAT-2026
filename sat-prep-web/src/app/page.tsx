@@ -4,6 +4,7 @@ import { useGamification } from '@/context/GamificationContext';
 import { BadgeSystem } from '@/components/BadgeSystem';
 import { AITutoring } from '@/components/AITutoring';
 import { MistakeNotebook } from '@/components/MistakeNotebook';
+import { DiagnosticBanner } from '@/components/DiagnosticBanner';
 
 export default function Home() {
   const {
@@ -45,6 +46,9 @@ export default function Home() {
           </button>
         </div>
       )}
+
+      {/* Gợi ý làm bài test xếp lớp (chỉ hiện khi chưa hoàn tất onboarding) */}
+      {!focusMode && <DiagnosticBanner />}
 
       {/* Dynamic Banner - Render Exactly like Streamlit math-academy-header */}
       {!hideBanner && !focusMode && (

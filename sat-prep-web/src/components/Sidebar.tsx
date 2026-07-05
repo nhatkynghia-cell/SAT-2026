@@ -12,6 +12,7 @@ const MENU_GROUPS = [
     title: '🏠 TỔNG QUAN & LỘ TRÌNH',
     items: [
       { name: '✨ Ôn Luyện Hằng Ngày', path: '/' },
+      { name: '🎯 Test Xếp Lớp', path: '/diagnostic' },
       { name: '🌳 Cây Năng Lực SAT', path: '/skill-tree' },
       { name: '📊 Nhật Ký Trưởng Thành', path: '/dashboard' },
       { name: '💎 Nâng Cấp Gói VIP', path: '/upgrade' },

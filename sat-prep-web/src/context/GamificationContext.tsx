@@ -100,6 +100,8 @@ type GamificationState = {
   currentXp: number;
   masteredCount: number;
   totalNodes: number;
+  /** Đã hoàn tất bài test xếp lớp đầu vào chưa (diagnostic onboarding). */
+  onboardingCompleted: boolean;
   coins: number;
   shields: number;
   maxPower: number;
@@ -186,6 +188,9 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     masteredCount: 0,
     totalNodes: 0,
   });
+  // Cờ diagnostic onboarding (từ /api/diagnostic). Mặc định true để KHÔNG nhá
+  // banner trước khi biết chắc — chỉ bật banner khi fetch xác nhận chưa hoàn tất.
+  const [onboardingCompleted, setOnboardingCompleted] = useState(true);
   const [isLoaded, setIsLoaded] = useState(false);
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -196,10 +201,11 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     async function loadData() {
       try {
-        const [saveRes, ecoRes, treeRes] = await Promise.all([
+        const [saveRes, ecoRes, treeRes, diagRes] = await Promise.all([
           fetch('/api/load-data'),
           fetch('/api/economy'),
           fetch('/api/skill-tree'),
+          fetch('/api/diagnostic'),
         ]);
 
         // 1) Nền: save-data (streak, inventory, quests, pvp, maxPower, pet...)
@@ -253,6 +259,13 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
           const totalNodes = tree.totalNodes ?? 0;
           setSkillProgress({ masteredCount, totalNodes });
           setUserStats(prev => ({ ...prev, level: masteredCount + 1 }));
+        }
+
+        // 4) Diagnostic onboarding: bật banner nếu chưa hoàn tất. Fetch lỗi →
+        //    giữ mặc định true (không nhá banner) để tránh dương tính giả.
+        if (diagRes.ok) {
+          const diag = await diagRes.json();
+          setOnboardingCompleted(diag.completed === true);
         }
       } catch (e) {
         console.error("Failed to load state from API", e);
@@ -605,6 +618,7 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
       currentXp: userStats.xp,
       masteredCount: skillProgress.masteredCount,
       totalNodes: skillProgress.totalNodes,
+      onboardingCompleted,
       coins: userStats.coins,
       shields: userStats.shield,
       maxPower: userStats.maxPower,
