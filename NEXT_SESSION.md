@@ -1,6 +1,6 @@
 # ▶️ CÂU LỆNH KHỞI ĐỘNG PHIÊN SAU
 
-> Cập nhật 2026-07-05. HEAD `origin/main` = **27651d8**. Baseline: tsc sạch · test **178/178** · lint 0/0 · build **60 pages**.
+> Cập nhật 2026-07-05 (phiên integration test 9.8). HEAD `origin/main` = **8c791e8**. Baseline: tsc sạch · test **239/239** (178 unit + 61 integration) · lint 0/0 · build **60 pages**.
 
 Copy nguyên khối dưới đây, dán vào ô chat để mở phiên mới:
 
@@ -14,7 +14,7 @@ DIAGNOSTIC ONBOARDING). Trả lời tiếng Việt.
 
 Trước khi làm gì: export PATH="$PATH:/c/Program Files/nodejs" rồi verify môi trường
 (tsc + test + build + lint) trong sat-prep-web/. Baseline mong đợi:
-tsc sạch · test 178/178 · lint 0/0 · build 60 pages. origin/main = 27651d8.
+tsc sạch · test 239/239 · lint 0/0 · build 60 pages. origin/main = 8c791e8.
 
 Token đã lưu: ~/.gitcreds-sat2026 (git push — format file = "https://user:token@github.com",
 push phải GHÉP "/nhatkynghia-cell/SAT-2026.git" vào cuối) + ~/.vercel-token (Vercel API).
@@ -25,6 +25,9 @@ Service-role: trong .env.local + Vercel (sensitive) — KHÔNG ghi vào git.
 Cài SQL/verify: npm i pg --no-save --legacy-peer-deps (đặt script TRONG sat-prep-web/, KHÔNG /tmp).
 
 ✅ ĐÃ ĐÓNG HẾT BLOCKER BẢO MẬT (ROOT A–E + rate-limit + ROOT E step2 revoke). KHÔNG còn nợ bảo mật.
+✅ PHIÊN TRƯỚC (2026-07-05) đã làm: integration test 9.8 (61 test/8 file, fake Supabase in-memory,
+   phủ mọi bề mặt tiền, qua audit đối kháng + mutation spike) + khoá route legacy /api/migrate-data
+   (4 lớp: env-flag mặc-định-tắt/auth/rate-limit/no-overwrite). Chi tiết: block "ĐỌC ĐẦU TIÊN" memory.md.
 
 SECRET chưa rotate (HỎI tôi đã đổi chưa rồi TICK):
 [ ] GitHub PAT ghp_...HETIG (lộ ảnh)  [ ] Vercel token (lộ chat)  [ ] OpenAI key  [x] DB password (đã đổi)
@@ -79,6 +82,9 @@ Việc user-side tôi đã làm trước phiên: [điền: chốt giá? / cấp 
 2. Đánh bóng UI 3 feature mới (Diagnostic + Parent + panel xu hướng tuần) trên nhiều kích thước màn hình.
 3. ✅ ~~Panel "xu hướng tuần" cho học sinh ở `/dashboard`~~ — ĐÃ LÀM (2026-07-05, `27651d8`):
    tách `WeeklyTrendPanel` dùng chung dashboard + ParentReport, route `/api/progress/weekly`.
+4. ✅ ~~Integration test 9.8~~ — ĐÃ LÀM (2026-07-05, `a9348d6`+`9ef2e69`+`8c791e8`): 61 test/8 file
+   trong `sat-prep-web/src/test-int/` (harness fake Supabase in-memory + resolve-hook loader).
+   Đường mở rộng nếu muốn: thêm test rate-limit cho grade/economy (redeem đã có); còn lại giá-trị-giảm-dần.
 
 ---
 
@@ -98,6 +104,8 @@ Việc user-side tôi đã làm trước phiên: [điền: chốt giá? / cấp 
 ### ĐÃ ĐÓNG HOÀN TOÀN (nền + bảo mật)
 - Phase 1 + 1.5 TRỌN · ROOT A–E + rate-limit + ROOT E step2 revoke (BLOCKER #1 đóng)
 - Integration Sprint T1–T5 + Tower adaptive + PvP economy + Nhóm 7 (#6/#8/#9)
+- **Integration test 9.8** ✅ (2026-07-05) — 61 test/8 file, mọi bề mặt tiền, CI offline
+- **Route legacy `/api/migrate-data`** ✅ khoá 4 lớp (2026-07-05) — hết vector faucet xu
 
 ### PHASE 3+ (chưa bắt đầu)
 - Mobile (React Native) · Social/Retention · Real PvP WebSocket · Season Pass · B2B/ACT/IELTS/Fundraising
@@ -118,4 +126,10 @@ Việc user-side tôi đã làm trước phiên: [điền: chốt giá? / cấp 
   → seed pg + kiểm logic 401. (Nếu cần login browser thật: tìm cách set state qua devtools/API.)
 - **Test lib thuần:** `node --test` KHÔNG resolve alias `@/` lẫn value-import extensionless `./x` →
   module thuần đọc JSON qua fs, inline hằng số thay vì import value, import type `.ts` đường tương đối.
+- **⭐ Integration test ROUTE (harness mới `src/test-int/`):** muốn test THẬT 1 route (chạy handler +
+  store + logic, không mock reimplement) → dùng `loader.mjs` (resolve-hook remap `@/`→`src/` + stub
+  `next/server`/`server-only`/`@/lib/supabase/{server,admin}`→`fake-db.mjs`). Viết `*.test.mjs`, `npm test`
+  tự chạy. `fake-db.mjs` mô phỏng query-builder + RPC atomic, **deep-clone mọi ranh giới** (giống PostgREST).
+  Điều khiển qua `harness.mjs`: `resetDb/setCurrentUser/seed/getRows/disableRpc/markMissingColumns`.
+  ⚠️ Fake single-threaded → KHÔNG test được race đồng thời (verify riêng SQL/live). Chi tiết: `test-int/README.md`.
 - **`vnpay@2.5.0`** trong package.json (`--legacy-peer-deps`, react 19). `pg` KHÔNG trong lock (cài `--no-save`).
