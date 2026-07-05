@@ -72,6 +72,19 @@ test('redeem: user KHÔNG có economy row (no_row) → 400 INSUFFICIENT, không 
   assert.equal(getRows('reward_redemptions').length, 0);
 });
 
+test('redeem: rate-limit 10/phút — request thứ 11 → 429, KHÔNG tạo phiếu vượt trần (chống faucet)', async () => {
+  resetDb(); setCurrentUser({ id: 'r-rl' });
+  seedUser('r-rl', 200000); // đủ xu cho >10 lần đổi rw_2 (10000/lần)
+
+  let last;
+  for (let i = 0; i < 11; i++) {
+    last = await readRes(await POST(postJson({ rewardId: 'rw_2' })));
+  }
+  assert.equal(last.status, 429, 'request thứ 11 trong phút bị chặn');
+  // 10 request đầu thành công → đúng 10 phiếu; request 429 KHÔNG tạo thêm.
+  assert.equal(getRows('reward_redemptions').length, 10, 'trần 10/phút — không vượt');
+});
+
 test('redeem GET: chỉ phiếu CỦA MÌNH, mới nhất trước (cross-user isolation + ordering)', async () => {
   resetDb();
   seedUser('r-me', 100000);
