@@ -1,21 +1,60 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { rateLimit } from '@/lib/rate-limit';
 import fs from 'fs';
 import path from 'path';
 
 /**
  * ============================================================================
- *  MIGRATION API (Chỉ chạy 1 lần)
+ *  MIGRATION API (Chỉ chạy 1 lần) — LEGACY, MẶC ĐỊNH TẮT
  * ============================================================================
- *  Đọc các file JSON cục bộ từ ứng dụng Streamlit cũ và "bơm" (Bulk Insert) 
- *  lên bảng Supabase Postgres cho tài khoản hiện tại.
+ *  Đọc các file JSON cục bộ từ ứng dụng Streamlit cũ và "bơm" lên Supabase cho
+ *  tài khoản hiện tại. Công cụ migrate 1-lần từ bản Streamlit cũ.
+ *
+ *  🔒 KHOÁ BẢO MẬT (2026-07-05): trước đây route này ghi coins/xp từ file JSON
+ *  local vào user_economy bằng UPSERT (GHI ĐÈ) — GET, không auth-gate, không
+ *  rate-limit → nếu file streak_data.json tồn tại trên server thì bất kỳ ai gọi
+ *  cũng bơm/ghi đè số dư (xu đổi quà THẬT §9.6 = vector faucet). Prod hiện TRƠ
+ *  (file bị gitignore) nhưng đóng chốt trước beta. 4 lớp phòng thủ:
+ *    1. ENV FLAG: mặc định TẮT (ENABLE_LEGACY_MIGRATION !== 'true') → 410. Route
+ *       chết hẳn trên prod trừ khi cố ý bật để migrate thủ công.
+ *    2. AUTH: phải đăng nhập (chống local-default-user bơm vào account chung).
+ *    3. RATE-LIMIT: 3 req/phút/user.
+ *    4. NO-OVERWRITE: chỉ migrate economy cho account CHƯA có row (INSERT, không
+ *       UPSERT) → không bao giờ ghi đè số dư đang có.
  * ============================================================================
  */
 
 export async function GET() {
   try {
+    // 🔒 CHỐT 1 — route legacy TẮT mặc định. Bật thủ công bằng env khi cần migrate.
+    if (process.env.ENABLE_LEGACY_MIGRATION !== 'true') {
+      return NextResponse.json(
+        { success: false, error: 'Công cụ migrate đã ngừng hoạt động.', code: 'MIGRATION_DISABLED' },
+        { status: 410 }
+      );
+    }
+
     const user = await getCurrentUser();
+
+    // 🔒 CHỐT 2 — phải đăng nhập (chống local-default-user ghi vào account chung).
+    if (!user.isAuthenticated) {
+      return NextResponse.json(
+        { success: false, error: 'Bạn cần đăng nhập để migrate dữ liệu.' },
+        { status: 401 }
+      );
+    }
+
+    // 🔒 CHỐT 3 — rate-limit.
+    const rl = rateLimit(`migrate:${user.id}`, 3, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Quá nhiều yêu cầu. Thử lại sau.', retryAfterMs: rl.retryAfterMs },
+        { status: 429 }
+      );
+    }
+
     const supabase = await createClient();
 
     // Đường dẫn tương đối theo process.cwd() (thư mục sat-prep-web) để không phụ thuộc máy.
@@ -37,23 +76,37 @@ export async function GET() {
     // 1. Migrate streak_data.json -> user_economy
     if (fs.existsSync(streakPath)) {
       const streakData = JSON.parse(fs.readFileSync(streakPath, 'utf8'));
-      
-      const { error } = await supabase.from('user_economy').upsert({
-        user_id: user.id,
-        coins: streakData.sat_coins || 100,
-        xp: streakData.total_xp || 0,
-        inventory: streakData.inventory || [],
-        last_spin_date: streakData.last_spin_date || null,
-        level: streakData.level || 1,
-        current_xp: streakData.current_xp || 0,
-        active_pet: streakData.active_pet || null,
-        pity_counter: streakData.pity_counter || 0,
-        fever_streak: streakData.fever_streak || 0,
-        max_tower_floor: streakData.max_tower_floor || 0,
-      }, { onConflict: 'user_id' });
 
-      if (!error) migratedEconomy = true;
-      else economyError = error;
+      // 🔒 CHỐT 4 — NO-OVERWRITE: chỉ migrate cho account CHƯA có economy row.
+      // Nếu đã có row (đã chơi/nhận xu) → BỎ QUA, KHÔNG ghi đè số dư (chống bơm
+      // xu / reset economy bằng số từ file). Migrate economy vốn chỉ có nghĩa 1
+      // lần cho account mới nhập từ Streamlit cũ.
+      const { data: existing } = await supabase
+        .from('user_economy')
+        .select('user_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (existing) {
+        economyError = 'Account đã có dữ liệu economy — bỏ qua để không ghi đè số dư.';
+      } else {
+        const { error } = await supabase.from('user_economy').insert({
+          user_id: user.id,
+          coins: streakData.sat_coins || 100,
+          xp: streakData.total_xp || 0,
+          inventory: streakData.inventory || [],
+          last_spin_date: streakData.last_spin_date || null,
+          level: streakData.level || 1,
+          current_xp: streakData.current_xp || 0,
+          active_pet: streakData.active_pet || null,
+          pity_counter: streakData.pity_counter || 0,
+          fever_streak: streakData.fever_streak || 0,
+          max_tower_floor: streakData.max_tower_floor || 0,
+        });
+
+        if (!error) migratedEconomy = true;
+        else economyError = error;
+      }
     } else {
       economyError = 'File streak_data.json không tồn tại';
     }
