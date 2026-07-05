@@ -1,6 +1,6 @@
 # ▶️ CÂU LỆNH KHỞI ĐỘNG PHIÊN SAU
 
-> Cập nhật 2026-07-05. HEAD `origin/main` = **db48cf3**. Baseline: tsc sạch · test **178/178** · lint 0/0 · build **59 pages**.
+> Cập nhật 2026-07-05. HEAD `origin/main` = **27651d8**. Baseline: tsc sạch · test **178/178** · lint 0/0 · build **60 pages**.
 
 Copy nguyên khối dưới đây, dán vào ô chat để mở phiên mới:
 
@@ -14,7 +14,7 @@ DIAGNOSTIC ONBOARDING). Trả lời tiếng Việt.
 
 Trước khi làm gì: export PATH="$PATH:/c/Program Files/nodejs" rồi verify môi trường
 (tsc + test + build + lint) trong sat-prep-web/. Baseline mong đợi:
-tsc sạch · test 178/178 · lint 0/0 · build 59 pages. origin/main = db48cf3.
+tsc sạch · test 178/178 · lint 0/0 · build 60 pages. origin/main = 27651d8.
 
 Token đã lưu: ~/.gitcreds-sat2026 (git push — format file = "https://user:token@github.com",
 push phải GHÉP "/nhatkynghia-cell/SAT-2026.git" vào cuối) + ~/.vercel-token (Vercel API).
@@ -76,9 +76,9 @@ Việc user-side tôi đã làm trước phiên: [điền: chốt giá? / cấp 
 
 ## 🟢 VIỆC CLAUDE TỰ LÀM ĐƯỢC (không chờ tôi) — nếu tôi chưa sẵn đầu vào trên
 1. **[nếu tôi chọn admin hướng (a)]** Admin fulfillment route shared-secret — gọn 1 phiên.
-2. **Panel "xu hướng tuần" cho học sinh ở `/dashboard`** (nice-to-have): tái dụng
-   `computeWeeklyTrend` + `loadOwnSnapshots` (đã viết sẵn) → học sinh cũng thấy biểu đồ tiến bộ.
-3. Đánh bóng UI 2 feature mới (Diagnostic + Parent) trên nhiều kích thước màn hình.
+2. Đánh bóng UI 3 feature mới (Diagnostic + Parent + panel xu hướng tuần) trên nhiều kích thước màn hình.
+3. ✅ ~~Panel "xu hướng tuần" cho học sinh ở `/dashboard`~~ — ĐÃ LÀM (2026-07-05, `27651d8`):
+   tách `WeeklyTrendPanel` dùng chung dashboard + ParentReport, route `/api/progress/weekly`.
 
 ---
 
