@@ -4,6 +4,22 @@ Tài liệu này ghi nhớ cấu trúc, mục tiêu dự án và quy tắc phát
 
 ---
 
+> [!IMPORTANT]
+> ### ✅ DIAGNOSTIC ONBOARDING XONG (2026-07-05, commit `df0a10e` pushed origin/main) — ĐỌC ĐẦU TIÊN
+> **Bối cảnh phiên:** verify env PASS (tsc·test 149/149·lint 0/0·build 53 pages, HEAD `230d2ff`). 2 việc ưu tiên cao (cổng thanh toán VNPay/MoMo, admin fulfillment) user xác nhận **CHƯA cấp đầu vào** (creds+giá / chọn role system) → GÁC. Secret rotate: **chỉ DB pw đã đổi**, 3 cái còn lại (GitHub PAT / Vercel token / OpenAI key) CHƯA rotate → token `~/.gitcreds-sat2026`+`~/.vercel-token` VẪN sống. → Làm **Diagnostic Onboarding** (Phase 2, làm được ngay, không phụ thuộc user).
+>
+> **✅ LÀM XONG (12 file, commit `df0a10e`):** Bài test xếp lớp đầu vào — user mới có mastery rỗng → Score Prediction luôn 400/low + Skill Tree toàn locked; diagnostic gieo mastery ban đầu để 3 engine (score/skill-tree/adaptive) có dữ liệu thật từ đăng nhập đầu.
+> - **🔑 KIẾN TRÚC (điểm mấu chốt, tái dụng tối đa):** đường ghi mastery DUY NHẤT là `/api/grade` (gọi `recordAnswer` NẾU câu có `skillId` hợp lệ). Đường exam (`/api/exams/*`) CỐ Ý không ghi mastery. → Diagnostic chỉ cần **issueQuestion mỗi câu kèm skillId cụ thể** → CorePracticeUI submit tự POST `/api/grade` → mastery bơm đúng skill. KHÔNG viết logic chấm/ghi mastery mới.
+> - **File mới:** `src/data/diagnostic_questions.json` (14 câu tĩnh song ngữ: algebra ×5 ưu tiên domain tiên quyết, advanced/data/geometry ×2, reading ×3, mỗi câu có skillId+difficulty+correct_choice+choice_analysis) · `src/lib/diagnostic.ts`+test (loader thuần mirror `exams.ts`, `stripQuestion` giấu đáp án) · `src/lib/onboarding.ts`+test (thuần: `ONBOARDING_KEY='__onboarding__'`, readOnboarding/setOnboardingFlag) · `src/lib/onboarding-store.ts` (mirror `gate-store.ts`, **bail-on-read-error** chống xóa mastery) · `/api/diagnostic/route.ts` (GET status / POST start issue+chặn re-issue / POST complete setGoal+cờ+predictScore) · `/diagnostic/page.tsx` (phase machine loading/done_already/intro/fighting/result) · `DiagnosticBanner.tsx`.
+> - **File sửa:** `GamificationContext.tsx` (+`onboardingCompleted`, fetch thứ 4 `/api/diagnostic`, mặc định true để không nhá banner sai), `page.tsx` (render banner), `Sidebar.tsx` (+nav "🎯 Test Xếp Lớp").
+> - **🔑 CỜ `__onboarding__` KHÔNG CẦN SQL:** lưu nested key trong `user_mastery.skills` JSONB (đúng pattern `__gates__`). Round-trip an toàn cùng mastery+gates. Verify unit test không đụng key khác.
+> - **🔍 VERIFY:** tsc·test **164/164** (+15)·lint 0/0·build **55 pages**. Browser roundtrip LIVE (login `truongsonht.xd@gmail.com` UUID c43f015e, dev server → prod Supabase): START issue 14 câu **không lộ đáp án** (correct_choice/explanation/choice_analysis stripped) + đủ questionId → GRADE 14 câu (đúng 10 theo ý định) + **replay câu đã grade → 404 (CAS)** → mastery **totalAttempts +14** (recordAnswer chạy đủ) → COMPLETE ghi cờ+targetScore 1400 (đọc lại persist) → **re-start sau completed CHẶN không issue mới** → trang `done_already` + banner ẩn trên home. Console sạch. **Dọn sạch data test** (28 row issued_questions src='diagnostic' + gỡ cờ `__onboarding__`, giữ mastery như tiền lệ; `pg` cài `--no-save`).
+>
+> **⏳ VIỆC PHIÊN SAU (thứ tự ưu tiên — đều CHỜ user):** (1) 🟡 **CỔNG THANH TOÁN** cần user: (a) chốt giá 4 gói (placeholder 99k/990k/199k/1990k), (b) creds sandbox VNPay (TMN_CODE+HASH_SECRET) + MoMo (PARTNER_CODE+ACCESS_KEY+SECRET_KEY) → verify roundtrip thật + đối chiếu field-order chữ ký IPN MoMo. (2) 🟢 **ADMIN FULFILLMENT** (phiếu quà pending→fulfilled) cần user chọn: role system đầy đủ HAY shared-secret env nhẹ. (3) ⏳ **Parent Dashboard** (giờ đã có dữ liệu diagnostic để hiển thị) + Beta 100 users. (4) Secret: HỎI user đã rotate GitHub PAT/Vercel token/OpenAI key chưa → tick.
+> **⚠️ NEXT.JS BIẾN ĐỔI:** Next 16 + Turbopack, `proxy.ts` thay middleware — đọc `node_modules/next/dist/docs/` khi nghi API. **Bài học test:** module `node --test` KHÔNG resolve alias `@/` → test đọc JSON qua `fs`, chỉ import type-safe thuần theo đường tương đối (đuôi `.ts`).
+
+---
+
 ## 🎯 1. MỤC TIÊU DỰ ÁN (PROJECT GOALS)
 
 *   **Tên thương mại**: Ivy League Math Academy / Gia sư AI SAT - Phú Gia Education.
