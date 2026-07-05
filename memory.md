@@ -5,6 +5,23 @@ Tài liệu này ghi nhớ cấu trúc, mục tiêu dự án và quy tắc phát
 ---
 
 > [!IMPORTANT]
+> ### ✅ PARENT DASHBOARD XONG (2026-07-05, commit `9fb1d46` pushed origin/main) — ĐỌC ĐẦU TIÊN
+> **Bối cảnh:** cùng phiên với Diagnostic Onboarding (block ngay dưới). User chốt 2 quyết định: **truy cập = Hướng A "mã chia sẻ"** (con sinh mã → phụ huynh mở `/parent?code=XXX` xem read-only, KHÔNG cần tài khoản — hợp beta VN, con kiểm soát mã) + **có báo cáo tuần (time-series)**.
+>
+> **✅ LÀM XONG (18 file, commit `9fb1d46`):** Phụ huynh theo dõi tiến độ con.
+> - **🔑 ACCESS-CONTROL (điểm mấu chốt):** app KHÔNG có role system (auth chỉ `{id,isAuthenticated}`, mọi route scope user_id, RLS `auth.uid()=user_id`). Phụ huynh KHÔNG có session → đọc dữ liệu con qua **service-role** (`createAdminClient` bypass RLS). Gom TẤT CẢ cross-user read vào 1 file auditable `parent-report-store.ts` — CHỈ trả tiến độ học, KHÔNG email/PII.
+> - **🔑 TIME-SERIES = lazy daily snapshot:** mỗi khi nộp câu (`/api/grade`) → `recordDailySnapshot` upsert ảnh chụp điểm/mastery theo ngày VN (fire-and-forget `void`, KHÔNG chặn response, KHÔNG cron). Ngày không học → không có row (trend bỏ qua). Bảng `daily_snapshots` PK `(user_id, snapshot_date)`.
+> - **🔑 MÃ CHIA SẺ = bearer token:** `generateShareCode` (node:crypto, `PH-` + 10 ký tự alphabet an toàn 30^10) chống brute-force + rate-limit 30/min ở `/api/parent/report`. Bảng `parent_share_codes` RLS student SELECT/UPDATE own (list + thu hồi qua cột `revoked`), sinh mã CHỈ service-role.
+> - **File mới:** 2 SQL (`parent_share.sql`, `daily_snapshots.sql` — ĐÃ chạy prod direct pg, additive) · lib thuần+test `daily-snapshot.ts`/`parent-share.ts` · store `daily-snapshot-store.ts`/`parent-share-store.ts`/`parent-report-store.ts` · route `/api/parent-share` (auth student generate/list/revoke) + `/api/parent/report` (NO-AUTH: resolve mã+rate-limit+bundle) · UI `ParentReport.tsx` + `/parent/page.tsx` (no-login) + `/parent-share/page.tsx` (student).
+> - **File sửa:** `/api/grade` (wire snapshot fire-and-forget), `Sidebar` (+nav), **refactor tách hàm thuần tái dụng:** `mastery.summarizeMastery(skillsData)` + `score-prediction.computePrediction(summary, targetScore)` — đường phụ huynh dùng lại logic mà KHÔNG cần RLS session con (giữ hành vi cũ, 178 test + build xác nhận).
+> - **🔍 VERIFY:** tsc·test **178/178** (+14)·lint 0/0·build **59 pages**. Browser live (seed mã+snapshot qua direct pg vì login form React controlled-input không set qua preview_fill): mã hợp lệ→200 đủ 5 phần (điểm/streak/trend/radar/focus) KHÔNG lộ PII; sai format/không tồn tại→404; rate-limit→429 sau 29 lần; thu hồi→404; `/parent` render đủ (điểm 630, streak, +200 tuần, radar 5 domain); chưa auth sinh mã→401. Console sạch. **Dọn sạch data test** (3 mã + 3 snapshot).
+> - **⚠️ LƯU Ý verify:** `preview_fill` set DOM value KHÔNG trigger React onChange → login form không submit được giá trị. Đường phụ huynh là NO-AUTH nên verify được không cần login; đường student (sinh mã) verify bằng seed pg + logic 401 (đúng). Phiên sau nếu cần login browser → dùng cách khác (vd set qua React devtools hoặc API trực tiếp).
+>
+> **⏳ VIỆC PHIÊN SAU:** (1) 🟡 **CỔNG THANH TOÁN** vẫn chờ user: chốt giá 4 gói + creds sandbox VNPay/MoMo → verify roundtrip. (2) 🟢 **ADMIN FULFILLMENT** (phiếu quà pending→fulfilled) chờ user chọn role system vs shared-secret — **giờ mã-chia-sẻ đã chứng minh pattern service-role đọc/ghi cross-user, có thể tái dụng ý tưởng**. (3) **Beta 100 users** (pháp lý trẻ vị thành niên). (4) [nice-to-have] thêm panel xu hướng tuần cho chính học sinh ở `/dashboard` (tái dụng `computeWeeklyTrend` + `loadOwnSnapshots` đã có sẵn). (5) Secret: HỎI user rotate GitHub PAT/Vercel/OpenAI chưa.
+
+---
+
+> [!IMPORTANT]
 > ### ✅ DIAGNOSTIC ONBOARDING XONG (2026-07-05, commit `df0a10e` pushed origin/main) — ĐỌC ĐẦU TIÊN
 > **Bối cảnh phiên:** verify env PASS (tsc·test 149/149·lint 0/0·build 53 pages, HEAD `230d2ff`). 2 việc ưu tiên cao (cổng thanh toán VNPay/MoMo, admin fulfillment) user xác nhận **CHƯA cấp đầu vào** (creds+giá / chọn role system) → GÁC. Secret rotate: **chỉ DB pw đã đổi**, 3 cái còn lại (GitHub PAT / Vercel token / OpenAI key) CHƯA rotate → token `~/.gitcreds-sat2026`+`~/.vercel-token` VẪN sống. → Làm **Diagnostic Onboarding** (Phase 2, làm được ngay, không phụ thuộc user).
 >
