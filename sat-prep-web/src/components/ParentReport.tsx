@@ -2,18 +2,11 @@
 
 /**
  * PARENT REPORT — render read-only tiến độ con cho phụ huynh (Hướng A mã chia sẻ).
- * Tái dụng radar SVG 5 domain (như dashboard học sinh). Nhận data từ
- * /api/parent/report (không cần login). Tự vẽ mini-chart xu hướng tuần.
+ * Tái dụng radar SVG 5 domain (như dashboard học sinh) + WeeklyTrendPanel chung.
+ * Nhận data từ /api/parent/report (không cần login).
  */
 
-interface WeeklyTrend {
-  latestTotal: number | null;
-  weekAgoTotal: number | null;
-  scoreDelta: number;
-  attemptsThisWeek: number;
-  series: Array<{ date: string; total: number }>;
-  activeDays: number;
-}
+import { WeeklyTrendPanel, type WeeklyTrend } from './WeeklyTrendPanel';
 
 export interface ParentReportData {
   prediction: {
@@ -69,24 +62,6 @@ export function ParentReport({ data }: { data: ParentReportData }) {
   const points = axisValues.map((a) => getPoint(a.value, a.angle)).join(' ');
   const gridPolygons = [20, 40, 60, 80, 100].map((val) => RADAR_AXES.map((ax) => getPoint(val, ax.angle)).join(' '));
 
-  // Mini trend chart geometry.
-  const trendW = 280;
-  const trendH = 80;
-  const series = weeklyTrend.series;
-  const trendPath = (() => {
-    if (series.length < 2) return '';
-    const min = Math.min(...series.map((s) => s.total));
-    const max = Math.max(...series.map((s) => s.total));
-    const range = max - min || 1;
-    return series
-      .map((s, i) => {
-        const x = (i / (series.length - 1)) * trendW;
-        const y = trendH - ((s.total - min) / range) * (trendH - 10) - 5;
-        return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
-      })
-      .join(' ');
-  })();
-
   return (
     <div className="space-y-6">
       {/* Hàng chỉ số chính */}
@@ -141,19 +116,7 @@ export function ParentReport({ data }: { data: ParentReportData }) {
 
         {/* Xu hướng tuần + skill yếu */}
         <div className="space-y-6">
-          <div className="bg-[#1b2533] p-6 rounded-xl border border-[#262730]">
-            <h3 className="text-lg font-bold text-white mb-2">📊 Xu hướng 7 ngày</h3>
-            {series.length >= 2 ? (
-              <>
-                <svg width={trendW} height={trendH} className="w-full">
-                  <path d={trendPath} fill="none" stroke="#34d399" strokeWidth="2" />
-                </svg>
-                <p className="text-xs text-gray-400 mt-1">{weeklyTrend.activeDays} ngày hoạt động · {weeklyTrend.attemptsThisWeek} câu luyện tuần này</p>
-              </>
-            ) : (
-              <p className="text-gray-500 text-sm">Cần ít nhất 2 ngày học để hiện xu hướng.</p>
-            )}
-          </div>
+          <WeeklyTrendPanel trend={weeklyTrend} />
 
           <div className="bg-[#1b2533] p-6 rounded-xl border border-[#262730]">
             <h3 className="text-lg font-bold text-white mb-3">Kỹ năng con cần tập trung</h3>

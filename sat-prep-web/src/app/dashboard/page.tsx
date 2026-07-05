@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useGamification } from '@/context/GamificationContext';
+import { WeeklyTrendPanel, type WeeklyTrend } from '@/components/WeeklyTrendPanel';
 
 /** Shape trả về từ /api/mastery (getMasterySummary). */
 interface MasterySkill {
@@ -48,17 +49,20 @@ export default function DashboardPage() {
   const { userStats } = useGamification();
   const [mastery, setMastery] = useState<MasterySummary | null>(null);
   const [score, setScore] = useState<ScorePrediction | null>(null);
+  const [trend, setTrend] = useState<WeeklyTrend | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
       try {
-        const [mRes, sRes] = await Promise.all([
+        const [mRes, sRes, tRes] = await Promise.all([
           fetch('/api/mastery'),
           fetch('/api/score'),
+          fetch('/api/progress/weekly'),
         ]);
         if (mRes.ok) setMastery(await mRes.json());
         if (sRes.ok) setScore(await sRes.json());
+        if (tRes.ok) setTrend(await tRes.json());
       } catch (e) {
         console.error('Lỗi tải dữ liệu dashboard', e);
       } finally {
@@ -158,6 +162,9 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Xu hướng tuần (time-series từ daily_snapshots) */}
+      {trend && <WeeklyTrendPanel trend={trend} />}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Radar Chart Panel — neo vào mastery domain thật */}
