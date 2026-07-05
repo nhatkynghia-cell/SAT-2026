@@ -132,8 +132,15 @@ export interface MasterySummary {
  */
 export async function getMasterySummary(userId: string): Promise<MasterySummary> {
   const store = await loadMastery(userId);
-  const skillsData = store.skills ?? {};
+  return summarizeMastery(store.skills ?? {});
+}
 
+/**
+ * Tổng hợp mastery THUẦN từ map skillId→SkillMastery (không I/O). Tách khỏi
+ * getMasterySummary để đường phụ huynh (đọc dữ liệu con qua service-role) tái
+ * dụng cùng logic mà không cần RLS session của con.
+ */
+export function summarizeMastery(skillsData: Record<string, SkillMastery>): MasterySummary {
   const skills = ALL_SKILLS.map((s) => {
     const m = skillsData[s.id] ?? emptySkill();
     const domain = getDomainOfSkill(s.id);

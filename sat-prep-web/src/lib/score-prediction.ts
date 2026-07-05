@@ -1,4 +1,4 @@
-import { getMasterySummary } from './mastery';
+import { getMasterySummary, type MasterySummary } from './mastery';
 import { loadGoal, saveGoal } from './goals-store';
 import { getDomainOfSkill } from './skill-taxonomy';
 import {
@@ -61,7 +61,16 @@ export async function setGoal(userId: string, targetScore: number): Promise<Goal
 
 export async function predictScore(userId: string): Promise<ScorePrediction> {
   const summary = await getMasterySummary(userId);
+  const goal = await getGoal(userId);
+  return computePrediction(summary, goal?.targetScore ?? null);
+}
 
+/**
+ * Tính ScorePrediction THUẦN từ MasterySummary + điểm mục tiêu (không I/O). Tách
+ * khỏi predictScore để đường phụ huynh (đọc dữ liệu con qua service-role) tái
+ * dụng cùng công thức mà không cần RLS session của con.
+ */
+export function computePrediction(summary: MasterySummary, targetScore: number | null): ScorePrediction {
   const math = masteryToSection(summary.bySubject.math);
   const reading = masteryToSection(summary.bySubject.reading);
   const total = math + reading;
@@ -69,8 +78,6 @@ export async function predictScore(userId: string): Promise<ScorePrediction> {
   const totalAttempts = summary.skills.reduce((sum, s) => sum + s.attempts, 0);
   const confidence = confidenceOf(totalAttempts);
 
-  const goal = await getGoal(userId);
-  const targetScore = goal?.targetScore ?? null;
   const pointsToTarget = targetScore !== null ? Math.max(0, targetScore - total) : null;
 
   // Gợi ý 3 skill cần tập trung: ưu tiên skill đã từng làm (attempts>0) và điểm thấp;

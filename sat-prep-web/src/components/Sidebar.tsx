@@ -15,6 +15,7 @@ const MENU_GROUPS = [
       { name: '🎯 Test Xếp Lớp', path: '/diagnostic' },
       { name: '🌳 Cây Năng Lực SAT', path: '/skill-tree' },
       { name: '📊 Nhật Ký Trưởng Thành', path: '/dashboard' },
+      { name: '👨‍👩‍👧 Chia Sẻ Phụ Huynh', path: '/parent-share' },
       { name: '💎 Nâng Cấp Gói VIP', path: '/upgrade' },
     ]
   },

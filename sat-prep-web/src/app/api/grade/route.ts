@@ -6,6 +6,7 @@ import { loadEconomy, saveEconomy } from '@/lib/economy-store';
 import { applyAnswerReward, type Difficulty } from '@/lib/economy';
 import { recordAnswer } from '@/lib/mastery';
 import { isValidSkill } from '@/lib/skill-taxonomy';
+import { recordDailySnapshot } from '@/lib/daily-snapshot-store';
 
 /**
  * GRADE API (ROOT A — server-authoritative grading + reward)
@@ -65,6 +66,9 @@ export async function POST(req: Request) {
     if (result.skillId && isValidSkill(result.skillId)) {
       try {
         await recordAnswer(user.id, result.skillId, result.correct, difficulty);
+        // Ghi ảnh chụp tiến độ hôm nay (time-series cho báo cáo tuần phụ huynh).
+        // Fire-and-forget: KHÔNG await/chặn response, KHÔNG throw (store tự nuốt lỗi).
+        void recordDailySnapshot(user.id);
       } catch (e) {
         console.error('Grade: recordAnswer failed', e);
       }
