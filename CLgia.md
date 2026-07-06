@@ -45,17 +45,19 @@ Mọi feature khác (skill-tree, adaptive, score prediction, thi thật, parent 
 
 ## 📊 MA TRẬN PHỄU ĐỀ XUẤT (feature-gated funnel)
 
-| Trục | 🆓 Free (mồi) | ⭐ Premium (chủ lực) | 💎 Ultimate (cao cấp) |
-|---|---|---|---|
-| **AI/ngày** | 5 | **30** (có trần)* | **∞** |
-| **Điểm dự đoán** | Chỉ tổng 400–1600 | + breakdown môn + focus skills | + dự báo theo thời gian |
-| **Skill tree** | 2 chương đầu | Toàn bộ cây | Toàn bộ |
-| **Adaptive "Luyện mục tiêu"** | Đề xuất chung | Cá nhân hóa đầy đủ | Đầy đủ |
-| **Thi thật / QAS** | 🔒 Khóa | ✅ Mở | ✅ + đề độc quyền |
-| **Sổ tay câu sai + SRS** | 20 câu, không SRS | Không giới hạn + SRS | Đầy đủ |
-| **Báo cáo phụ huynh** | Cơ bản + trend 7 ngày | Full radar + trend 30 ngày | + trend 90 ngày + 20 bài |
-| **Bonus xu/tháng** | – | – | **~4.500 xu → voucher thi thật** |
-| **RPG (PvP/tower/spin)** | Rộng rãi (giữ chân) | + hệ số xu ×1.5 | ×2 |
+_(CẬP NHẬT 2026-07-06 theo quyết định cuối — bản đề xuất cũ có AI 5/30/∞ đã BÁC.)_
+
+| Trục | 🆓 Free (mồi) | ⭐ Premium (chủ lực) | 💎 Ultimate (elite) | Trạng thái |
+|---|---|---|---|---|
+| **AI/ngày** | 5 | **∞** | **∞** | ✅ (cả 2 gói ∞, KHÔNG đụng DAILY_LIMITS) |
+| **Điểm dự đoán** | Chỉ tổng 400–1600 | + breakdown môn + focus skills | Giống Premium | ✅ |
+| **Skill tree** | 2 chương đầu | Toàn bộ cây | Toàn bộ | ✅ |
+| **Adaptive "Luyện mục tiêu"** | 🔒 Khóa | Cá nhân hóa đầy đủ | Đầy đủ | ✅ |
+| **Thi thật / QAS** | 🔒 Khóa | ✅ Mở | ✅ + đề độc quyền📝 | ✅ (đề độc quyền chưa code) |
+| **Báo cáo phụ huynh** | trend 7 ngày | Full + trend 30 ngày + 10 bài | trend 90 ngày + 20 bài | ✅ |
+| **🎮 Hệ số xu RPG** | ×1 | **×1.5** | **×2** | ✅ (commit ad03bf8) |
+| **Model AI cao cấp** | – | – | ✅ | 📝 chưa code |
+| **Giải thưởng Top-5 toàn quốc** | – | – | ✅ (THAY voucher/user) | 🔬 nghiên cứu phiên sau |
 
 *= phụ thuộc quyết định #2 bên dưới.
 
@@ -68,7 +70,7 @@ Mọi feature khác (skill-tree, adaptive, score prediction, thi thật, parent 
 ### ① GIÁ — CHỐT "Premium-elite" (neo cao cho tệp du học + nuôi affiliate 30-40%)
 - `PLANS` (`subscription.ts`) ĐÃ đổi: Premium **499k/th · 3.990k/năm** · Ultimate **990k/th · 7.990k/năm** (list price NIÊM YẾT).
 - Logic: tệp học sinh du học có điều kiện + KHÔNG app SAT nào gamified RPG (không bị neo giá đối thủ) → neo cao. Sau mã KOL -35% về ~324k/644k (vùng impulse). Anchor cao → KOL có mã giảm gây sốc tốt cho content.
-- Ultimate/năm 7.99tr > voucher thi (~2.7tr) → "tự hoàn vốn" OK về biên.
+- Neo cao chừa đủ headroom cho affiliate 35% mà vẫn giữ 65% biên. (~~"tự hoàn vốn bằng voucher"~~ ĐÃ BỎ — voucher/user gỡ; đòn "elite" của Ultimate chuyển sang giải thưởng Top-5 toàn quốc + đặc quyền độc quyền.)
 - **✅ Affiliate 35% CHỐT ngữ nghĩa (user 2026-07-06):** 35% = TỔNG ngân sách affiliate, chia **KOL 25% hoa hồng + người mua giảm 10%** → giữ 65% list price. Ví dụ Premium tháng 499k: người mua trả ~449k, KOL nhận ~125k, giữ ~324k. Mỗi mã 2 nút chỉnh (discount%/commission%), mặc định 10/25. **Đã nghiên cứu kỹ thuật đủ (xem mục "THIẾT KẾ AFFILIATE" dưới) — code phiên sau.**
 
 ### ② VALUE-LADDER — CHỐT phương án B (cả Premium & Ultimate đều ∞ AI)
