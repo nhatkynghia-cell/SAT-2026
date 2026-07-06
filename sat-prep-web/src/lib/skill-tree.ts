@@ -1,5 +1,6 @@
 import type { MasterySummary } from './mastery';
 import type { GateProgress } from './gate-exam';
+import type { AiTier } from './ai-quota';
 
 /**
  * ============================================================================
@@ -24,6 +25,14 @@ import type { GateProgress } from './gate-exam';
 export const DOMAIN_UNLOCK_THRESHOLD = 40;
 
 /**
+ * PHÂN TẦNG (định giá theo phễu 2026-07-06): free mở 2 CHƯƠNG đầu — `algebra`
+ * (gốc Toán) + `reading_writing` (Đọc-Viết) — để nếm CẢ hai môn. Các chương còn
+ * lại là quyền lợi Premium+. Đây là ranh giới ĐỌC/HIỂN THỊ; mastery vẫn ghi đủ ở
+ * free (nâng cấp = mở khóa phần cây đã tích lũy sẵn). Xem applyTierGate.
+ */
+export const FREE_DOMAINS = ['algebra', 'reading_writing'];
+
+/**
  * Tiên quyết theo CHƯƠNG (domainId → các domainId phải đạt ngưỡng trước).
  * Đại số là gốc; Reading độc lập.
  */
@@ -46,6 +55,8 @@ export interface SkillNode {
   state: NodeState;
   /** Lý do bị khóa (nếu locked) — chương tiên quyết chưa đạt. */
   lockedBy?: string[];
+  /** true khi node thuộc chương chỉ Premium+ (free bị khóa theo gói, KHÔNG phải tiên quyết). */
+  tierLocked?: boolean;
 }
 
 export type GateStatus = 'not_required' | 'available' | 'locked' | 'passed' | 'cooldown';
@@ -57,6 +68,8 @@ export interface DomainProgress {
   satisfied: boolean;
   gateStatus: GateStatus;
   correctSinceFail?: number;
+  /** true khi chương chỉ Premium+ (free thấy nhưng bị khóa theo gói). */
+  tierLocked?: boolean;
 }
 
 export interface SkillTreeView {
@@ -175,4 +188,33 @@ export function buildSkillTree(
   const masteredCount = nodes.filter((n) => n.state === 'mastered').length;
 
   return { domains, nodes, masteredCount, totalNodes: nodes.length };
+}
+
+/**
+ * PHÂN TẦNG THEO GÓI (thuần). Đánh dấu các chương ngoài FREE_DOMAINS là
+ * `tierLocked` cho gói 'free' + ép node của chúng về state 'locked' (không lộ
+ * tiến trình/điểm chi tiết chương trả phí). Premium/Ultimate → trả nguyên view.
+ *
+ * ⚠️ KHÔNG xóa node (giữ totalNodes ổn định để % tiến trình không nhảy khi
+ * nâng cấp) — chỉ khóa hiển thị. masteredCount tính lại theo node CÒN thấy được
+ * (chương free) để con số "đã tinh thông" khớp phần user thực sự truy cập.
+ */
+export function applyTierGate(view: SkillTreeView, tier: AiTier): SkillTreeView {
+  if (tier !== 'free') return view;
+
+  const domains = view.domains.map((d) =>
+    FREE_DOMAINS.includes(d.id) ? d : { ...d, tierLocked: true }
+  );
+
+  const nodes = view.nodes.map((n) =>
+    FREE_DOMAINS.includes(n.domainId)
+      ? n
+      : { ...n, state: 'locked' as NodeState, tierLocked: true, score: 0, lockedBy: undefined }
+  );
+
+  const masteredCount = nodes.filter(
+    (n) => !n.tierLocked && n.state === 'mastered'
+  ).length;
+
+  return { domains, nodes, masteredCount, totalNodes: view.nodes.length };
 }

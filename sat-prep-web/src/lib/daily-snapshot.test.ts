@@ -64,3 +64,28 @@ test('computeWeeklyTrend: 1 snapshot duy nhất → delta 0, latest=weekAgo', ()
   assert.equal(t.scoreDelta, 0);
   assert.equal(t.activeDays, 1);
 });
+
+// ── windowDays (phân tầng báo cáo phụ huynh 2026-07-06): free 7, premium 30, ultimate 90 ──
+
+test('computeWeeklyTrend: windowDays mặc định 7 → loại snapshot >7 ngày', () => {
+  // 06-20 cách 07-05 là 15 ngày → ngoài cửa sổ 7 ngày mặc định.
+  const snaps = [snap('2026-06-20', 1000, 30), snap('2026-07-05', 1200, 60)];
+  const t = computeWeeklyTrend(snaps, '2026-07-05');
+  assert.equal(t.activeDays, 1, 'chỉ snapshot 07-05 trong cửa sổ 7 ngày');
+  assert.equal(t.scoreDelta, 0);
+});
+
+test('computeWeeklyTrend: windowDays=30 (premium) → bắt được snapshot 15 ngày trước', () => {
+  const snaps = [snap('2026-06-20', 1000, 30), snap('2026-07-05', 1200, 60)];
+  const t = computeWeeklyTrend(snaps, '2026-07-05', 30);
+  assert.equal(t.activeDays, 2, 'cả 2 snapshot trong cửa sổ 30 ngày');
+  assert.equal(t.weekAgoTotal, 1000, 'mốc cũ nhất = 06-20');
+  assert.equal(t.scoreDelta, 200, 'delta 1200-1000 trong 30 ngày');
+});
+
+test('computeWeeklyTrend: windowDays=90 (ultimate) → bắt được snapshot ~60 ngày trước', () => {
+  const snaps = [snap('2026-05-06', 900, 10), snap('2026-07-05', 1300, 80)];
+  const t = computeWeeklyTrend(snaps, '2026-07-05', 90);
+  assert.equal(t.activeDays, 2);
+  assert.equal(t.scoreDelta, 400);
+});

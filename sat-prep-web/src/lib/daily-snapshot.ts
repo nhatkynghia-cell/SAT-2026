@@ -75,11 +75,18 @@ export interface WeeklyTrend {
 }
 
 /**
- * Tính xu hướng 7 ngày từ mảng snapshot + ngày hôm nay (VN, 'YYYY-MM-DD').
- * Chỉ xét snapshot trong [today-6, today]. Ngày trống bỏ qua (không nội suy).
+ * Tính xu hướng từ mảng snapshot + ngày hôm nay (VN, 'YYYY-MM-DD').
+ * Chỉ xét snapshot trong [today-(windowDays-1), today]. Ngày trống bỏ qua (không nội suy).
+ *
+ * `windowDays` mặc định 7 (dashboard học sinh + báo cáo phụ huynh free). Báo cáo
+ * phụ huynh Premium=30, Ultimate=90 (phân tầng định giá 2026-07-06) truyền vào đây.
  */
-export function computeWeeklyTrend(snapshots: DailySnapshot[], todayVN: string): WeeklyTrend {
-  const since = shiftDate(todayVN, -6);
+export function computeWeeklyTrend(
+  snapshots: DailySnapshot[],
+  todayVN: string,
+  windowDays = 7
+): WeeklyTrend {
+  const since = shiftDate(todayVN, -(windowDays - 1));
   const inWindow = snapshots
     .filter((s) => s.snapshot_date >= since && s.snapshot_date <= todayVN)
     .sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));

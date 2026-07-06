@@ -4,6 +4,16 @@ import { computePrediction, type ScorePrediction } from './score-prediction';
 import { loadSnapshots } from './daily-snapshot-store';
 import { computeWeeklyTrend, type WeeklyTrend } from './daily-snapshot';
 import { todayVN } from './daily-snapshot-store';
+import { getUserTierAdmin } from './subscription-store';
+import type { AiTier } from './ai-quota';
+
+/**
+ * Cửa sổ xu hướng (số ngày) theo GÓI của CON (phân tầng định giá 2026-07-06):
+ * free 7 ngày · premium 30 · ultimate 90. Số câu lịch sử thi hiển thị cũng theo
+ * tier (free 5, premium 10, ultimate 20).
+ */
+const TREND_WINDOW_DAYS: Record<AiTier, number> = { free: 7, premium: 30, ultimate: 90 };
+const RECENT_TESTS_LIMIT: Record<AiTier, number> = { free: 5, premium: 10, ultimate: 20 };
 
 /**
  * ============================================================================
@@ -28,6 +38,10 @@ export interface ParentReport {
   streak: number;
   weeklyTrend: WeeklyTrend;
   recentTests: Array<{ module: string; subject: string; correct: number; total: number; score: number; when: number }>;
+  /** Gói của CON — quyết định độ sâu báo cáo. UI hiển thị upsell nếu 'free'. */
+  studentTier: AiTier;
+  /** Số ngày cửa sổ xu hướng đã dùng (7/30/90 theo tier). */
+  trendWindowDays: number;
 }
 
 /** Đọc streak của con từ user_progress.data_json (signed JSON) — chỉ parse lấy streak. */
@@ -46,6 +60,11 @@ async function readStreak(admin: ReturnType<typeof createAdminClient>, studentId
 export async function buildParentReport(studentId: string): Promise<ParentReport> {
   const admin = createAdminClient();
 
+  // 0) Tier của CON (service-role vì phụ huynh không có session) → độ sâu báo cáo.
+  const studentTier = await getUserTierAdmin(studentId);
+  const trendWindowDays = TREND_WINDOW_DAYS[studentTier];
+  const recentLimit = RECENT_TESTS_LIMIT[studentTier];
+
   // 1) Mastery (skills JSONB) → summary thuần.
   const { data: mRow } = await admin.from('user_mastery').select('skills').eq('user_id', studentId).maybeSingle();
   const skillsData = (mRow?.skills ?? {}) as Record<string, SkillMastery>;
@@ -56,25 +75,25 @@ export async function buildParentReport(studentId: string): Promise<ParentReport
   const targetScore = typeof gRow?.target_score === 'number' ? gRow.target_score : null;
   const prediction = computePrediction(summary, targetScore);
 
-  // 3) Time-series 7 ngày → weekly trend.
+  // 3) Time-series → trend theo cửa sổ tier (7/30/90 ngày).
   const today = todayVN();
   const since = (() => {
     const [y, m, d] = today.split('-').map(Number);
     const dt = new Date(Date.UTC(y, m - 1, d));
-    dt.setUTCDate(dt.getUTCDate() - 6);
+    dt.setUTCDate(dt.getUTCDate() - (trendWindowDays - 1));
     return dt.toISOString().slice(0, 10);
   })();
   const snapshots = await loadSnapshots(studentId, since);
-  const weeklyTrend = computeWeeklyTrend(snapshots, today);
+  const weeklyTrend = computeWeeklyTrend(snapshots, today, trendWindowDays);
 
-  // 4) Streak + lịch sử thi gần đây (tối đa 5).
+  // 4) Streak + lịch sử thi gần đây (số bài theo tier).
   const streak = await readStreak(admin, studentId);
   const { data: hRows } = await admin
     .from('test_history')
     .select('module, subject, correct, total, score, test_timestamp')
     .eq('user_id', studentId)
     .order('test_timestamp', { ascending: false })
-    .limit(5);
+    .limit(recentLimit);
   const recentTests = (hRows ?? []).map((r) => ({
     module: r.module,
     subject: r.subject,
@@ -102,5 +121,7 @@ export async function buildParentReport(studentId: string): Promise<ParentReport
     streak,
     weeklyTrend,
     recentTests,
+    studentTier,
+    trendWindowDays,
   };
 }

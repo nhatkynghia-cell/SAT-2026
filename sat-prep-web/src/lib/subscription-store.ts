@@ -60,6 +60,36 @@ export async function getUserTier(userId: string): Promise<AiTier> {
 }
 
 /**
+ * Tier HIỆU LỰC của user đọc qua SERVICE-ROLE (bypass RLS). Dùng cho đường KHÔNG
+ * có session của user đó — cụ thể báo cáo phụ huynh (phụ huynh không auth, cần
+ * biết tier của CON để phân tầng report). FAIL-SAFE → 'free'.
+ */
+export async function getUserTierAdmin(userId: string): Promise<AiTier> {
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from('user_subscriptions')
+      .select('tier, period, started_at, expires_at')
+      .eq('user_id', userId)
+      .order('expires_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) return 'free';
+    const sub: SubscriptionRecord = {
+      tier: data.tier as PaidTier,
+      period: data.period as BillingPeriod,
+      startedAt: data.started_at ?? '',
+      expiresAt: data.expires_at ?? '',
+    };
+    return resolveTier(sub, new Date().toISOString());
+  } catch (e) {
+    console.error('getUserTierAdmin lỗi (fail-safe → free):', e);
+    return 'free';
+  }
+}
+
+/**
  * Cấp/ gia hạn gói cho user (đường GHI, admin service-role). Được gọi bởi
  * webhook thanh toán SAU khi xác nhận giao dịch server-side (chưa nối phiên này).
  * Server tra PLANS để lấy durationDays + tính expiresAt — client KHÔNG gửi ngày

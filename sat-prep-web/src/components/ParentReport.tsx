@@ -27,6 +27,10 @@ export interface ParentReportData {
   streak: number;
   weeklyTrend: WeeklyTrend;
   recentTests: Array<{ module: string; subject: string; correct: number; total: number; score: number; when: number }>;
+  /** Optional (backward-compat) — gói của con quyết định độ sâu báo cáo. */
+  studentTier?: 'free' | 'premium' | 'ultimate';
+  /** Optional — số ngày cửa sổ xu hướng (7/30/90). */
+  trendWindowDays?: number;
 }
 
 const RADAR_AXES: { domainId: string; label: string; color: string; angle: number }[] = [
@@ -46,6 +50,10 @@ const CONFIDENCE_LABEL: Record<string, string> = {
 export function ParentReport({ data }: { data: ParentReportData }) {
   const { prediction, mastery, streak, weeklyTrend, recentTests } = data;
   const hasData = prediction.totalAttempts > 0;
+  // Fallback an toàn nếu API cũ chưa trả field (backward-compat).
+  const studentTier = data.studentTier ?? 'free';
+  const trendWindowDays = data.trendWindowDays ?? 7;
+  const isFreeStudent = studentTier === 'free';
 
   // Radar geometry (giống dashboard học sinh).
   const size = 200;
@@ -64,6 +72,17 @@ export function ParentReport({ data }: { data: ParentReportData }) {
 
   return (
     <div className="space-y-6">
+      {/* Con dùng gói free → gợi ý nâng cấp (báo cáo sâu hơn: xu hướng 30-90 ngày, nhiều bài thi hơn). */}
+      {isFreeStudent && (
+        <div className="bg-gradient-to-r from-[#1e3a8a] to-[#4c1d95] border border-[#6366f1] rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-white">📊 Báo cáo cơ bản (xu hướng {trendWindowDays} ngày)</p>
+            <p className="text-xs text-indigo-200 mt-0.5">Nâng cấp Premium để xem xu hướng 30 ngày, hoặc Ultimate 90 ngày + nhiều bài thi chi tiết hơn.</p>
+          </div>
+          <a href="/upgrade" className="text-xs font-bold bg-white text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-100 whitespace-nowrap text-center">💎 Xem gói nâng cấp</a>
+        </div>
+      )}
+
       {/* Hàng chỉ số chính */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard icon="📈" value={hasData ? String(prediction.total) : '—'} label="Điểm SAT dự đoán" />
@@ -72,7 +91,7 @@ export function ParentReport({ data }: { data: ParentReportData }) {
         <StatCard
           icon={weeklyTrend.scoreDelta >= 0 ? '⬆️' : '⬇️'}
           value={`${weeklyTrend.scoreDelta >= 0 ? '+' : ''}${weeklyTrend.scoreDelta}`}
-          label="Điểm thay đổi tuần này"
+          label={`Điểm thay đổi ${trendWindowDays} ngày`}
         />
       </div>
 

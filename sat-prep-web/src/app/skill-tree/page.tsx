@@ -34,6 +34,7 @@ interface DomainProgress {
   satisfied: boolean;
   gateStatus: GateStatus;
   correctSinceFail?: number;
+  tierLocked?: boolean;
 }
 interface SkillTreeView {
   domains: DomainProgress[];
@@ -96,6 +97,7 @@ const STATE_META: Record<NodeState, { label: string; badge: string; card: string
 export default function SkillTreePage() {
   const [tree, setTree] = useState<SkillTreeView | null>(null);
   const [rec, setRec] = useState<AdaptiveRecommendation | null>(null);
+  const [adaptiveLocked, setAdaptiveLocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -111,7 +113,8 @@ export default function SkillTreePage() {
         // Adaptive: 404 khi chưa có skill khớp — không phải lỗi, chỉ là chưa có đề xuất.
         if (adaptiveRes.ok) {
           const data = await adaptiveRes.json();
-          if (data.recommendation) setRec(data.recommendation);
+          if (data.locked) setAdaptiveLocked(true);
+          else if (data.recommendation) setRec(data.recommendation);
         }
       } catch (e) {
         console.error('Lỗi tải Skill Tree', e);
@@ -179,6 +182,28 @@ export default function SkillTreePage() {
         </div>
       )}
 
+      {/* Free → "Luyện Mục Tiêu" bị khóa: hiện upsell thay vì để trống. */}
+      {!loading && adaptiveLocked && (
+        <div className="bg-gradient-to-br from-[#1e1b4b] to-[#0f172a] p-6 rounded-xl border border-[#6366f1] shadow-[0_0_15px_rgba(99,102,241,0.2)]">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-2xl">🔒</span>
+                <h3 className="text-lg font-bold text-white">Luyện Mục Tiêu (Premium)</h3>
+              </div>
+              <p className="text-[#e2e8f0] font-medium">Lộ trình luyện cá nhân hóa theo điểm yếu</p>
+              <p className="text-xs text-indigo-300 mt-1">Premium phân tích kỹ năng yếu nhất của bạn và đề xuất đúng câu, đúng độ khó để lên điểm nhanh nhất.</p>
+            </div>
+            <Link
+              href="/upgrade"
+              className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-white font-bold px-6 py-3 rounded-xl transition-all text-center whitespace-nowrap shadow-lg"
+            >
+              💎 Mở khóa
+            </Link>
+          </div>
+        </div>
+      )}
+
       {loading && (
         <LoadingState message="Đang dựng bản đồ năng lực..." />
       )}
@@ -193,6 +218,33 @@ export default function SkillTreePage() {
         <div className="space-y-8">
           {tree.domains.map((domain) => {
             const domainNodes = tree.nodes.filter((n) => n.domainId === domain.id);
+
+            // PHÂN TẦNG: chương chỉ Premium+ (free) → khóa nội dung + upsell, không lộ điểm.
+            if (domain.tierLocked) {
+              return (
+                <div key={domain.id} className="bg-[#13171f] border border-[#262730] rounded-xl p-6 relative overflow-hidden">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <h3 className="text-lg font-bold text-gray-400 flex items-center gap-2">
+                      <span className="w-1.5 h-5 bg-gray-600 rounded-full inline-block" />
+                      {domain.label}
+                      <span className="text-xs bg-[#1a1a1a] text-amber-400 border border-amber-700 px-2 py-0.5 rounded">🔒 Premium</span>
+                    </h3>
+                  </div>
+                  <div className="mt-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-[#0f172a] border border-[#334155] rounded-lg p-4">
+                    <p className="text-sm text-gray-400 flex-1">
+                      Chương này ({domainNodes.length} kỹ năng) nằm trong lộ trình đầy đủ. Nâng cấp Premium để mở toàn bộ Cây Năng Lực + Cổng Khảo Thí và luyện đúng thứ tự sư phạm.
+                    </p>
+                    <Link
+                      href="/upgrade"
+                      className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-white font-bold px-5 py-2.5 rounded-xl transition-all text-center whitespace-nowrap shadow-lg"
+                    >
+                      💎 Mở khóa chương
+                    </Link>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div key={domain.id} className="bg-[#13171f] border border-[#262730] rounded-xl p-6">
                 {/* Header chương + thanh đạt ngưỡng mở khóa */}

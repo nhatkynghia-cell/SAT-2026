@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSkillTree, DOMAIN_UNLOCK_THRESHOLD, DOMAIN_PREREQS } from './skill-tree.ts';
+import { buildSkillTree, applyTierGate, FREE_DOMAINS, DOMAIN_UNLOCK_THRESHOLD, DOMAIN_PREREQS } from './skill-tree.ts';
 import type { MasterySummary } from './mastery.ts';
 
 // Map chương cho các skill dùng trong test (khớp taxonomy thật).
@@ -97,4 +97,64 @@ test('DOMAIN_PREREQS: advanced/data/geometry đều cần algebra; reading & alg
   assert.deepEqual(DOMAIN_PREREQS.data_analysis, ['algebra']);
   assert.deepEqual(DOMAIN_PREREQS.algebra, []);
   assert.deepEqual(DOMAIN_PREREQS.reading_writing, []);
+});
+
+// ── applyTierGate (phân tầng theo gói định giá 2026-07-06) ──
+
+test('FREE_DOMAINS = algebra + reading_writing (nếm cả 2 môn)', () => {
+  assert.deepEqual([...FREE_DOMAINS].sort(), ['algebra', 'reading_writing']);
+});
+
+test('applyTierGate premium → no-op (trả nguyên view, không khóa gì)', () => {
+  const view = buildSkillTree(fakeSummary({
+    'algebra.linear_eq': { score: 80, attempts: 6 },
+    'advanced.quadratic': { score: 70, attempts: 6, mastered: true },
+  }));
+  const gated = applyTierGate(view, 'premium');
+  assert.equal(gated, view, 'premium phải nhận đúng object gốc (no-op)');
+});
+
+test('applyTierGate ultimate → no-op', () => {
+  const view = buildSkillTree(fakeSummary({ 'algebra.linear_eq': { score: 80, attempts: 6 } }));
+  assert.equal(applyTierGate(view, 'ultimate'), view);
+});
+
+test('applyTierGate free → chương ngoài free bị tierLocked, chương free giữ nguyên', () => {
+  const view = buildSkillTree(fakeSummary({
+    'algebra.linear_eq': { score: DOMAIN_UNLOCK_THRESHOLD + 10, attempts: 6 },
+    'geo.trig': { score: 50, attempts: 6 },
+    'rw.vocab': { score: 30, attempts: 6 },
+  }));
+  const gated = applyTierGate(view, 'free');
+  const algebra = gated.domains.find((d) => d.id === 'algebra');
+  const geo = gated.domains.find((d) => d.id === 'geometry');
+  const rw = gated.domains.find((d) => d.id === 'reading_writing');
+  assert.ok(!algebra?.tierLocked, 'algebra là free → không khóa');
+  assert.ok(!rw?.tierLocked, 'reading_writing là free → không khóa');
+  assert.equal(geo?.tierLocked, true, 'geometry ngoài free → tierLocked');
+});
+
+test('applyTierGate free → node chương trả phí bị ép locked + score ẩn (0)', () => {
+  const view = buildSkillTree(fakeSummary({
+    'algebra.linear_eq': { score: 60, attempts: 6 },
+    'geo.trig': { score: 55, attempts: 6, mastered: true },
+  }));
+  const gated = applyTierGate(view, 'free');
+  const geoNode = gated.nodes.find((n) => n.id === 'geo.trig');
+  assert.equal(geoNode?.state, 'locked');
+  assert.equal(geoNode?.tierLocked, true);
+  assert.equal(geoNode?.score, 0, 'không lộ điểm chương trả phí');
+});
+
+test('applyTierGate free → masteredCount chỉ đếm node free, totalNodes giữ nguyên', () => {
+  // Cần gate algebra passed để geometry mở khóa (nếu không geo.trig sẽ locked, không mastered).
+  const gates = { algebra: { passed: true, lastAttempt: '2026-01-01', score: 5, correctSinceFail: 0 } };
+  const view = buildSkillTree(fakeSummary({
+    'algebra.linear_eq': { score: 90, attempts: 8, mastered: true }, // free, mastered
+    'geo.trig': { score: 90, attempts: 8, mastered: true },          // trả phí, mastered
+  }), gates);
+  assert.equal(view.masteredCount, 2, 'trước gate: cả 2 mastered');
+  const gated = applyTierGate(view, 'free');
+  assert.equal(gated.masteredCount, 1, 'sau gate: chỉ đếm node free');
+  assert.equal(gated.totalNodes, view.totalNodes, 'totalNodes ổn định (không nhảy % khi nâng cấp)');
 });

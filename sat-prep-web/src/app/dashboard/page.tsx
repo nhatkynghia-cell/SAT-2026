@@ -18,16 +18,18 @@ interface MasterySummary {
   bySubject: { math: number; reading: number };
   overall: number;
 }
-/** Shape trả về từ /api/score (predictScore). */
+/** Shape trả về từ /api/score (predictScore). Free → breakdown bị khóa (null). */
 interface ScorePrediction {
-  math: number;
-  reading: number;
+  math: number | null;
+  reading: number | null;
   total: number;
   confidence: 'low' | 'medium' | 'high';
   totalAttempts: number;
   targetScore: number | null;
   pointsToTarget: number | null;
   focusSkills: Array<{ id: string; label: string; score: number; subject: string }>;
+  /** true khi gói free — breakdown môn + focus skills bị ẩn (nâng cấp để mở). */
+  detailLocked?: boolean;
 }
 
 // 5 trục radar = 4 chương Toán + 1 cụm Đọc-Viết (neo vào domainId thật).
@@ -138,22 +140,37 @@ export default function DashboardPage() {
           <p className="text-gray-400">Đang tính toán từ dữ liệu luyện tập...</p>
         ) : hasData ? (
           <div className="space-y-3">
-            <div className="flex gap-6 flex-wrap">
-              <div>
-                <div className="text-2xl font-bold text-blue-400">{score!.math}</div>
-                <div className="text-xs text-gray-400">Toán (200-800)</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-emerald-400">{score!.reading}</div>
-                <div className="text-xs text-gray-400">Đọc & Viết (200-800)</div>
-              </div>
-              {score!.targetScore !== null && (
+            {score!.detailLocked ? (
+              /* Free → chỉ tổng điểm; breakdown môn khóa sau upsell. */
+              <div className="flex gap-6 flex-wrap items-start">
                 <div>
-                  <div className="text-2xl font-bold text-yellow-400">{score!.targetScore}</div>
-                  <div className="text-xs text-gray-400">Mục tiêu (còn {score!.pointsToTarget} điểm)</div>
+                  <div className="text-2xl font-bold text-white">{score!.total}</div>
+                  <div className="text-xs text-gray-400">Tổng dự đoán (400-1600)</div>
                 </div>
-              )}
-            </div>
+                <div className="flex-1 min-w-[240px] bg-[#0f172a] border border-[#334155] rounded-lg p-3">
+                  <p className="text-sm text-[#e2e8f0] font-medium">🔒 Điểm chi tiết từng môn đang bị khóa</p>
+                  <p className="text-xs text-gray-400 mt-1">Nâng cấp Premium để xem điểm Toán / Đọc-Viết riêng và biết chính xác cần cải thiện phần nào.</p>
+                  <a href="/upgrade" className="inline-block mt-2 text-xs font-bold bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3 py-1.5 rounded-lg hover:opacity-90">💎 Mở khóa chi tiết</a>
+                </div>
+              </div>
+            ) : (
+              <div className="flex gap-6 flex-wrap">
+                <div>
+                  <div className="text-2xl font-bold text-blue-400">{score!.math}</div>
+                  <div className="text-xs text-gray-400">Toán (200-800)</div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-emerald-400">{score!.reading}</div>
+                  <div className="text-xs text-gray-400">Đọc & Viết (200-800)</div>
+                </div>
+                {score!.targetScore !== null && (
+                  <div>
+                    <div className="text-2xl font-bold text-yellow-400">{score!.targetScore}</div>
+                    <div className="text-xs text-gray-400">Mục tiêu (còn {score!.pointsToTarget} điểm)</div>
+                  </div>
+                )}
+              </div>
+            )}
             <p className="text-xs text-gray-500">Độ tin cậy: {CONFIDENCE_LABEL[score!.confidence]} — ước lượng động viên, không phải điểm chính thức.</p>
           </div>
         ) : (
@@ -200,6 +217,14 @@ export default function DashboardPage() {
           <div className="flex-1 overflow-y-auto pr-2">
             {loading ? (
               <p className="text-gray-400">Đang tải...</p>
+            ) : score?.detailLocked && hasData ? (
+              /* Free có dữ liệu nhưng focus skills bị khóa → upsell (không hiện empty-state nhầm). */
+              <div className="h-full flex flex-col items-center justify-center text-center text-gray-400">
+                <div className="text-4xl mb-2">🔒</div>
+                <p className="text-sm text-[#e2e8f0] font-medium">Gợi ý kỹ năng cần cải thiện đang bị khóa</p>
+                <p className="text-xs mt-1">Premium phân tích điểm yếu cụ thể và ưu tiên skill cần luyện để lên điểm nhanh nhất.</p>
+                <a href="/upgrade" className="inline-block mt-3 text-xs font-bold bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3 py-1.5 rounded-lg hover:opacity-90">💎 Mở khóa phân tích</a>
+              </div>
             ) : score && score.focusSkills.length > 0 ? (
               <ul className="space-y-4">
                 {score.focusSkills.map((s) => (

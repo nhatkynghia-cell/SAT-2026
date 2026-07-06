@@ -3,6 +3,10 @@ import { getCurrentUser } from '@/lib/auth';
 import { getExamById } from '@/lib/exams';
 import { issueQuestion } from '@/lib/issued-questions';
 import { rateLimit } from '@/lib/rate-limit';
+import { getMasterySummary } from '@/lib/mastery';
+import { loadGates } from '@/lib/gate-store';
+import { buildSkillTree } from '@/lib/skill-tree';
+import { getUserTier } from '@/lib/subscription-store';
 
 /**
  * BẮT ĐẦU 1 BÀI THI (ROOT A follow-up đường thi) — server phát đề + lưu đáp án.
@@ -16,6 +20,14 @@ import { rateLimit } from '@/lib/rate-limit';
  * skillId để trống: câu thi trộn nhiều kỹ năng (RW + Math) không map sạch sang 1
  * skill; đoán skill từ text bị CẤM (bẩn mastery) → thi KHÔNG ghi mastery (đó là
  * việc của đường luyện tập + Cổng Khảo Thí). Thi chỉ trao xu/XP theo câu đúng.
+ *
+ * PHÂN TẦNG + BẢO MẬT (2026-07-06):
+ *   • mode:'real' (Thi Thật QAS) = quyền lợi Premium+ VÀ cần năng lực (tinh thông
+ *     ≥6 kỹ năng, level≥7). CẢ HAI gate enforce SERVER-SIDE tại đây — trước đây
+ *     gate level chỉ ở client (real-exams/page.tsx) nên gọi API trực tiếp là
+ *     bypass được. Nay đóng lỗ hổng đó + thêm tier gate.
+ *   • mode:'mock' (mặc định — Đấu Trường Thi Thử) = miễn phí, giữ nguyên (mồi
+ *     engagement, không gate).
  */
 export async function POST(req: Request) {
   try {
@@ -26,9 +38,36 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Quá nhiều request. Thử lại sau.', retryAfterMs: rl.retryAfterMs }, { status: 429 });
     }
 
-    const { examId } = await req.json();
+    const body = await req.json();
+    const { examId } = body;
+    const mode = body.mode === 'real' ? 'real' : 'mock';
     if (typeof examId !== 'string' || !examId) {
       return NextResponse.json({ error: 'examId bắt buộc' }, { status: 400 });
+    }
+
+    // Thi Thật (QAS): gate tier + năng lực server-side (đóng lỗ hổng gate-level client).
+    if (mode === 'real') {
+      const [tier, summary, gates] = await Promise.all([
+        getUserTier(user.id),
+        getMasterySummary(user.id),
+        loadGates(user.id),
+      ]);
+
+      if (tier === 'free') {
+        return NextResponse.json(
+          { error: 'Thi Thật QAS là quyền lợi gói Premium. Nâng cấp để mở khóa.', reason: 'tier' },
+          { status: 403 }
+        );
+      }
+
+      // level = masteredCount + 1 (khớp cách client derive từ /api/skill-tree).
+      const level = buildSkillTree(summary, gates).masteredCount + 1;
+      if (level < 7) {
+        return NextResponse.json(
+          { error: 'Cần tinh thông 6 kỹ năng để mở khóa đề thi thật QAS.', reason: 'capability' },
+          { status: 403 }
+        );
+      }
     }
 
     const exam = getExamById(examId);

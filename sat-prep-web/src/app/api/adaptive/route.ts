@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { getMasterySummary } from '@/lib/mastery';
 import { recommendNext } from '@/lib/adaptive';
+import { getUserTier } from '@/lib/subscription-store';
 import type { Subject } from '@/lib/skill-taxonomy';
 
 /**
@@ -12,9 +13,21 @@ import type { Subject } from '@/lib/skill-taxonomy';
  *   ?moduleType=math|vocab|literature|desmos   lọc theo loại module
  *
  * Ghép tầng I/O (mastery) với engine thuần (adaptive) — đúng ranh giới đã thiết kế.
+ *
+ * PHÂN TẦNG (định giá theo phễu 2026-07-06): "Luyện Mục Tiêu" cá nhân hóa (skill
+ * yếu nhất + độ khó ZPD) là quyền lợi Premium+. Free → trả cờ `locked` (KHÔNG
+ * lộ đề xuất) để UI hiện upsell. Redact SERVER-SIDE. Dữ liệu mastery vẫn ghi/đo
+ * đủ ở free — chỉ khóa tầng ĐỌC đề xuất.
  */
 export async function GET(request: Request) {
   const user = await getCurrentUser();
+  const tier = await getUserTier(user.id);
+
+  // Free → khóa đề xuất cá nhân hóa (không tính, không lộ). UI hiện upsell.
+  if (tier === 'free') {
+    return NextResponse.json({ recommendation: null, locked: true });
+  }
+
   const summary = await getMasterySummary(user.id);
 
   const params = new URL(request.url).searchParams;
@@ -34,5 +47,5 @@ export async function GET(request: Request) {
     );
   }
 
-  return NextResponse.json({ recommendation, overall: summary.overall });
+  return NextResponse.json({ recommendation, overall: summary.overall, locked: false });
 }

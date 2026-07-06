@@ -16,9 +16,20 @@ import type { AiTier } from './ai-quota';
  *  ⚠️ THUẦN (pure) — không I/O. "now" được TIÊM vào để unit-test xác định (theo
  *  mẫu economy.ts/gate-exam.ts). Tầng I/O + Supabase nằm ở subscription-store.ts.
  *
- *  ⚠️ GIÁ (priceVnd) là PLACEHOLDER hợp lý cho thị trường VN — CHỐT LẠI với user
- *  TRƯỚC khi nối cổng thanh toán. Giá chỉ là dữ liệu bảng, KHÔNG ảnh hưởng logic
- *  tier/quota nên an toàn để đặt tạm.
+ *  ⚠️ GIÁ (priceVnd) = GIÁ NIÊM YẾT (list price) đã CHỐT với user 2026-07-06,
+ *  mức "Premium-elite" — neo cao cho tệp học sinh du học có điều kiện + chừa
+ *  headroom cho affiliate/KOL chiết khấu 30-40% (buyer nhập mã KOL → thực thu
+ *  ~65% list, vẫn lãi vì sàn chi phí AI thấp). Giá chỉ là dữ liệu bảng, KHÔNG
+ *  ảnh hưởng logic tier/quota.
+ *
+ *  KHÁC BIỆT GÓI (user chốt 2026-07-06): cả Premium & Ultimate đều ∞ AI
+ *  (DAILY_LIMITS KHÔNG đổi) → phân tầng bằng RPG (hệ số xu, đề độc quyền) +
+ *  chương trình học (skill-tree/adaptive/thi thật) + mentor (report 90d, model
+ *  AI xịn), KHÔNG bằng quota AI. Xem CLgia.md ma trận phễu.
+ *
+ *  ⏳ Affiliate/coupon (referral tracking + áp discount ở payment/create + payout
+ *  hoa hồng) là Wave 2, cần migration DB — CHƯA xây. payment/create hiện chốt
+ *  giá cứng từ PLANS, chưa nhận coupon.
  * ============================================================================
  */
 
@@ -39,14 +50,14 @@ export interface Plan {
 
 /**
  * Bảng gói cố định ở SERVER. Giá do server quyết (client KHÔNG gửi số tiền),
- * cùng nguyên tắc server-authoritative của economy (§9.1). Yearly ≈ 10 tháng
- * (giảm ~2 tháng) để khuyến khích trả năm.
+ * cùng nguyên tắc server-authoritative của economy (§9.1). Yearly ≈ 8 tháng
+ * (giảm ~4 tháng) để khuyến khích trả năm.
  */
 export const PLANS: Plan[] = [
-  { tier: 'premium', period: 'monthly', priceVnd: 99_000, durationDays: 30 },
-  { tier: 'premium', period: 'yearly', priceVnd: 990_000, durationDays: 365 },
-  { tier: 'ultimate', period: 'monthly', priceVnd: 199_000, durationDays: 30 },
-  { tier: 'ultimate', period: 'yearly', priceVnd: 1_990_000, durationDays: 365 },
+  { tier: 'premium', period: 'monthly', priceVnd: 499_000, durationDays: 30 },
+  { tier: 'premium', period: 'yearly', priceVnd: 3_990_000, durationDays: 365 },
+  { tier: 'ultimate', period: 'monthly', priceVnd: 990_000, durationDays: 30 },
+  { tier: 'ultimate', period: 'yearly', priceVnd: 7_990_000, durationDays: 365 },
 ];
 
 /** Tra 1 gói theo (tier, period). undefined nếu tổ hợp không hợp lệ. */

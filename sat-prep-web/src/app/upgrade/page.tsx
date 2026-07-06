@@ -7,18 +7,35 @@ import { useToast } from '@/context/ToastContext';
 
 type Gateway = 'vnpay' | 'momo';
 
-const TIER_META: Record<PaidTier, { label: string; icon: string; perks: string[]; accent: string }> = {
+const TIER_META: Record<PaidTier, { label: string; icon: string; tagline: string; perks: string[]; accent: string }> = {
   premium: {
     label: 'Premium',
     icon: '⭐',
     accent: 'from-blue-500 to-indigo-600',
-    perks: ['Gia sư AI không giới hạn lượt/ngày', 'Sinh câu hỏi cá nhân hóa thả ga', 'Ưu tiên tính năng mới'],
+    tagline: 'Full lộ trình học + full game loop',
+    perks: [
+      '🤖 Gia sư AI không giới hạn lượt/ngày',
+      '📚 Mở toàn bộ Cây Kỹ Năng + Cổng Khảo Thí',
+      '🎯 Luyện tập thích ứng cá nhân hóa theo điểm yếu',
+      '📝 Chế độ Thi Thật (mock + real exam)',
+      '📈 Điểm dự đoán chi tiết theo môn + kỹ năng cần cải thiện',
+      '⚔️ Hệ số xu RPG ×1.5 — lên đồ, mở pet, vượt tháp nhanh hơn',
+      '👨‍👩‍👧 Báo cáo phụ huynh đầy đủ + xu hướng 30 ngày',
+    ],
   },
   ultimate: {
     label: 'Ultimate',
     icon: '👑',
     accent: 'from-amber-500 to-yellow-600',
-    perks: ['Tất cả quyền lợi Premium', 'Giới hạn AI cao nhất', 'Hỗ trợ ưu tiên'],
+    tagline: 'Cá nhân hóa cấp mentor — cho mục tiêu 1500+',
+    perks: [
+      '✨ Tất cả quyền lợi Premium',
+      '🧠 Gia sư AI dùng model cao cấp hơn — giải thích sâu hơn',
+      '🗺️ Đề luyện độc quyền + lộ trình chinh phục mục tiêu điểm',
+      '⚔️ Hệ số xu RPG ×2 + trang bị & skin độc quyền',
+      '🎁 Thưởng xu độc quyền hằng tháng',
+      '👨‍👩‍👧 Báo cáo phụ huynh chuyên sâu + xu hướng 90 ngày',
+    ],
   },
 };
 
@@ -78,7 +95,7 @@ function UpgradeContent() {
           <div className="math-icon">💎</div>
           <div>
             <h1 className="math-title" style={{ background: 'linear-gradient(to right, #93c5fd, #c4b5fd)', WebkitBackgroundClip: 'text' }}>NÂNG CẤP GÓI VIP</h1>
-            <p className="math-subtitle text-indigo-200">Mở khóa Gia sư AI không giới hạn — học nhanh hơn, xa hơn!</p>
+            <p className="math-subtitle text-indigo-200">Mở toàn bộ lộ trình học + game — chinh phục mục tiêu du học!</p>
           </div>
         </div>
       </div>
@@ -113,16 +130,19 @@ function UpgradeContent() {
           return (
             <div key={key} className="bg-[#1b2533] border border-[#262730] rounded-xl p-6 hover:border-[#fbbf24] transition-all">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-black text-white flex items-center gap-2">
-                  <span className="text-2xl">{meta.icon}</span> {meta.label}
-                  <span className="text-xs font-normal text-[#94a3b8]">{plan.period === 'yearly' ? '(năm)' : '(tháng)'}</span>
-                </h3>
+                <div>
+                  <h3 className="text-xl font-black text-white flex items-center gap-2">
+                    <span className="text-2xl">{meta.icon}</span> {meta.label}
+                    <span className="text-xs font-normal text-[#94a3b8]">{plan.period === 'yearly' ? '(năm)' : '(tháng)'}</span>
+                  </h3>
+                  <p className="text-xs text-[#94a3b8] mt-1">{meta.tagline}</p>
+                </div>
               </div>
               <div className="mb-4">
                 <span className="text-3xl font-black text-[#fbbf24]">{formatVnd(plan.priceVnd)}</span>
                 <span className="text-[#94a3b8] text-sm">{PERIOD_LABEL[plan.period]}</span>
                 {plan.period === 'yearly' && (
-                  <span className="ml-2 text-xs text-emerald-400 font-bold">Tiết kiệm ~2 tháng</span>
+                  <span className="ml-2 text-xs text-emerald-400 font-bold">Tiết kiệm ~4 tháng</span>
                 )}
               </div>
               <ul className="space-y-2 mb-6">

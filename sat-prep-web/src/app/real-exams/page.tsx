@@ -64,20 +64,31 @@ export default function RealExamsPage() {
   }, []);
 
   const handleStartExam = async (exam: FullExam) => {
-    // Cổng năng lực: cần tinh thông ≥6 kỹ năng (level dẫn xuất = masteredCount+1).
+    // Cổng năng lực (kiểm nhanh phía client — server MỚI là nguồn quyết định).
     if (level < 7) {
       showToast("Cần tinh thông 6 kỹ năng để mở khóa đề thi thật QAS!", 'error');
       return;
     }
     // ROOT A follow-up: lấy đề từ /api/exams/start (server phát câu + lưu đáp án
-    // + trả questionId). Đề trong danh sách đã bị giấu đáp án + không có questionId.
+    // + trả questionId). mode:'real' → server gate tier Premium+ VÀ năng lực.
     try {
       const res = await fetch('/api/exams/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ examId: exam.id }),
+        body: JSON.stringify({ examId: exam.id, mode: 'real' }),
       });
       if (!res.ok) {
+        // 403: server từ chối — tier (nâng cấp) hoặc năng lực chưa đủ.
+        if (res.status === 403) {
+          const data = await res.json().catch(() => ({}));
+          if (data.reason === 'tier') {
+            showToast("Thi Thật QAS là quyền lợi Premium. Chuyển tới trang nâng cấp...", 'error');
+            setTimeout(() => { window.location.href = '/upgrade'; }, 1500);
+          } else {
+            showToast(data.error ?? "Chưa đủ điều kiện vào thi.", 'error');
+          }
+          return;
+        }
         showToast("Không thể vào phòng thi. Vui lòng thử lại.", 'error');
         return;
       }
