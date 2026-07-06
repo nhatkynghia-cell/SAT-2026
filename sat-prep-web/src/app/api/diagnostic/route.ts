@@ -5,6 +5,7 @@ import { getDiagnosticQuestions, stripQuestion } from '@/lib/diagnostic';
 import { issueQuestion } from '@/lib/issued-questions';
 import { loadOnboarding, saveOnboardingComplete } from '@/lib/onboarding-store';
 import { setGoal, predictScore } from '@/lib/score-prediction';
+import { getUserTier } from '@/lib/subscription-store';
 
 /**
  * DIAGNOSTIC ONBOARDING — bài test xếp lớp đầu vào (§10.A.2/§10.A.5).
@@ -77,8 +78,14 @@ export async function POST(req: Request) {
     }
     await saveOnboardingComplete(user.id, targetScore);
 
-    const prediction = await predictScore(user.id);
-    return NextResponse.json({ completed: true, prediction });
+    // Diagnostic là MỒI đầu phễu: LUÔN trả full prediction (kể cả free) để user
+    // thấy trọn giá trị 1 lần — nhưng kèm `tier` để UI mời nâng cấp đúng aha-moment
+    // (free thấy điểm yếu ở đây, vào dashboard sẽ bị khóa → CTA "giữ lộ trình này").
+    const [prediction, tier] = await Promise.all([
+      predictScore(user.id),
+      getUserTier(user.id),
+    ]);
+    return NextResponse.json({ completed: true, prediction, tier });
   }
 
   return NextResponse.json({ error: 'action không hợp lệ' }, { status: 400 });

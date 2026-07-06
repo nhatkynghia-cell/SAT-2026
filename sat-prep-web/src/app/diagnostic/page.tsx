@@ -39,6 +39,7 @@ export default function DiagnosticPage() {
   const [answerLog, setAnswerLog] = useState<boolean[]>([]);
   const [targetScore, setTargetScore] = useState<string>('');
   const [prediction, setPrediction] = useState<Prediction | null>(null);
+  const [tier, setTier] = useState<string>('free');
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -102,6 +103,7 @@ export default function DiagnosticPage() {
       });
       const data = await res.json();
       setPrediction(data.prediction ?? null);
+      if (typeof data.tier === 'string') setTier(data.tier);
     } catch {
       setPrediction(null);
     }
@@ -275,6 +277,21 @@ export default function DiagnosticPage() {
               </>
             ) : (
               <p className="text-gray-400 mb-6">Đã ghi nhận kết quả. Xem Cây Năng Lực để bắt đầu lộ trình.</p>
+            )}
+
+            {/* C1 — CTA nâng cấp ĐÚNG aha-moment: free vừa thấy điểm yếu cụ thể ở đây,
+                vào dashboard sẽ bị khóa → mời "giữ lộ trình cá nhân hóa này". Chỉ hiện cho free. */}
+            {tier === 'free' && (
+              <div className="text-left bg-gradient-to-br from-[#1e1b4b] to-[#0e1117] p-5 rounded-lg border border-indigo-500/60 mb-6">
+                <p className="text-indigo-300 font-bold text-sm mb-1">💎 Mở khóa lộ trình cá nhân hóa</p>
+                <p className="text-gray-400 text-xs mb-3">
+                  Premium phân tích sâu từng điểm yếu, gợi ý skill ưu tiên và bài &ldquo;Luyện Mục Tiêu&rdquo;
+                  để lên điểm nhanh nhất — dựa trên chính kết quả bạn vừa làm.
+                </p>
+                <Link href="/upgrade" className="inline-block text-sm font-bold bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 py-2.5 rounded-lg hover:opacity-90 shadow-lg">
+                  Xem gói nâng cấp →
+                </Link>
+              </div>
             )}
 
             <div className="flex flex-col gap-3 items-center">
