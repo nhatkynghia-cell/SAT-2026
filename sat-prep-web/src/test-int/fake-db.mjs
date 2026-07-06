@@ -101,6 +101,7 @@ function makeBuilder(tableName) {
     wantReturn: false,
     order: null,
     onConflict: null,
+    limitN: null,
   };
 
   const builder = {
@@ -138,6 +139,10 @@ function makeBuilder(tableName) {
     },
     order(col, opts) {
       q.order = { col, asc: opts?.ascending !== false };
+      return builder;
+    },
+    limit(n) {
+      q.limitN = n;
       return builder;
     },
     single() {
@@ -180,6 +185,7 @@ function exec(q, mode) {
         return q.order.asc ? cmp : -cmp;
       });
     }
+    if (typeof q.limitN === 'number' && q.limitN >= 0) matched = matched.slice(0, q.limitN);
     const projected = matched.map((r) => project(r, q.cols));
     if (mode === 'single') {
       if (projected.length === 0) return { data: null, error: { code: 'PGRST116', message: 'no rows' } };
@@ -291,6 +297,28 @@ const RPCS = {
     txn.gateway_txn_id = p_gateway_txn_id || null;
     txn.paid_at = new Date(state.idCounter * 1000).toISOString();
     return { ok: true, alreadyConfirmed: false, ...meta };
+  },
+
+  fulfill_redemption({ p_redemption_id }) {
+    const rec = table('reward_redemptions').find((r) => r.id === p_redemption_id);
+    if (!rec) return { ok: false, reason: 'not_found' };
+    if (rec.status === 'fulfilled') return { ok: true, reason: 'already', status: 'fulfilled' };
+    if (rec.status !== 'pending') return { ok: false, reason: 'bad_status', status: rec.status };
+    rec.status = 'fulfilled';
+    rec.fulfilled_at = new Date(state.idCounter * 1000).toISOString();
+    return { ok: true, reason: 'ok', status: 'fulfilled' };
+  },
+
+  cancel_redemption({ p_redemption_id }) {
+    const rec = table('reward_redemptions').find((r) => r.id === p_redemption_id);
+    if (!rec) return { ok: false, reason: 'not_found' };
+    if (rec.status === 'cancelled') return { ok: true, reason: 'already', status: 'cancelled' };
+    if (rec.status !== 'pending') return { ok: false, reason: 'bad_status', status: rec.status };
+    // Hoàn xu + đổi status (atomic trong SQL thật; ở fake single-thread = tuần tự).
+    const econ = table('user_economy').find((r) => r.user_id === rec.user_id);
+    if (econ) econ.coins += rec.cost_coins;
+    rec.status = 'cancelled';
+    return { ok: true, reason: 'ok', status: 'cancelled', coins: econ ? econ.coins : undefined };
   },
 
   consume_pvp_fight({ p_user_id, p_target_rank, p_won, p_today, p_max_fights }) {

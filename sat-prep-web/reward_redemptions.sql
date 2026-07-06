@@ -121,7 +121,120 @@ revoke all on function public.redeem_reward(uuid, text, text, integer) from publ
 revoke all on function public.redeem_reward(uuid, text, text, integer) from authenticated;
 grant execute on function public.redeem_reward(uuid, text, text, integer) to service_role;
 
+-- ────────────────────────────────────────────────────────────────────────
+-- 3) RPC fulfill_redemption — ADMIN đánh dấu phiếu ĐÃ GIAO (pending→fulfilled)
+--    Admin đã xác thực bằng shared-secret ở route (admin-auth.ts) trước khi gọi.
+--    KHÔNG hoàn xu (quà đã cấp). Idempotent: phiếu đã fulfilled → 'already'.
+--    Trả jsonb {ok, reason, status}.
+-- ────────────────────────────────────────────────────────────────────────
+create or replace function public.fulfill_redemption(
+  p_redemption_id uuid
+)
+returns jsonb
+language plpgsql
+security invoker
+as $$
+declare
+  v_status text;
+begin
+  -- Khóa dòng phiếu → tuần tự hóa nếu admin bấm 2 lần / 2 admin cùng lúc.
+  select status into v_status
+    from public.reward_redemptions
+    where id = p_redemption_id
+    for update;
+
+  if not found then
+    return jsonb_build_object('ok', false, 'reason', 'not_found');
+  end if;
+
+  -- Đã fulfilled → idempotent (KHÔNG lỗi, KHÔNG đổi gì).
+  if v_status = 'fulfilled' then
+    return jsonb_build_object('ok', true, 'reason', 'already', 'status', 'fulfilled');
+  end if;
+
+  -- Chỉ lật được từ 'pending' (cancelled → không thể giao).
+  if v_status <> 'pending' then
+    return jsonb_build_object('ok', false, 'reason', 'bad_status', 'status', v_status);
+  end if;
+
+  update public.reward_redemptions
+    set status = 'fulfilled', fulfilled_at = now()
+    where id = p_redemption_id;
+
+  return jsonb_build_object('ok', true, 'reason', 'ok', 'status', 'fulfilled');
+end;
+$$;
+
+revoke all on function public.fulfill_redemption(uuid) from public;
+revoke all on function public.fulfill_redemption(uuid) from authenticated;
+grant execute on function public.fulfill_redemption(uuid) to service_role;
+
+-- ────────────────────────────────────────────────────────────────────────
+-- 4) RPC cancel_redemption — ADMIN hủy phiếu + HOÀN xu (pending→cancelled)
+--    Dùng khi admin KHÔNG giao được quà. ATOMIC (khóa cả phiếu lẫn dòng
+--    user_economy): cộng lại xu + đổi status trong 1 transaction. Idempotent:
+--    phiếu đã cancelled → 'already', KHÔNG hoàn xu lần 2 (chống double-refund
+--    = faucet xu). Phiếu đã fulfilled → bad_status (quà đã giao, không hoàn).
+--    Trả jsonb {ok, reason, status, coins (số dư MỚI)}.
+-- ────────────────────────────────────────────────────────────────────────
+create or replace function public.cancel_redemption(
+  p_redemption_id uuid
+)
+returns jsonb
+language plpgsql
+security invoker
+as $$
+declare
+  v_status  text;
+  v_user_id uuid;
+  v_cost    integer;
+  v_coins   integer;
+begin
+  -- Khóa dòng phiếu trước → chống 2 lần hủy đồng thời double-refund.
+  select status, user_id, cost_coins into v_status, v_user_id, v_cost
+    from public.reward_redemptions
+    where id = p_redemption_id
+    for update;
+
+  if not found then
+    return jsonb_build_object('ok', false, 'reason', 'not_found');
+  end if;
+
+  -- Đã cancelled → idempotent, KHÔNG hoàn xu lần 2.
+  if v_status = 'cancelled' then
+    return jsonb_build_object('ok', true, 'reason', 'already', 'status', 'cancelled');
+  end if;
+
+  -- Đã fulfilled → không hủy được (quà thật đã trao).
+  if v_status <> 'pending' then
+    return jsonb_build_object('ok', false, 'reason', 'bad_status', 'status', v_status);
+  end if;
+
+  -- Hoàn xu + đổi status trong CÙNG transaction (all-or-nothing).
+  update public.user_economy
+    set coins = coins + v_cost
+    where user_id = v_user_id
+    returning coins into v_coins;
+
+  update public.reward_redemptions
+    set status = 'cancelled'
+    where id = p_redemption_id;
+
+  return jsonb_build_object(
+    'ok', true,
+    'reason', 'ok',
+    'status', 'cancelled',
+    'coins', v_coins
+  );
+end;
+$$;
+
+revoke all on function public.cancel_redemption(uuid) from public;
+revoke all on function public.cancel_redemption(uuid) from authenticated;
+grant execute on function public.cancel_redemption(uuid) to service_role;
+
 -- ============================================================================
---  XONG. Store TS (redemption-store.ts) gọi redeem_reward qua admin client.
+--  XONG. Store TS (redemption-store.ts) gọi redeem_reward qua admin client;
+--  admin-fulfillment-store.ts gọi fulfill_redemption / cancel_redemption.
 --  Nếu RPC chưa chạy → store nhận 42883/PGRST202 → TỪ CHỐI (fail-closed).
 -- ============================================================================
