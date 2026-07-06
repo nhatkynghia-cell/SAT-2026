@@ -59,19 +59,20 @@ Mọi feature khác (skill-tree, adaptive, score prediction, thi thật, parent 
 
 ---
 
-## 🔴 2 QUYẾT ĐỊNH USER CẦN TRẢ LỜI (chưa chốt)
+## ✅ 2 QUYẾT ĐỊNH ĐÃ CHỐT (user 2026-07-06) + WAVE 1 TRIỂN KHAI XONG (commit `6eab3bd`)
 
-### ① GIÁ — user nói "tính cao lên sau, còn làm Affiliate" (2026-07-06)
-- Giữ `PLANS` placeholder hiện tại (99k/990k · 199k/1.990k) — **CHƯA chốt cứng.**
-- **Affiliate reshapes giá:** KOL/affiliate EdTech VN ăn hoa hồng **20–40%** → cần **list price cao hơn** + đòn "giá niêm yết cao + phát mã giảm 20-30% qua affiliate" (người mua thấy deal, affiliate ăn hoa hồng, vẫn lãi trên anchor thổi cao).
-- **⚠️ Kỹ thuật CHƯA có:** `payment/create` chốt giá cứng từ `PLANS`, KHÔNG nhận coupon. Affiliate cần subsystem mới: (a) tracking mã referral, (b) áp discount ở payment/create, (c) quy hoa hồng + payout. → Hạng mục tương lai, xây trước khi chạy affiliate.
-- **Cần hỏi user:** % hoa hồng affiliate dự kiến? → quyết list price cuối + có xây discount/referral ngay không.
+### ① GIÁ — CHỐT "Premium-elite" (neo cao cho tệp du học + nuôi affiliate 30-40%)
+- `PLANS` (`subscription.ts`) ĐÃ đổi: Premium **499k/th · 3.990k/năm** · Ultimate **990k/th · 7.990k/năm** (list price NIÊM YẾT).
+- Logic: tệp học sinh du học có điều kiện + KHÔNG app SAT nào gamified RPG (không bị neo giá đối thủ) → neo cao. Sau mã KOL -35% về ~324k/644k (vùng impulse). Anchor cao → KOL có mã giảm gây sốc tốt cho content.
+- Ultimate/năm 7.99tr > voucher thi (~2.7tr) → "tự hoàn vốn" OK về biên.
+- **⏳ Affiliate subsystem CHƯA xây** (Wave 2): `payment/create` chốt giá cứng, KHÔNG nhận coupon. Cần (a) tracking referral, (b) áp discount, (c) payout. **User CHƯA cho % hoa hồng cụ thể → hỏi lại khi làm.**
 
-### ② VALUE-LADDER FORK (AskUserQuestion bị lỗi phiên trước → CHƯA trả lời)
-**Premium có nên bị TRẦN AI (30/ngày) để Ultimate khác biệt, hay giữ Premium ∞?**
-- **Phương án A** — Premium 30/ngày, Ultimate ∞: khác biệt AI rõ ràng, người học nặng mùa thi chạm trần → lên Ultimate. → CHỈ phương án này mới sửa `DAILY_LIMITS`.
-- **Phương án B** — Premium giữ ∞, Ultimate khác biệt bằng bonus xu + report 90d + đề độc quyền (không đụng AI quota).
-- ⚠️ Neo tâm lý VN: hiếm học sinh phổ thông chạm 30 câu AI/ngày → nếu chọn A, khác biệt AI có thể "không cảm nhận được" → bonus xu + report vẫn phải gánh thuyết phục.
+### ② VALUE-LADDER — CHỐT phương án B (cả Premium & Ultimate đều ∞ AI)
+- **KHÔNG đụng `DAILY_LIMITS`** — cả 2 gói giữ ∞ AI. Phân tầng bằng RPG (hệ số xu, đề độc quyền) + chương trình học (skill-tree/adaptive/thi thật) + mentor (report 90d, model AI xịn).
+- Lý do: tệp có điều kiện không nên siết AI; HS phổ thông hiếm chạm trần → khác biệt AI "không cảm nhận được".
+- `/upgrade` copy đã viết lại theo trục RPG+học+mentor (bỏ "AI không giới hạn" làm điểm khác biệt).
+
+**✅ WAVE 1 (pure-read gating) XONG:** score/adaptive/skill-tree/thi-thật/parent-report gate theo tier server-side + UI upsell. Đóng lỗ hổng gate-level client ở exam. tsc·test 263/263·lint 0/0·build 62. Chi tiết: memory.md block đầu + memory Claude `sat-prep-funnel-pricing.md`.
 
 ---
 

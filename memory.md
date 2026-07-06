@@ -5,6 +5,18 @@ Tài liệu này ghi nhớ cấu trúc, mục tiêu dự án và quy tắc phát
 ---
 
 > [!IMPORTANT]
+> ### ✅ ĐỊNH GIÁ THEO PHỄU — GIÁ + WAVE 1 FEATURE-GATING XONG (2026-07-06, commit `6eab3bd` pushed origin/main) — ĐỌC ĐẦU TIÊN
+> **Bối cảnh:** verify đầu phiên PASS (tsc·test 254/254·lint 0/0; git HEAD `fc78799` docs trên `13db3d7`). User chốt 2 quyết định CLgia.md để ngỏ: **(1) giá "Premium-elite"** (tệp học sinh du học có điều kiện + nuôi affiliate KOL 30-40%) · **(2) cả Premium & Ultimate đều ∞ AI** — phân tầng bằng RPG+học+mentor, KHÔNG đụng `DAILY_LIMITS`.
+>
+> **✅ LÀM XONG (16 file, commit `6eab3bd`):** định giá theo phễu — sửa ROOT BUG "premium=ultimate về quyền lợi".
+> - **GIÁ (`subscription.ts` PLANS):** Premium **499k/th · 3.990k/năm** · Ultimate **990k/th · 7.990k/năm** (list price NIÊM YẾT neo cao; sau mã KOL -35% ~324k/644k về vùng impulse). Yearly ≈ 8 tháng. `DAILY_LIMITS` GIỮ NGUYÊN (cả 2 gói ∞ AI). `/upgrade` copy viết lại theo RPG+học+mentor (bỏ "AI không giới hạn" làm điểm khác biệt vì cả 2 đều ∞).
+> - **WAVE 1 feature-gating (pure-read, redact SERVER-SIDE, đảo ngược được):** (a) `api/score` free chỉ tổng điểm (`detailLocked`, math/reading=null), premium+ mở breakdown+focus; (b) `api/adaptive` free `locked:true`, premium+ đầy đủ; (c) `skill-tree.ts` hàm THUẦN `applyTierGate`+`FREE_DOMAINS=[algebra,reading_writing]` — free 2 chương, còn lại `tierLocked`; (d) `api/exams/start` `mode:'real'` gate tier premium+ VÀ level≥7 server-side → **ĐÓNG lỗ hổng gate-level client-side cũ**, mock giữ free; (e) `parent-report-store` trend window 7/30/90d + recentTests 5/10/20 theo tier CON (đọc qua `getUserTierAdmin` service-role MỚI vì phụ huynh không auth). Mỗi surface có UI upsell → `/upgrade`.
+> - **🔑 Nguyên tắc giữ vững:** luôn GHI dữ liệu full ở free, chỉ gate tầng ĐỌC (nâng cấp = mở khóa dữ liệu đã có). KHÔNG gate diagnostic/forge/shop. gate-exam GIỮ NGUYÊN (chỉ algebra có cổng thật = FREE_DOMAIN, không rò rỉ trả phí).
+> - **🔍 VERIFY:** tsc·test **263/263** (+9)·lint 0/0·build **62 pages**. API-verify free (unauth=free fail-safe): score/adaptive/skill-tree khóa đúng, exam real→403 tier, mock→200. Browser DOM `/upgrade`: giá 499k/3.990k·990k/7.990k + copy + 26 perks render đúng, console sạch.
+>
+> **⏳ CÒN LẠI (thứ tự — CHỜ user):** (1) **WAVE 2** cần migration/mô hình tài chính: hệ số xu RPG ×1.5/×2 (sửa đồng bộ mọi faucet); **bonus xu/tháng Ultimate → voucher thi (⚠️ tiền mặt thật ~2.7tr/voucher, cần trần fulfillment + chống multi-account TRƯỚC khi bật)**; cap PvP/tower theo tier. (2) **AFFILIATE subsystem** cho chiến lược giá cao + KOL: bảng referral + áp coupon ở `payment/create` (hiện chốt giá cứng, KHÔNG nhận coupon) + payout — **user CHƯA cho % hoa hồng cụ thể, hỏi lại**. (3) Cổng thanh toán vẫn cần creds sandbox VNPay/MoMo để verify roundtrip live (giá giờ ĐÃ chốt → chỉ còn creds). (4) Secret rotate GitHub PAT/Vercel/OpenAI vẫn chưa. Chi tiết: memory Claude `sat-prep-funnel-pricing.md`.
+
+> [!IMPORTANT]
 > ### ✅ ADMIN FULFILLMENT XONG (2026-07-06, commit `27d1caf` pushed origin/main) — ĐỌC ĐẦU TIÊN
 > **Bối cảnh:** verify đầu phiên PASS (tsc·test 239/239·lint 0/0·build 60·origin/main `b3e1382` = docs trên `8c791e8`). User trả lời 3 câu hỏi phiên này: **admin = hướng (a) shared-secret env nhẹ** (Claude làm NGAY) · cổng thanh toán **CHƯA có gì** (chưa giá/creds → gác) · secret **CHƯA đổi cái nào** (GitHub PAT/Vercel/OpenAI vẫn chưa rotate → token `~/.gitcreds-sat2026`+`~/.vercel-token` VẪN sống; chỉ DB pw đã đổi từ trước).
 >
