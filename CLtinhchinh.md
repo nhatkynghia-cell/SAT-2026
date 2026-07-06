@@ -53,14 +53,18 @@ Các mục pure-UI/pure-read, đảo ngược được, làm tăng tỉ lệ nâ
 
 ---
 
-## 🔵 NHÓM D — NỢ KỸ THUẬT KIỂM SOÁT CHI PHÍ (làm trước khi bật AI trả phí)
+## 🔵 NHÓM D — KIỂM SOÁT CHI PHÍ AI (✅ ĐÃ VERIFY PROD — phần lớn đã đóng)
 
-| # | Vấn đề | File | Mức |
+> ⚠️ Agent audit chỉ đọc CODE (không với tới prod DB) nên gắn cờ D1/D2 là rủi ro. **Kiểm chứng live prod (direct pg 2026-07-06):** RPC atomic + bảng ĐÃ tồn tại → cả 2 thực chất ĐÃ AN TOÀN. Giữ lại đây để minh bạch, KHÔNG cần làm gì thêm.
+
+| # | Nghi vấn ban đầu | Kiểm chứng prod | Kết luận |
 |---|---|---|---|
-| D1 | **Kill-switch ngân sách $5/ngày có thể vượt trần** — `recordCost` fallback đọc-sửa-ghi không atomic (race → đếm thiếu) + comment tự cảnh báo fire-and-forget trên Vercel có thể bị kill trước khi ghi | `cost-ledger-store.ts:76-111`, `chat/route.ts:186`, `generate-practice:323-327` | **high** |
-| D2 | `ai_chat_cache` — store viết xong, tích hợp rồi, nhưng bảng CHƯA xác nhận tạo trên prod → cache chết (miss → tốn token thật) | `chat-cache-store.ts`, `database_schema.md:128-136` | medium |
+| D1 | Kill-switch $5/ngày vượt trần do `recordCost` fallback đọc-sửa-ghi race | RPC atomic `increment_ai_cost_ledger` (upsert `x=x+excluded.x`, hết race) **ĐÃ LIVE trên prod**. Đường fallback race CHỈ chạy khi RPC vắng (42883/PGRST202) → không phải prod. Cả 2 route đều `await` recordCost (agent tự xác nhận), không thật sự fire-and-forget. | ✅ **đã đóng** (khớp memory ROOT C 2026-07-03) |
+| D2 | `ai_chat_cache` bảng chưa tạo → cache chết | Bảng `ai_chat_cache` **ĐÃ tồn tại trên prod** (`to_regclass` non-null) | ✅ **đã đóng** |
 
-**Liên quan định giá:** nếu chốt A1 (Ultimate dùng model xịn hơn) → chi phí OpenAI tăng mạnh → D1 phải chắc TRƯỚC, kẻo cả 2 tier ∞ AI + model đắt → cháy ngân sách. Cập nhật `PRICING` trong `ai-cost.ts` cho model mới.
+**✅ D3 (ĐÃ XỬ LÝ phiên này — latent footgun):** `atomic_mutations.sql` (bản nháp gốc ROOT C 2026-07-02) LỆCH prod ở **cả 3 hàm**, không chỉ 1 kiểu: (a) `consume_pvp_fight` + `increment_ai_usage` — prod CÓ thêm `p_user_id uuid DEFAULT auth.uid()` (bản ROOT E sau này, canonical ở `root_e_step1_rpc.sql`), file KHÔNG → khác signature; (b) `increment_ai_cost_ledger` — prod `(integer, plpgsql)`, file `(bigint, language sql)`. Header file lại ghi "chạy lại an toàn" → nếu ai re-run, `create or replace` tạo **overload thứ 2** song song bản prod → PostgREST "could not choose best candidate function" → vỡ money-path. **Đã vá:** gắn header **⛔ SUPERSEDED** vào `atomic_mutations.sql` (chỉ comment, KHÔNG đụng prod, KHÔNG viết lại định nghĩa) trỏ sang `root_e_step1_rpc.sql` là nguồn canonical. Verify prod: RPC đang chạy đúng, không cần thay đổi DB.
+
+**Liên quan định giá:** nếu sau này chốt A1 (Ultimate dùng model xịn hơn) → chi phí OpenAI/lượt tăng → cập nhật `PRICING` trong `ai-cost.ts` cho model mới để kill-switch tính đúng. Cơ chế atomic đã sẵn sàng, chỉ cần số giá đúng.
 
 ---
 

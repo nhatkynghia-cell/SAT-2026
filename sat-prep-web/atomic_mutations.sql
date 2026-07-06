@@ -1,6 +1,20 @@
 -- ============================================================================
+--  ⛔ SUPERSEDED — BẢN NHÁP GỐC ROOT C (2026-07-02). ĐỪNG CHẠY LẠI FILE NÀY.
+-- ----------------------------------------------------------------------------
+--  Bản LIVE trên prod đã TIẾN HOÁ qua ROOT E (thêm `p_user_id uuid DEFAULT
+--  auth.uid()` cho service-role gọi) — xem `root_e_step1_rpc.sql` (canonical).
+--  Verify prod 2026-07-06 (direct pg): 3 hàm dưới đây LỆCH bản đang chạy:
+--    • consume_pvp_fight / increment_ai_usage: prod CÓ thêm tham số p_user_id
+--      (file này KHÔNG) → khác SIGNATURE.
+--    • increment_ai_cost_ledger: prod = (integer, plpgsql); file = (bigint,
+--      language sql) → khác kiểu + ngôn ngữ.
+--  ⚠️ HẬU QUẢ nếu chạy lại: `create or replace` chỉ thay hàm CÙNG signature →
+--  các signature khác ở đây sẽ tạo OVERLOAD THỨ HAI song song bản prod →
+--  PostgREST "could not choose best candidate function" → vỡ money-path.
+--  → Muốn sửa/tái tạo RPC: dùng root_e_step1_rpc.sql. File này giữ làm lịch sử.
+-- ============================================================================
+--  (Nguyên văn ROOT C gốc bên dưới — đóng race đọc-sửa-ghi của money mutations.)
 --  ATOMIC MUTATIONS — đóng ROOT C của SECURITY_AUDIT_2026-07-03.md
---  Chạy trong: Supabase Dashboard → SQL Editor → Run (idempotent, chạy lại an toàn)
 -- ============================================================================
 --  VẤN ĐỀ (audit 2026-07-03, ROOT C): mọi mutation kinh tế đang là
 --  load() → compute (ở app) → save() KHÔNG khóa dòng → 2 request song song đọc
