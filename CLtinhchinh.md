@@ -89,3 +89,37 @@ Trước khi chốt giá, cần bạn quyết:
 5. **D1 kill-switch** — làm chắc trước khi bật thanh toán (bắt buộc nếu chọn A1).
 
 > Sau khi bạn đánh dấu build/gỡ + thứ tự, phiên sau triển khai theo từng nhóm (mỗi nhóm 1 commit, verify gates, không đụng vùng đang khoá của phễu giá).
+
+---
+
+## 🔧 TRẠNG THÁI (đầu phiên tinh chỉnh sau)
+
+- **Git:** `origin/main` = `d18ed13`. **11 commit local CHƯA push** (git ahead 11): định giá phiên song song (`6eab3bd`/`5a7878c`/`ad03bf8`) + adaptive-exam (`2ad9967`/`9d978ad`/`a4fc319`) + phiên audit này (`cf154ab` vá ai-cost auth · `562f7b2` file này · `5ead85e` SUPERSEDED). User chọn **giữ local, CHƯA push** (giá chưa chốt, không công khai đề xuất giá) → phiên sau HỎI trước khi push.
+- **⚠️ `CLgia.md` có sửa chưa-commit của phiên song song — ĐỪNG đụng/commit hộ.**
+- **Verify:** tsc sạch · test **272/272** · lint 0/0 · build 61 pages (đầu phiên; chưa chạy lại sau audit vì audit không đổi code app — chỉ comment SQL + docs).
+- **Secret chưa rotate:** GitHub PAT / Vercel token / OpenAI key (chỉ DB pw đã đổi). Token còn sống: `~/.gitcreds-sat2026` + `~/.vercel-token`.
+- **Nhóm D đã verify prod:** RPC atomic + bảng `ai_cost_ledger`/`ai_chat_cache` đã live → kill-switch + cache an toàn, KHÔNG cần đụng.
+
+## 📋 CÂU LỆNH MỞ PHIÊN TINH CHỈNH (copy nguyên khối)
+
+```
+Đọc memory.md + master_task_list.md + CLtinhchinh.md + CLgia.md trong
+D:\10.SAT_Prep_App 30.6\10.SAT_Prep_App 30.6\10.SAT_Prep_App\10.SAT_Prep_App\
+rồi tinh chỉnh cấu trúc theo backlog CLtinhchinh.md. Trả lời tiếng Việt.
+
+Trước khi làm gì: export PATH="$PATH:/c/Program Files/nodejs" rồi verify môi trường
+(tsc + test + lint + build) trong sat-prep-web/. Baseline: tsc sạch · test 272/272
+· lint 0/0 · build 61 pages. origin/main = d18ed13; có 11 commit local chưa push
+(HỎI tôi trước khi push — gồm đề xuất giá chưa chốt).
+
+TÔI ĐÃ QUYẾT (điền trước khi mở phiên):
+- Nhóm A (Ultimate 4 quyền lợi): A1 model xịn [LÀM/GỠ], A2 đề độc quyền [LÀM/GỠ],
+  A3 skin độc quyền [LÀM/GỠ], A4 thưởng xu tháng [LÀM/GỠ]. Thứ tự: ___
+- Nhóm B đóng gate Free ở API: [làm/gác]
+- Nhóm C conversion (C1-C4): [làm cụm nào trước]
+- C4 mất dữ liệu diagnostic: [ép login trước / merge sau login]
+- Giá 4 gói: [giữ 499k/3.99tr/990k/7.99tr / đổi thành ___]
+
+Token: ~/.gitcreds-sat2026 (ghép "/nhatkynghia-cell/SAT-2026.git") + ~/.vercel-token.
+DB direct: postgresql://postgres:SatPrep2026@db.yynszcfqcvbnuvguwtfy.supabase.co:5432/postgres
+```

@@ -5,7 +5,30 @@ Tài liệu này ghi nhớ cấu trúc, mục tiêu dự án và quy tắc phát
 ---
 
 > [!IMPORTANT]
-> ### ✅ ĐỊNH GIÁ THEO PHỄU — GIÁ + WAVE 1 GATING + HỆ SỐ XU XONG (2026-07-06, commit `ad03bf8` pushed origin/main) — ĐỌC ĐẦU TIÊN
+> ### 🔧 BÀN GIAO PHIÊN TINH CHỈNH (2026-07-06, cuối phiên) — ĐỌC ĐẦU TIÊN
+> **Bối cảnh:** phiên này làm 2 việc — (1) admin fulfillment + empty-state (đầu phiên, xem block dưới); (2) khi user hỏi "tinh chỉnh app trước khi chốt giá vì giá gắn cấu trúc" → chạy **AUDIT read-only 4 chiều** (workflow 4 Explore agent) → lưu backlog **`CLtinhchinh.md`** (project root). ⚠️ Phát hiện có **phiên Claude song song** đã làm định giá (giá Premium-elite + Wave1 gating + hệ số xu + adaptive-exam) — user xác nhận **giá CHƯA chốt** (số trong code chỉ là đề xuất) + dặn **TRÁNH mảng monetization** phiên này.
+>
+> **✅ SẢN PHẨM PHIÊN NÀY (local, CHƯA push — user chọn "giữ local"):**
+> - `cf154ab` fix(security): vá auth `/api/admin/ai-cost` bằng shared-secret (trước mở toang; +3 integration test; mutation spike đỏ đúng).
+> - `562f7b2` docs: **`CLtinhchinh.md`** — backlog 5 nhóm A-E có file:line + bảng quyết định user.
+> - `5ead85e` docs(sql): `atomic_mutations.sql` gắn header ⛔ SUPERSEDED (bản nháp ROOT C lệch prod cả 3 hàm — re-run sẽ tạo overload vỡ money-path; canonical = `root_e_step1_rpc.sql`).
+> - Admin fulfillment (`27d1caf`) + empty-state (`d18ed13`) đầu phiên — xem block riêng.
+>
+> **🔴 KẾT LUẬN AUDIT (chi tiết đầy đủ trong `CLtinhchinh.md` — đọc file đó trước khi tinh chỉnh):**
+> - **Nhóm A (Ultimate BÁN KHỐNG):** `/upgrade` hứa 4 quyền lợi Ultimate mà code CHƯA làm (A1 model AI cao cấp — cả 3 tier hardcode gpt-4o-mini; A2 đề độc quyền; A3 skin/trang bị độc quyền; A4 thưởng xu tháng). → Ultimate khác Premium THẬT chỉ còn hệ số xu ×2 vs ×1.5 + báo cáo 90d vs 30d → **CHƯA "đáng gấp đôi" 990k vs 499k**. Mỗi mục A: user quyết LÀM hay GỠ khỏi trang bán.
+> - **Nhóm B:** gate Free chỉ ở tầng HIỂN THỊ — `/api/generate-practice` nhận moduleType chương-khóa từ free (chỉ quota chặn). Ranh giới Free/Premium chưa THẬT ở API.
+> - **Nhóm C (conversion, rẻ-tác-động-lớn):** C1 diagnostic không dẫn /upgrade · C2 focus skills hiện ở diagnostic rồi bị redact ở dashboard free · C3 adaptive khóa free không nút upsell · C4 login muộn → mất dữ liệu diagnostic (local-default-user → tài khoản thật).
+> - **Nhóm D:** ✅ verify prod cho thấy D1 kill-switch + D2 cache **ĐÃ đóng** (RPC atomic `increment_ai_cost_ledger` + bảng đã live — agent báo nhầm vì chỉ đọc code). D3 = SQL drift đã xử lý.
+> - **Nhóm E:** dọn nhỏ (TODO cũ, migrate-data legacy).
+>
+> **⏳ PHIÊN TINH CHỈNH SAU — LÀM GÌ:** User mở `CLtinhchinh.md` → đánh dấu build/gỡ từng mục Nhóm A + thứ tự ưu tiên + trả lời "bảng quyết định user" (5 câu cuối file). RỒI mới code (mỗi nhóm 1 commit, verify gates, KHÔNG đụng vùng đang khóa của phễu giá cho tới khi user chốt giá). Cụm C (conversion) là ứng viên làm sớm nhất vì rẻ + không phụ thuộc chốt giá.
+>
+> **🔧 GIT (đầu phiên sau):** **11 commit local CHƯA push** (git ahead 11) — gồm việc định giá của phiên song song (`6eab3bd`/`5a7878c`/`ad03bf8`) + adaptive-exam (`2ad9967`/`9d978ad`/`a4fc319`) + 3 commit phiên này. `origin/main` = `d18ed13`. **User chọn giữ local, CHƯA push** (vì giá chưa chốt, không muốn công khai đề xuất giá). Phiên sau HỎI user trước khi push. `CLgia.md` có sửa chưa-commit của phiên song song — ĐỪNG đụng. Secret chưa rotate (GitHub PAT/Vercel/OpenAI; chỉ DB pw đã đổi).
+
+---
+
+> [!IMPORTANT]
+> ### ✅ ĐỊNH GIÁ THEO PHỄU — GIÁ + WAVE 1 GATING + HỆ SỐ XU XONG (2026-07-06, commit `ad03bf8` pushed origin/main)
 > **Bối cảnh:** verify đầu phiên PASS (tsc·test 254/254·lint 0/0; git HEAD `fc78799` docs trên `13db3d7`). User chốt 2 quyết định CLgia.md để ngỏ: **(1) giá "Premium-elite"** (tệp học sinh du học có điều kiện + nuôi affiliate KOL 30-40%) · **(2) cả Premium & Ultimate đều ∞ AI** — phân tầng bằng RPG+học+mentor, KHÔNG đụng `DAILY_LIMITS`.
 >
 > **✅ LÀM XONG (16 file, commit `6eab3bd`):** định giá theo phễu — sửa ROOT BUG "premium=ultimate về quyền lợi".
