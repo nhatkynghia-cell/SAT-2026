@@ -5,7 +5,24 @@ Tài liệu này ghi nhớ cấu trúc, mục tiêu dự án và quy tắc phát
 ---
 
 > [!IMPORTANT]
-> ### ✅ INTEGRATION TEST 9.8 XONG (2026-07-05, commit `a9348d6` pushed origin/main) — ĐỌC ĐẦU TIÊN
+> ### ✅ ADMIN FULFILLMENT XONG (2026-07-06, commit `27d1caf` pushed origin/main) — ĐỌC ĐẦU TIÊN
+> **Bối cảnh:** verify đầu phiên PASS (tsc·test 239/239·lint 0/0·build 60·origin/main `b3e1382` = docs trên `8c791e8`). User trả lời 3 câu hỏi phiên này: **admin = hướng (a) shared-secret env nhẹ** (Claude làm NGAY) · cổng thanh toán **CHƯA có gì** (chưa giá/creds → gác) · secret **CHƯA đổi cái nào** (GitHub PAT/Vercel/OpenAI vẫn chưa rotate → token `~/.gitcreds-sat2026`+`~/.vercel-token` VẪN sống; chỉ DB pw đã đổi từ trước).
+>
+> **✅ LÀM XONG (9 file, commit `27d1caf`):** Đóng nợ "admin fulfill" của reward-to-real — user đổi xu ra phiếu 'pending', GIỜ admin xử lý được: **fulfill** (đánh dấu ĐÃ GIAO) / **cancel** (HỦY + HOÀN xu). App KHÔNG có role system → shared-secret nhẹ.
+> - **🔑 admin-auth.ts (THUẦN +3 test):** `verifyAdminSecret(header x-admin-secret)` so timing-safe (`safeEqual` băm SHA-256 cả 2 vế trước timingSafeEqual) với ENV `ADMIN_SECRET`. **FAIL-CLOSED: ENV chưa set/rỗng → false** (không cấu hình = khoá cửa, KHÔNG phải "ai cũng vào").
+> - **🔑 reward_redemptions.sql +2 RPC atomic** (SECURITY INVOKER, grant CHỈ service_role): `fulfill_redemption(p_id)` pending→fulfilled idempotent (đã fulfilled→'already', KHÔNG hoàn xu vì quà đã giao); `cancel_redemption(p_id)` **FOR UPDATE khóa dòng phiếu + user_economy → hoàn xu + pending→cancelled trong 1 transaction**, idempotent (đã cancelled→'already' KHÔNG double-refund = chống faucet), phiếu fulfilled→bad_status (không hoàn quà đã trao). **⚠️ ĐÃ CHẠY PROD DB** (direct pg, idempotent) — user KHÔNG cần chạy SQL.
+> - **admin-fulfillment-store.ts:** `listPendingRedemptions` (service-role đọc CROSS-USER pending, FIFO cũ trước), `fulfillRedemption`/`cancelRedemption` (RPC, FAIL-CLOSED nếu RPC missing→'unavailable'). Gom cross-user vào 1 file auditable (mẫu parent-report-store).
+> - **Route `/api/admin/redemptions`:** GET (secret) list pending; POST (secret) {redemptionId, action:'fulfill'|'cancel'}, rate-limit 30/min. 403 no/wrong secret · 400 thiếu action · 404 not_found · 409 bad_status · 503 unavailable. **UI `/admin/redemptions`** (client): nhập secret (state, KHÔNG localStorage — máy dùng chung) → hàng đợi → nút "✅ Đã giao"/"✕ Hủy + hoàn xu" (confirm). Route 59→61.
+> - **🔑 ADMIN_SECRET đã set:** `.env.local` (dev) + **Vercel encrypted cả 3 target** (prod hiệu lực deploy KẾ — chưa redeploy phiên này). Value randomBytes(24) hex.
+> - **🔍 VERIFY:** tsc·test **254/254** (+15: 3 unit admin-auth + 12 integration admin)·lint 0/0·build **61 pages**. **Live prod DB roundtrip** (test acct c43f015e, tạm bump coins→khôi phục 11040): redeem→fulfill(KHÔNG hoàn)→idempotent · redeem→cancel(hoàn đúng 20000)→idempotent KHÔNG double-refund · fulfilled→cancel=bad_status · uuid lạ→not_found. **RACE 5 concurrent cancel cùng phiếu → ok=1/already=4, hoàn xu ĐÚNG 1 lần (FOR UPDATE)**. **Mutation spike:** phá fail-closed (ENV rỗng→true) + phá cancel idempotent → mỗi cái làm test đỏ ĐÚNG chỗ → revert (test không vô nghĩa). `pg` cài `--no-save`, temp scripts dọn sạch.
+> - **⚠️ UI CHƯA browser click-verify:** port 3000 bị dev server chat khác chiếm, preview session này không với tới (KHÔNG kill server chat khác). Lớp mang hành vi (route handler + RPC + auth) verify TRỰC TIẾP qua 12 integration test chạy handler THẬT trên fake-db + live prod DB; UI chỉ client mỏng gọi route đã chứng minh + build compile OK. Phiên sau nếu cần: browser-verify `/admin/redemptions`.
+>
+> **⏳ VIỆC PHIÊN SAU (thứ tự — vẫn CHỜ user):** (1) 🟡 **CỔNG THANH TOÁN** — cần user (a) chốt giá 4 gói (placeholder 99k/990k/199k/1990k), (b) creds sandbox VNPay (TMN_CODE+HASH_SECRET) + MoMo (PARTNER_CODE+ACCESS_KEY+SECRET_KEY) → verify roundtrip live + field-order chữ ký IPN MoMo. (2) ⏳ **Beta 100 users** (pháp lý trẻ vị thành niên + tuyển). (3) [nice-to-have Claude tự làm] trang UI học-sinh xem lịch sử đổi quà (`listRedemptions` sẵn); panel xu hướng tuần cho học sinh ở /dashboard. (4) **Secret rotate:** GitHub PAT `ghp_...HETIG` / Vercel token / OpenAI key vẫn CHƯA đổi (chỉ DB pw) → HỎI lại + tick. ⚠️ nếu rotate git/Vercel token → token cũ hết hiệu lực, xin token mới.
+
+---
+
+> [!IMPORTANT]
+> ### ✅ INTEGRATION TEST 9.8 XONG (2026-07-05, commit `a9348d6` pushed origin/main)
 > **Bối cảnh:** user chốt phiên này — cổng thanh toán + admin fulfillment **GÁC LẠI** (chưa cấp giá/creds, chưa chọn hướng a/b); secret **chưa rotate thêm** (chỉ DB pw); → Claude tự làm **integration test 9.8** (Phase 1 dòng cuối, việc duy nhất không phụ thuộc user). Verify đầu phiên PASS + git đồng bộ (origin/main lúc đó `e618920`, baseline prompt `27651d8` chỉ cũ 1 nhịp doc).
 >
 > **✅ LÀM XONG:** **60 integration test / 8 file** trong `sat-prep-web/src/test-int/` (58 money-path `a9348d6` + 2 migrate-data khoá `9ef2e69`) — task Phase 1 §9.8 (trước `[ ]`). Chạy **THẬT** route+store+pure-logic trên **fake Supabase in-memory**, CI offline không cần DB/creds.
