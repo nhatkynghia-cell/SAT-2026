@@ -10,17 +10,21 @@
 ```
 Đọc memory.md + master_task_list.md + CLgia.md trong
 D:\10.SAT_Prep_App 30.6\10.SAT_Prep_App 30.6\10.SAT_Prep_App\10.SAT_Prep_App\
-rồi tiếp tục NGHIÊN CỨU + TRIỂN KHAI ĐỊNH GIÁ THEO PHỄU. Trả lời tiếng Việt.
+rồi tiếp tục: (1) NGHIÊN CỨU giải thưởng Top-5 học sinh toàn quốc (tiêu chí xếp
+hạng chống gian lận + chu kỳ + bảng leaderboard cross-user), (2) TRIỂN KHAI
+affiliate 35% (KOL 25% + người mua giảm 10%). Trả lời tiếng Việt.
 
 Trước khi làm gì: export PATH="$PATH:/c/Program Files/nodejs" rồi verify môi trường
-(tsc + test + lint) trong sat-prep-web/. Baseline: tsc sạch · test 254/254 · lint 0/0.
-origin/main = 13db3d7.
+(tsc + test + lint) trong sat-prep-web/. Baseline: tsc sạch · test 269/269 · lint 0/0.
+origin/main = commit docs mới nhất (git log --oneline -3).
 
 Token: ~/.gitcreds-sat2026 (git push — ghép "/nhatkynghia-cell/SAT-2026.git" vào cuối)
 + ~/.vercel-token. Repo: github.com/nhatkynghia-cell/SAT-2026 (main).
 DB direct: postgresql://postgres:SatPrep2026@db.yynszcfqcvbnuvguwtfy.supabase.co:5432/postgres
 
-CLgia.md có 2 QUYẾT ĐỊNH TÔI CẦN TRẢ LỜI (giá + value-ladder fork). Đọc rồi hỏi tôi.
+GIÁ + WAVE 1 gating + HỆ SỐ XU đã XONG (xem CLgia.md mục dưới). AFFILIATE đã
+nghiên cứu kỹ thuật đủ để code luôn theo thiết kế đã chốt. Top-5 prize cần nghiên
+cứu thêm. Đọc CLgia.md rồi bắt tay.
 ```
 
 ---
@@ -55,7 +59,7 @@ Mọi feature khác (skill-tree, adaptive, score prediction, thi thật, parent 
 
 *= phụ thuộc quyết định #2 bên dưới.
 
-**3 khác biệt "cảm nhận được" của Ultimate** (sửa lỗi gốc): (1) AI ∞ vs trần Premium; (2) **bonus xu/tháng → voucher thi SAT thật** (reward-to-real đã có sẵn code): 199k×12=2.39tr đổi được voucher ~2.7tr → "tự hoàn vốn", đòn bán mạnh nhất với phụ huynh; (3) báo cáo phụ huynh 90 ngày.
+**Khác biệt Ultimate (CẬP NHẬT 2026-07-06):** (1) hệ số xu ×2 (Premium ×1.5) — ĐÃ code; (2) báo cáo phụ huynh 90 ngày (Premium 30) — ĐÃ code; (3) 🔬 **giải thưởng Top-5 học sinh toàn quốc** (THAY cho voucher/user đã BỎ — xem quyết định (c) dưới); (4) 📝 model AI cao cấp + đề độc quyền — CHƯA code. ~~AI ∞ vs trần~~ KHÔNG áp dụng (cả 2 gói ∞ AI).
 
 ---
 
@@ -65,7 +69,7 @@ Mọi feature khác (skill-tree, adaptive, score prediction, thi thật, parent 
 - `PLANS` (`subscription.ts`) ĐÃ đổi: Premium **499k/th · 3.990k/năm** · Ultimate **990k/th · 7.990k/năm** (list price NIÊM YẾT).
 - Logic: tệp học sinh du học có điều kiện + KHÔNG app SAT nào gamified RPG (không bị neo giá đối thủ) → neo cao. Sau mã KOL -35% về ~324k/644k (vùng impulse). Anchor cao → KOL có mã giảm gây sốc tốt cho content.
 - Ultimate/năm 7.99tr > voucher thi (~2.7tr) → "tự hoàn vốn" OK về biên.
-- **⏳ Affiliate subsystem CHƯA xây** (Wave 2): `payment/create` chốt giá cứng, KHÔNG nhận coupon. Cần (a) tracking referral, (b) áp discount, (c) payout. **User CHƯA cho % hoa hồng cụ thể → hỏi lại khi làm.**
+- **✅ Affiliate 35% CHỐT ngữ nghĩa (user 2026-07-06):** 35% = TỔNG ngân sách affiliate, chia **KOL 25% hoa hồng + người mua giảm 10%** → giữ 65% list price. Ví dụ Premium tháng 499k: người mua trả ~449k, KOL nhận ~125k, giữ ~324k. Mỗi mã 2 nút chỉnh (discount%/commission%), mặc định 10/25. **Đã nghiên cứu kỹ thuật đủ (xem mục "THIẾT KẾ AFFILIATE" dưới) — code phiên sau.**
 
 ### ② VALUE-LADDER — CHỐT phương án B (cả Premium & Ultimate đều ∞ AI)
 - **KHÔNG đụng `DAILY_LIMITS`** — cả 2 gói giữ ∞ AI. Phân tầng bằng RPG (hệ số xu, đề độc quyền) + chương trình học (skill-tree/adaptive/thi thật) + mentor (report 90d, model AI xịn).
@@ -88,11 +92,21 @@ Mọi feature khác (skill-tree, adaptive, score prediction, thi thật, parent 
 | Cắt field report theo studentTier | `lib/parent-report-store.ts`, `components/ParentReport.tsx` | field optional + fallback UI |
 | Trend window theo tier (7/30/90d) | `lib/daily-snapshot.ts`, `progress/weekly/route.ts`, `parent-report-store.ts` | sửa NHẤT QUÁN 3 nơi tính `since` |
 
-**Wave 2 — cần migration DB / mô hình tài chính:**
-- Bonus xu/tháng Ultimate (cột `last_bonus_month` + lazy-grant) — cần mô hình tài chính voucher + chống multi-account farm + trần fulfillment/tháng TRƯỚC khi bật (chi phí tiền mặt thật 2.7tr/voucher).
-- Cap PvP/tower theo tier (truyền cap xuống RPC `tryConsumePvpFightAtomic`, không chỉ nhánh non-atomic).
-- Thi QAS: gate tier + CHUYỂN gate-level từ client lên server (đang có lỗ hổng `/api/exams/start`) — một công đôi việc.
-- Hệ số nhân xu theo tier (sửa đồng bộ mọi faucet: grade/exams-grade/vocab).
+**Wave 2 — TRẠNG THÁI CẬP NHẬT (2026-07-06):**
+- ✅ **Hệ số nhân xu theo tier — XONG** (commit `ad03bf8`): free 1/prem 1.5/ult 2, CHỈ nhân xu, 5 faucet + 4 route. Spin giữ nguyên.
+- ✅ **Thi QAS gate tier + chuyển gate-level lên server — XONG** (trong Wave 1, commit `6eab3bd`): `/api/exams/start` `mode:'real'` gate premium+ VÀ level≥7 server-side.
+- ❌ **BỎ HẲN "bonus xu → voucher thi/user"** (user chốt): tiền mặt ~2.7tr/user không kiểm soát nổi (faucet/multi-account).
+- 🔬 **THAY: Giải thưởng Top-5 học sinh toàn quốc** — CHI PHÍ CỐ ĐỊNH 5 suất → hạng mục NGHIÊN CỨU phiên sau (tiêu chí xếp hạng chống gian lận: điểm dự đoán? mastery? phải chống bơm leaderboard; chu kỳ tháng/mùa thi; phần thưởng gì; cần bảng leaderboard + snapshot toàn hệ thống cross-user service-role như parent-report).
+- 🔨 **Affiliate 35% (25/10)** — thiết kế đã chốt, xem mục dưới.
+- Cap PvP/tower theo tier (truyền cap xuống RPC `tryConsumePvpFightAtomic`) — chưa làm.
+- Model AI cao cấp cho Ultimate + đề độc quyền — làm Ultimate "đáng gấp đôi", chưa code.
+
+**🔨 THIẾT KẾ AFFILIATE (nghiên cứu xong 2026-07-06 qua 3 Explore agent — code phiên sau):**
+- **Chuỗi verify tiền AN TOÀN cho discount:** IPN (vnpay-ipn/momo-ipn) so `amount` cổng trả với `amount_vnd` ĐÃ LƯU lúc create (KHÔNG so PLANS) → ghi giá-đã-giảm vào CẢ `payment_transactions.amount_vnd` LẪN URL cổng thì chuỗi khớp. RPC `confirm_payment` check `p_amount>0 and p_amount<>v_amount → amount_mismatch`.
+- **Điểm ghi hoa hồng:** trong IPN SAU `confirmPaymentAtomic` ok && !alreadyConfirmed (vnpay-ipn:57-59, momo-ipn:49-51). IPN KHÔNG có session → đọc coupon từ txn qua service-role.
+- **Migration:** bảng `affiliate_codes` (code unique, kol_name, discount_percent default 10, commission_percent default 25, active) + `affiliate_referrals` (order_id, code_id, buyer_user_id, gross_vnd, commission_vnd, payout_status). ADD COLUMN `payment_transactions.coupon_code text`. RLS service-role ghi (mẫu `payment_transactions.sql`).
+- **Flow:** `payment/create` nhận optional `coupon` → tra code active → áp discount 10% → ghi amount-giảm vào txn+URL. IPN sau confirm → RPC atomic `record_affiliate_referral` (tính commission = gross × 25%). Admin `/admin/affiliate` (mẫu shared-secret `admin-auth.ts`+`admin/redemptions`) tạo/thu hồi mã + báo cáo. `/upgrade` thêm ô coupon.
+- Tái dụng: `verifyAdminSecret`, RPC FOR UPDATE trả jsonb, fail-closed 42883/PGRST202.
 
 **⚠️ RỦI RO nhớ khi code:**
 - Diagnostic + ghi mastery/snapshot: TUYỆT ĐỐI không gate (giết conversion).
