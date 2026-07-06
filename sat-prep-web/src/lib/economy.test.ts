@@ -103,6 +103,54 @@ test('applyExamRewardFromDifficulties: KẸP số câu về trần (chống mả
   assert.equal(r.granted.xp, ANSWER_REWARD.Hard.xp * MAX_EXAM_QUESTIONS);
 });
 
+// ── coinMultiplier: hệ số nhân xu theo gói (phễu RPG 2026-07-06) ──
+// Bất biến CHUNG: hệ số CHỈ nhân XU (coins), KHÔNG nhân XP. Mặc định 1 (free).
+
+test('coinMultiplier: mặc định 1 → hành vi cũ không đổi (free)', () => {
+  // Không truyền hệ số → giống hệt trước khi thêm tính năng.
+  const a = applyAnswerReward(fresh(), true, 'Hard', 0);
+  assert.equal(a.granted.coins, ANSWER_REWARD.Hard.coins);
+  const q = applyQuestReward(fresh(), 'q1');
+  const q2 = applyQuestReward(fresh(), 'q1', 1);
+  assert.deepEqual(q.granted, q2.granted);
+});
+
+test('applyAnswerReward: hệ số 2 (ultimate) → xu ×2, XP GIỮ NGUYÊN', () => {
+  const r = applyAnswerReward(fresh(), true, 'Hard', 0, 2);
+  assert.equal(r.granted.coins, ANSWER_REWARD.Hard.coins * 2);
+  assert.equal(r.granted.xp, ANSWER_REWARD.Hard.xp, 'XP không bị nhân');
+});
+
+test('applyAnswerReward: hệ số 1.5 (premium) chồng với combo 1.5 (floor)', () => {
+  // streak≥5 → combo 1.5; tier premium 1.5 → tổng 2.25×, floor.
+  const r = applyAnswerReward(fresh(), true, 'Medium', 5, 1.5);
+  assert.equal(r.granted.coins, Math.floor(ANSWER_REWARD.Medium.coins * 1.5 * 1.5));
+  assert.equal(r.granted.xp, Math.floor(ANSWER_REWARD.Medium.xp * 1.5), 'XP chỉ áp combo, KHÔNG áp hệ số gói');
+});
+
+test('applyExamRewardFromDifficulties: hệ số 1.5 nhân TỔNG xu (floor sau khi cộng dồn)', () => {
+  const r = applyExamRewardFromDifficulties(fresh(), ['Easy', 'Medium', 'Hard'], 1.5);
+  const baseCoins = ANSWER_REWARD.Easy.coins + ANSWER_REWARD.Medium.coins + ANSWER_REWARD.Hard.coins;
+  const baseXp = ANSWER_REWARD.Easy.xp + ANSWER_REWARD.Medium.xp + ANSWER_REWARD.Hard.xp;
+  assert.equal(r.granted.coins, Math.floor(baseCoins * 1.5));
+  assert.equal(r.granted.xp, baseXp, 'XP không bị nhân');
+});
+
+test('applyQuestReward: hệ số 2 → xu ×2, XP giữ nguyên; questId lạ vẫn 0 dù hệ số', () => {
+  const r = applyQuestReward(fresh(), 'q1', 2);
+  assert.equal(r.granted.coins, QUEST_REWARD.q1.coins * 2);
+  assert.equal(r.granted.xp, QUEST_REWARD.q1.xp);
+  assert.deepEqual(applyQuestReward(fresh(), 'khong-ton-tai', 2).granted, { coins: 0, xp: 0 });
+});
+
+test('resolvePvpFight: hệ số 2 → thưởng xu thắng ×2, XP giữ nguyên', () => {
+  // basePower cao để chắc thắng (rng=0 → luôn thắng khi eligible).
+  const r = resolvePvpFight(fresh(), { basePower: 100, opponentPower: 100, rewardCoins: 500, rewardXp: 300 }, () => 0, 2);
+  assert.equal(r.won, true);
+  assert.equal(r.granted.coins, 1000, 'xu ×2');
+  assert.equal(r.granted.xp, 300, 'XP không bị nhân');
+});
+
 test('applyExamRewardFromDifficulties: độ khó lạ → fallback Medium (không cộng NaN)', () => {
   // @ts-expect-error test truyền độ khó không hợp lệ cố ý
   const r = applyExamRewardFromDifficulties(fresh(), ['Bogus']);

@@ -65,13 +65,15 @@ export function applyAnswerReward(
   state: EconomyState,
   isCorrect: boolean,
   difficulty: Difficulty,
-  streak = 0
+  streak = 0,
+  coinMultiplier = 1
 ): RewardResult {
   if (!isCorrect) return { state, granted: { coins: 0, xp: 0 } };
 
   const base = ANSWER_REWARD[difficulty];
   const mult = comboMultiplier(streak);
-  const coins = Math.floor(base.coins * mult);
+  // Hệ số gói (TIER_COIN_MULTIPLIER) CHỈ nhân xu, KHÔNG nhân XP (xem subscription.ts).
+  const coins = Math.floor(base.coins * mult * coinMultiplier);
   const xp = Math.floor(base.xp * mult);
 
   return {
@@ -125,7 +127,8 @@ export function applyExamReward(
  */
 export function applyExamRewardFromDifficulties(
   state: EconomyState,
-  correctDifficulties: Difficulty[]
+  correctDifficulties: Difficulty[],
+  coinMultiplier = 1
 ): RewardResult {
   const list = Array.isArray(correctDifficulties)
     ? correctDifficulties.slice(0, MAX_EXAM_QUESTIONS)
@@ -138,6 +141,8 @@ export function applyExamRewardFromDifficulties(
     coins += rate.coins;
     xp += rate.xp;
   }
+  // Hệ số gói CHỈ nhân xu (áp sau khi cộng dồn để tránh sai số làm tròn từng câu).
+  coins = Math.floor(coins * coinMultiplier);
 
   if (coins === 0 && xp === 0) return { state, granted: { coins: 0, xp: 0 } };
 
@@ -165,13 +170,14 @@ export const QUEST_REWARD: Record<string, { coins: number; xp: number }> = {
  * questId; questId lạ → không thưởng. Việc kiểm "đã hoàn thành/đã nhận chưa"
  * vẫn ở client (quests chưa migrate sang server) — nhưng SỐ TIỀN do server quyết.
  */
-export function applyQuestReward(state: EconomyState, questId: string): RewardResult {
+export function applyQuestReward(state: EconomyState, questId: string, coinMultiplier = 1): RewardResult {
   const reward = QUEST_REWARD[questId];
   if (!reward) return { state, granted: { coins: 0, xp: 0 } };
 
+  const coins = Math.floor(reward.coins * coinMultiplier); // hệ số gói CHỈ nhân xu
   return {
-    state: { ...state, coins: state.coins + reward.coins, xp: state.xp + reward.xp },
-    granted: { coins: reward.coins, xp: reward.xp },
+    state: { ...state, coins: state.coins + coins, xp: state.xp + reward.xp },
+    granted: { coins, xp: reward.xp },
   };
 }
 
@@ -306,7 +312,8 @@ export interface PvpFightResult {
 export function resolvePvpFight(
   state: EconomyState,
   input: PvpOpponentInput,
-  rng: () => number
+  rng: () => number,
+  coinMultiplier = 1
 ): PvpFightResult {
   const basePower = Math.max(0, Math.floor(input.basePower));
   const combatPower = basePower * PVP_COMBAT_SCALE;
@@ -334,7 +341,7 @@ export function resolvePvpFight(
     return { eligible: true, won: false, combatPower, state, granted: { coins: 0, xp: 0 } };
   }
 
-  const coins = Math.max(0, Math.floor(input.rewardCoins));
+  const coins = Math.max(0, Math.floor(input.rewardCoins * coinMultiplier)); // hệ số gói CHỈ nhân xu
   const xp = Math.max(0, Math.floor(input.rewardXp));
   return {
     eligible: true,

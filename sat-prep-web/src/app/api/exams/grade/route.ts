@@ -4,6 +4,8 @@ import { gradeAnswer } from '@/lib/issued-questions';
 import { rateLimit } from '@/lib/rate-limit';
 import { loadEconomy, saveEconomy } from '@/lib/economy-store';
 import { applyExamRewardFromDifficulties, MAX_EXAM_QUESTIONS, type Difficulty } from '@/lib/economy';
+import { getUserTier } from '@/lib/subscription-store';
+import { TIER_COIN_MULTIPLIER } from '@/lib/subscription';
 
 /**
  * NỘP BÀI THI (ROOT A follow-up đường thi) — server chấm + thưởng.
@@ -66,9 +68,9 @@ export async function POST(req: Request) {
       }
     }
 
-    // Thưởng 1 lần cho cả bài (từ độ khó các câu ĐÚNG server chấm).
-    const economy = await loadEconomy(user.id);
-    const { state: nextEconomy, granted } = applyExamRewardFromDifficulties(economy, correctDifficulties);
+    // Thưởng 1 lần cho cả bài (từ độ khó các câu ĐÚNG server chấm). Hệ số gói nhân xu.
+    const [economy, tier] = await Promise.all([loadEconomy(user.id), getUserTier(user.id)]);
+    const { state: nextEconomy, granted } = applyExamRewardFromDifficulties(economy, correctDifficulties, TIER_COIN_MULTIPLIER[tier]);
     if (granted.coins > 0 || granted.xp > 0) {
       await saveEconomy(user.id, nextEconomy);
     }

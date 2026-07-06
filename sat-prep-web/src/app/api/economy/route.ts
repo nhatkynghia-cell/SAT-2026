@@ -15,6 +15,8 @@ import {
   nextPvpRank,
   PVP_MAX_FIGHTS_PER_DAY,
 } from '@/lib/economy';
+import { getUserTier } from '@/lib/subscription-store';
+import { TIER_COIN_MULTIPLIER } from '@/lib/subscription';
 
 /**
  * ECONOMY API (server-authoritative) — implementation_plan.md §9.1, task #2
@@ -57,6 +59,8 @@ export async function POST(req: Request) {
     const action = body?.action;
 
     const state = await loadEconomy(user.id);
+    // Hệ số nhân xu theo gói (phễu RPG) — dùng cho quest + pvp (faucet do nỗ lực).
+    const coinMult = TIER_COIN_MULTIPLIER[await getUserTier(user.id)];
 
     // ⚠️ action 'answer' ĐÃ GỠ (ROOT A, 2026-07-04): phần thưởng 1 câu luyện tập
     // trước đây tin `isCorrect` client gửi → faucet xu (POST isCorrect:true không
@@ -79,7 +83,7 @@ export async function POST(req: Request) {
           { status: 409 }
         );
       }
-      const { state: next, granted } = applyQuestReward(state, questId);
+      const { state: next, granted } = applyQuestReward(state, questId, coinMult);
       if (granted.coins > 0 || granted.xp > 0) {
         await saveQuestClaim(user.id, today, questId);
       }
@@ -167,7 +171,8 @@ export async function POST(req: Request) {
           rewardCoins: opponent.reward_coins,
           rewardXp: opponent.reward_xp,
         },
-        Math.random
+        Math.random,
+        coinMult
       );
 
       // Nếu KHÔNG đủ lực (power gate fail) → KHÔNG tính là 1 trận (không tốn cap,

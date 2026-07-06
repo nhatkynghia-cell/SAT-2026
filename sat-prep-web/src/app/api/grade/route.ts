@@ -7,6 +7,8 @@ import { applyAnswerReward, type Difficulty } from '@/lib/economy';
 import { recordAnswer } from '@/lib/mastery';
 import { isValidSkill } from '@/lib/skill-taxonomy';
 import { recordDailySnapshot } from '@/lib/daily-snapshot-store';
+import { getUserTier } from '@/lib/subscription-store';
+import { TIER_COIN_MULTIPLIER } from '@/lib/subscription';
 
 /**
  * GRADE API (ROOT A — server-authoritative grading + reward)
@@ -55,8 +57,9 @@ export async function POST(req: Request) {
       : 'Medium';
     const streak = Number.isInteger(streakRaw) && streakRaw >= 0 ? streakRaw : 0;
 
-    const economy = await loadEconomy(user.id);
-    const { state: nextEconomy, granted } = applyAnswerReward(economy, result.correct, difficulty, streak);
+    const [economy, tier] = await Promise.all([loadEconomy(user.id), getUserTier(user.id)]);
+    const coinMult = TIER_COIN_MULTIPLIER[tier];
+    const { state: nextEconomy, granted } = applyAnswerReward(economy, result.correct, difficulty, streak, coinMult);
     if (granted.coins > 0 || granted.xp > 0) {
       await saveEconomy(user.id, nextEconomy);
     }

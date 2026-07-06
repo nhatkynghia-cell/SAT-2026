@@ -4,6 +4,8 @@ import { loadVocab, saveVocab } from '@/lib/vocab-store';
 import { promote, nextReview, isDue } from '@/lib/leitner';
 import { loadEconomy, saveEconomy } from '@/lib/economy-store';
 import { applyExamRewardFromDifficulties } from '@/lib/economy';
+import { getUserTier } from '@/lib/subscription-store';
+import { TIER_COIN_MULTIPLIER } from '@/lib/subscription';
 
 export async function GET() {
   try {
@@ -51,8 +53,8 @@ export async function POST(req: Request) {
 
     let granted = { coins: 0, xp: 0 };
     if (wasDue && isRemembered) {
-      const economy = await loadEconomy(user.id);
-      const reward = applyExamRewardFromDifficulties(economy, ['Easy']);
+      const [economy, tier] = await Promise.all([loadEconomy(user.id), getUserTier(user.id)]);
+      const reward = applyExamRewardFromDifficulties(economy, ['Easy'], TIER_COIN_MULTIPLIER[tier]);
       if (reward.granted.coins > 0 || reward.granted.xp > 0) {
         await saveEconomy(user.id, reward.state);
         granted = reward.granted;

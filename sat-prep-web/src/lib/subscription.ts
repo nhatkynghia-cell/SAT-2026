@@ -36,6 +36,20 @@ import type { AiTier } from './ai-quota';
 /** Gói trả phí (không gồm 'free'). */
 export type PaidTier = 'premium' | 'ultimate';
 
+/**
+ * HỆ SỐ NHÂN XU theo gói (phễu RPG 2026-07-06): người mua gói kiếm xu nhanh hơn
+ * cho CÙNG một câu đúng → lên đồ/pet/tháp nhanh hơn (cảm giác "đáng tiền"), mà xu
+ * vẫn kiếm từ HỌC THẬT. CHỈ nhân xu (coins) — KHÔNG nhân XP. Áp ĐỒNG BỘ ở mọi
+ * faucet server (grade/exams-grade/vocab/quest/spin/pvp) qua economy.ts.
+ * ⚠️ Xu đổi được quà thật (reward-to-real) → paid chạm ngưỡng đổi quà nhanh hơn
+ * (chủ ý, phần "tự hoàn vốn"); admin vẫn fulfill thủ công nên không rủi ro faucet.
+ */
+export const TIER_COIN_MULTIPLIER: Record<AiTier, number> = {
+  free: 1,
+  premium: 1.5,
+  ultimate: 2,
+};
+
 /** Chu kỳ thanh toán. */
 export type BillingPeriod = 'monthly' | 'yearly';
 
