@@ -39,6 +39,7 @@ interface ScoreData {
 export default function MockExamsPage() {
   const { syncServerEconomy, updateQuestProgress } = useGamification();
   const [exams, setExams] = useState<FullExam[]>([]);
+  const [examsLoading, setExamsLoading] = useState(true);
   const [selectedExam, setSelectedExam] = useState<FullExam | null>(null);
 
   const [isExamStarted, setIsExamStarted] = useState(false);
@@ -57,7 +58,8 @@ export default function MockExamsPage() {
       .then(data => {
         if (data.exams) setExams(data.exams);
       })
-      .catch(err => console.error("Failed to load exams", err));
+      .catch(err => console.error("Failed to load exams", err))
+      .finally(() => setExamsLoading(false));
   }, []);
 
   const handleStartExam = async (exam: FullExam) => {
@@ -209,7 +211,15 @@ export default function MockExamsPage() {
             </div>
           ))}
           {exams.length === 0 && (
-            <div className="text-gray-500 text-center col-span-2">Đang tải danh sách đề thi...</div>
+            examsLoading ? (
+              <div className="text-gray-500 text-center col-span-2">Đang tải danh sách đề thi...</div>
+            ) : (
+              <div className="col-span-2 bg-[#1b2533] border border-[#262730] rounded-xl p-8 text-center">
+                <div className="text-5xl mb-3">📭</div>
+                <p className="text-gray-300 font-semibold">Chưa có đề thi thử nào khả dụng.</p>
+                <p className="text-gray-500 text-sm mt-1">Không tải được danh sách đề. Kiểm tra kết nối rồi tải lại trang.</p>
+              </div>
+            )
           )}
         </div>
       ) : isFinished && scoreData ? (
