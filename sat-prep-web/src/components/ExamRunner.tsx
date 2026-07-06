@@ -42,6 +42,31 @@ interface ExamRunnerProps {
   accentColor?: string;
 }
 
+// Header tách ra module-scope (KHÔNG tạo trong render) — chỉ phụ thuộc props.
+function ExamHeader({
+  title,
+  subtitle,
+  headerGradient,
+  titleGradient,
+}: {
+  title: string;
+  subtitle: string;
+  headerGradient: string;
+  titleGradient: string;
+}) {
+  return (
+    <div className="math-academy-header" style={{ background: headerGradient }}>
+      <div className="math-title-container">
+        <div className="math-icon">🏆</div>
+        <div>
+          <h1 className="math-title" style={{ background: titleGradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{title}</h1>
+          <p className="math-subtitle">{subtitle}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ExamRunner({
   title,
   subtitle,
@@ -69,7 +94,18 @@ export default function ExamRunner({
     math: { raw: 0, total: 0, path: null },
   });
 
-  const [displayScore, setDisplayScore] = useState<{ rw: number; math: number; total: number } | null>(null);
+  // Chụp lại breakdown lúc chấm xong (KHÔNG đọc accRef trong render).
+  const [displayScore, setDisplayScore] = useState<{
+    rw: number;
+    math: number;
+    total: number;
+    rwRaw: number;
+    rwTotal: number;
+    rwPathResult: AdaptivePath;
+    mathRaw: number;
+    mathTotal: number;
+    mathPathResult: AdaptivePath;
+  } | null>(null);
 
   // Timer đếm ngược
   useEffect(() => {
@@ -77,14 +113,6 @@ export default function ExamRunner({
     const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
     return () => clearInterval(timer);
   }, [phase, timeLeft]);
-
-  // Auto-nộp khi hết giờ
-  useEffect(() => {
-    if (phase === 'in-module' && timeLeft === 0 && currentModule) {
-      void submitModule();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -147,6 +175,28 @@ export default function ExamRunner({
       setPhase('lobby');
     }
   }, [mode]);
+
+  const finishExam = useCallback(() => {
+    const rw = accRef.current.rw;
+    const math = accRef.current.math;
+    const rwPathResult = rw.path ?? 'easy';
+    const mathPathResult = math.path ?? 'easy';
+    const rwScaled = rawToScaled(rw.raw, rw.total || 1, rwPathResult);
+    const mathScaled = rawToScaled(math.raw, math.total || 1, mathPathResult);
+    setDisplayScore({
+      rw: rwScaled,
+      math: mathScaled,
+      total: rwScaled + mathScaled,
+      rwRaw: rw.raw,
+      rwTotal: rw.total,
+      rwPathResult,
+      mathRaw: math.raw,
+      mathTotal: math.total,
+      mathPathResult,
+    });
+    updateQuestProgress('q3', 1);
+    setPhase('finished');
+  }, [updateQuestProgress]);
 
   const submitModule = useCallback(async () => {
     if (!currentModule) return;
@@ -219,18 +269,17 @@ export default function ExamRunner({
         finishExam();
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentModule, buildSubmittedAnswers, mode, syncServerEconomy]);
+  }, [currentModule, buildSubmittedAnswers, mode, syncServerEconomy, finishExam]);
 
-  const finishExam = useCallback(() => {
-    const rw = accRef.current.rw;
-    const math = accRef.current.math;
-    const rwScaled = rawToScaled(rw.raw, rw.total || 1, rw.path ?? 'easy');
-    const mathScaled = rawToScaled(math.raw, math.total || 1, math.path ?? 'easy');
-    setDisplayScore({ rw: rwScaled, math: mathScaled, total: rwScaled + mathScaled });
-    updateQuestProgress('q3', 1);
-    setPhase('finished');
-  }, [updateQuestProgress]);
+  // Auto-nộp khi hết giờ (đặt SAU submitModule để không truy cập trước khi khai báo).
+  useEffect(() => {
+    if (phase === 'in-module' && timeLeft === 0 && currentModule) {
+      // set-state-in-effect cố ý: auto-nộp là phản ứng với đồng hồ đếm về 0 (external clock).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void submitModule();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft]);
 
   const resetToLobby = () => {
     accRef.current = { rw: { raw: 0, total: 0, path: null }, math: { raw: 0, total: 0, path: null } };
@@ -243,24 +292,14 @@ export default function ExamRunner({
 
   const currentQuestion = currentModule?.questions[currentQuestionIndex];
 
-  const Header = () => (
-    <div className="math-academy-header" style={{ background: headerGradient }}>
-      <div className="math-title-container">
-        <div className="math-icon">🏆</div>
-        <div>
-          <h1 className="math-title" style={{ background: titleGradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{title}</h1>
-          <p className="math-subtitle">{subtitle}</p>
-        </div>
-      </div>
-    </div>
-  );
+  const header = <ExamHeader title={title} subtitle={subtitle} headerGradient={headerGradient} titleGradient={titleGradient} />;
 
   // --- RENDER ---
 
   if (phase === 'lobby') {
     return (
       <div className="space-y-8 animate-in fade-in duration-700 pb-20">
-        <Header />
+        {header}
         <div className="max-w-2xl mx-auto">
           {errorMsg && (
             <div className="bg-[#450a0a] border border-[#ef4444] text-[#fca5a5] p-4 rounded-lg mb-4 text-sm">{errorMsg}</div>
@@ -312,7 +351,7 @@ export default function ExamRunner({
   if (phase === 'loading' || phase === 'between-modules') {
     return (
       <div className="space-y-8 animate-in fade-in duration-700 pb-20">
-        <Header />
+        {header}
         <div className="max-w-lg mx-auto text-center">
           <div className="bg-[#1b2533] border border-[#262730] rounded-xl p-12 shadow-lg">
             <div className="text-5xl mb-6 animate-bounce">🧠</div>
@@ -337,7 +376,7 @@ export default function ExamRunner({
   if (phase === 'break') {
     return (
       <div className="space-y-8 animate-in fade-in duration-700 pb-20">
-        <Header />
+        {header}
         <div className="max-w-lg mx-auto text-center">
           <div className="bg-[#1b2533] border border-[#262730] rounded-xl p-12 shadow-lg">
             <div className="text-5xl mb-6">☕</div>
@@ -359,7 +398,7 @@ export default function ExamRunner({
   if (phase === 'finished') {
     return (
       <div className="space-y-8 animate-in fade-in duration-700 pb-20">
-        <Header />
+        {header}
         {displayScore && (
           <div className="max-w-2xl mx-auto">
             <div className="bg-[#0f172a] border rounded-xl p-8 text-center shadow-lg" style={{ borderColor: accentColor }}>
@@ -372,14 +411,14 @@ export default function ExamRunner({
                   <div className="text-sm text-gray-400 mb-1">Reading & Writing</div>
                   <div className="text-3xl font-black text-[#60a5fa]">{displayScore.rw}</div>
                   <div className="text-xs text-gray-500 mt-1">
-                    {accRef.current.rw.raw}/{accRef.current.rw.total} câu đúng • {accRef.current.rw.path === 'hard' ? '🔥 Hard' : '📘 Easy'} path
+                    {displayScore.rwRaw}/{displayScore.rwTotal} câu đúng • {displayScore.rwPathResult === 'hard' ? '🔥 Hard' : '📘 Easy'} path
                   </div>
                 </div>
                 <div className="bg-[#1b2533] p-5 rounded-lg border border-[#334155]">
                   <div className="text-sm text-gray-400 mb-1">Math</div>
                   <div className="text-3xl font-black text-[#34d399]">{displayScore.math}</div>
                   <div className="text-xs text-gray-500 mt-1">
-                    {accRef.current.math.raw}/{accRef.current.math.total} câu đúng • {accRef.current.math.path === 'hard' ? '🔥 Hard' : '📘 Easy'} path
+                    {displayScore.mathRaw}/{displayScore.mathTotal} câu đúng • {displayScore.mathPathResult === 'hard' ? '🔥 Hard' : '📘 Easy'} path
                   </div>
                 </div>
               </div>
@@ -400,7 +439,7 @@ export default function ExamRunner({
 
   return (
     <div className="space-y-0 animate-in fade-in duration-700 pb-20">
-      <Header />
+      {header}
       <div className="bg-[#1b2533] rounded-xl border border-[#262730] shadow-xl overflow-hidden flex flex-col min-h-[600px]">
         <div className="bg-[#0e1117] p-4 flex justify-between items-center border-b border-[#262730]">
           <div className="font-bold text-white">

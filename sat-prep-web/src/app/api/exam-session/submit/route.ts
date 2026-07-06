@@ -43,7 +43,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const section = body.section === 'math' ? 'math' : body.section === 'rw' ? 'rw' : null;
     const moduleNum = body.moduleNum === 2 ? 2 : body.moduleNum === 1 ? 1 : null;
-    const mode = body.mode === 'real' ? 'real' : 'mock';
     const rawAnswers = Array.isArray(body?.answers) ? body.answers : [];
 
     if (!section || !moduleNum) {
