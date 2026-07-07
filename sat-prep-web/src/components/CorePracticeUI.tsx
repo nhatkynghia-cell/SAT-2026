@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useGamification } from '@/context/GamificationContext';
 import { LoadingState } from './LoadingState';
 
@@ -30,9 +30,14 @@ interface CorePracticeUIProps {
    * KHÔNG bỏ qua câu (skip = không trả lời) làm sai số đếm điểm cổng.
    */
   hideNextUntilSubmitted?: boolean;
+  /**
+   * Giới hạn thời gian (giây). Có → đồng hồ ĐẾM NGƯỢC, hết giờ TỰ NỘP (nếu chưa
+   * chọn thì nộp đáp án rỗng → chấm sai + lộ đáp án). Không có → đếm xuôi như cũ.
+   */
+  timeLimit?: number;
 }
 
-export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSubmitted, hideNextUntilSubmitted }: CorePracticeUIProps) {
+export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSubmitted, hideNextUntilSubmitted, timeLimit }: CorePracticeUIProps) {
   const { registerGradedResult, spendCoins, toggleBookmark, bookmarkedQuestions, practiceStreak } = useGamification();
   
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -42,23 +47,47 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
   const [rewardData, setRewardData] = useState<{xpGiven: number, coinsGiven: number, comboMultiplier: number} | null>(null);
   // ROOT A: choice_analysis KHÔNG còn trong payload → nhận từ /api/grade sau nộp.
   const [revealedAnalysis, setRevealedAnalysis] = useState<{ choice_letter: string; is_correct: boolean; analysis: string }[] | null>(null);
+  // ROOT A: explanation cũng KHÔNG còn trong payload với câu đề thư viện → nhận từ /api/grade sau nộp.
+  const [revealedExplanation, setRevealedExplanation] = useState<string | null>(null);
 
   const [timeElapsed, setTimeElapsed] = useState(0);
+  // Đếm ngược (chỉ dùng khi có timeLimit). Khởi tạo = timeLimit, giảm về 0 → tự nộp.
+  const [timeLeft, setTimeLeft] = useState(timeLimit ?? 0);
   const [hintsRevealed, setHintsRevealed] = useState(0);
   const [hintError, setHintError] = useState("");
   const [hintTrap, setHintTrap] = useState<{ choice_letter: string; analysis: string } | null>(null);
 
   const isBookmarked = questionData ? bookmarkedQuestions.includes(questionData.practice_question) : false;
 
+  // Ref giữ handleSubmit mới nhất để timer tự-nộp không dính stale closure
+  // (handleSubmit định nghĩa BÊN DƯỚI). Gán trong effect ở dưới.
+  const handleSubmitRef = useRef<() => void>(() => {});
+
+  const hasTimeLimit = typeof timeLimit === 'number' && timeLimit > 0;
+
+  // Đồng hồ: đếm ngược (có timeLimit) hoặc đếm xuôi. Chỉ cập nhật SỐ ở đây —
+  // KHÔNG gọi side effect trong updater (tự-nộp xử lý ở effect riêng bên dưới).
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (!isSubmitted && !isLoading) {
       timer = setInterval(() => {
-        setTimeElapsed(prev => prev + 1);
+        if (hasTimeLimit) {
+          setTimeLeft(prev => Math.max(0, prev - 1));
+        } else {
+          setTimeElapsed(prev => prev + 1);
+        }
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [isSubmitted, isLoading]);
+  }, [isSubmitted, isLoading, hasTimeLimit]);
+
+  // HẾT GIỜ → tự nộp (một lần). Tách khỏi interval để tránh side effect trong
+  // state updater (StrictMode-safe). handleSubmit đã tự chặn nộp trùng (isSubmitted).
+  useEffect(() => {
+    if (hasTimeLimit && timeLeft === 0 && !isSubmitted && !isLoading) {
+      handleSubmitRef.current();
+    }
+  }, [hasTimeLimit, timeLeft, isSubmitted, isLoading]);
 
   // Reset state when new question comes in. Đồng bộ state nội bộ với prop
   // questionData mới — reset-on-prop-change hợp lệ (không phải cascading render).
@@ -69,15 +98,21 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
     setIsCorrect(null);
     setRewardData(null);
     setRevealedAnalysis(null);
+    setRevealedExplanation(null);
     setTimeElapsed(0);
+    setTimeLeft(timeLimit ?? 0);
     setHintsRevealed(0);
     setHintError("");
     setHintTrap(null);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [questionData]);
+  }, [questionData, timeLimit]);
 
   const handleSubmit = async () => {
-    if (!selectedAnswer) return;
+    // Chặn nộp trùng (timer tự-nộp có thể chạy song song với click). Nếu KHÔNG có
+    // giới hạn giờ thì vẫn yêu cầu phải chọn đáp án như cũ; có giới hạn giờ thì cho
+    // nộp rỗng (hết giờ chưa chọn → answer "" → /api/grade chấm sai + lộ đáp án).
+    if (isSubmitted) return;
+    if (!selectedAnswer && !hasTimeLimit) return;
     setIsSubmitted(true);
 
     // 🔴 ROOT A: chấm + trao thưởng + ghi mastery đều ở /api/grade (server-authoritative,
@@ -94,7 +129,7 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           questionId: questionData.questionId,
-          answer: selectedAnswer,
+          answer: selectedAnswer ?? '', // rỗng khi hết giờ chưa chọn → chấm sai
           streak: practiceStreak + 1,
         }),
       });
@@ -104,6 +139,7 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
         correctChoice = grade.correctChoice ?? '';
         setRevealedCorrectChoice(grade.correctChoice);
         if (Array.isArray(grade.choice_analysis)) setRevealedAnalysis(grade.choice_analysis);
+        if (typeof grade.explanation === 'string' && grade.explanation) setRevealedExplanation(grade.explanation);
         granted = grade.granted ?? { coins: 0, xp: 0 };
         economyState = grade.economy ?? null;
       }
@@ -141,6 +177,12 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
       }
     }
   };
+
+  // Luôn trỏ ref tới handleSubmit mới nhất (cho timer tự-nộp — tránh stale closure).
+  // Gán trong effect (không gán khi render) để tuân react-hooks/refs.
+  useEffect(() => {
+    handleSubmitRef.current = handleSubmit;
+  });
 
   const handleRevealHint = (level: number) => {
     if (level === 1) {
@@ -194,9 +236,15 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
             <span className="px-2 py-1 rounded border border-purple-400 text-purple-400 bg-[rgba(0,0,0,0.2)] font-bold">
               ⚠️ {questionData.trapRate}% học sinh sập bẫy
             </span>
-            <span className="px-2 py-1 rounded border border-blue-400 text-blue-400 bg-[rgba(0,0,0,0.2)] font-bold flex items-center gap-1">
-              ⏱️ {formatTime(timeElapsed)}
-            </span>
+            {hasTimeLimit ? (
+              <span className={`px-2 py-1 rounded border bg-[rgba(0,0,0,0.2)] font-bold flex items-center gap-1 ${timeLeft <= 30 ? 'border-red-500 text-red-500 animate-pulse' : 'border-blue-400 text-blue-400'}`}>
+                ⏱️ Còn lại: {formatTime(timeLeft)}
+              </span>
+            ) : (
+              <span className="px-2 py-1 rounded border border-blue-400 text-blue-400 bg-[rgba(0,0,0,0.2)] font-bold flex items-center gap-1">
+                ⏱️ {formatTime(timeElapsed)}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex gap-2">
@@ -327,15 +375,19 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
             </div>
           ) : null}
 
-          {/* AI Explanation */}
-          <div className="bg-[#0f172a] p-5 rounded-xl border border-[#334155] shadow-lg">
-            <h4 className="text-[#fbbf24] font-bold mb-3 flex items-center gap-2">
-              <span>🤖 GIA SƯ AI PHÂN TÍCH ĐÁP ÁN:</span>
-            </h4>
-            <div className="text-[15px] text-[#e2e8f0] leading-relaxed whitespace-pre-wrap">
-              {questionData.explanation}
+          {/* AI Explanation — ROOT A: câu đề thư viện KHÔNG kèm explanation trong
+              payload → lấy từ /api/grade (revealedExplanation) sau nộp. Fallback về
+              questionData.explanation (câu AI/bank cũ). Rỗng cả hai → ẩn block. */}
+          {(revealedExplanation ?? questionData.explanation) && (
+            <div className="bg-[#0f172a] p-5 rounded-xl border border-[#334155] shadow-lg">
+              <h4 className="text-[#fbbf24] font-bold mb-3 flex items-center gap-2">
+                <span>🤖 GIA SƯ AI PHÂN TÍCH ĐÁP ÁN:</span>
+              </h4>
+              <div className="text-[15px] text-[#e2e8f0] leading-relaxed whitespace-pre-wrap">
+                {revealedExplanation ?? questionData.explanation}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Phân tích TỪNG đáp án (Nhóm 7 #9) — dạy kỹ năng loại trừ bẫy. ROOT A:
               choice_analysis lấy từ /api/grade (revealedAnalysis) sau khi nộp, KHÔNG

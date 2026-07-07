@@ -17,12 +17,16 @@ export interface ChoiceAnalysis {
 interface IssuedContext {
   src?: string;
   ca?: ChoiceAnalysis[];
+  /** Lời giải đầy đủ — chỉ trả về SAU khi chấm (/api/grade). Dùng cho câu có sẵn
+   *  đáp án + lời giải tĩnh (vd đề thư viện) để render block "GIA SƯ AI PHÂN TÍCH". */
+  exp?: string;
 }
 
 function encodeContext(ctx: IssuedContext): string | null {
   const clean: IssuedContext = {};
   if (ctx.src) clean.src = ctx.src;
   if (Array.isArray(ctx.ca) && ctx.ca.length > 0) clean.ca = ctx.ca;
+  if (ctx.exp) clean.exp = ctx.exp;
   return Object.keys(clean).length > 0 ? JSON.stringify(clean) : null;
 }
 
@@ -43,7 +47,7 @@ export async function issueQuestion(
   correctChoice: string,
   skillId: string | undefined,
   difficulty: string | undefined,
-  opts?: { src?: string; choiceAnalysis?: ChoiceAnalysis[] }
+  opts?: { src?: string; choiceAnalysis?: ChoiceAnalysis[]; explanation?: string }
 ): Promise<string | null> {
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -53,7 +57,7 @@ export async function issueQuestion(
       correct_choice: correctChoice,
       skill_id: skillId ?? null,
       difficulty: difficulty ?? 'Medium',
-      context: encodeContext({ src: opts?.src, ca: opts?.choiceAnalysis }),
+      context: encodeContext({ src: opts?.src, ca: opts?.choiceAnalysis, exp: opts?.explanation }),
     })
     .select('id')
     .single();
@@ -72,6 +76,8 @@ export interface GradeResult {
   difficulty: string;
   /** choice_analysis đầy đủ — chỉ trả về sau khi chấm (không lộ trước lúc nộp). */
   choiceAnalysis: ChoiceAnalysis[] | null;
+  /** Lời giải đầy đủ — chỉ trả về sau khi chấm. null nếu câu không lưu lời giải. */
+  explanation: string | null;
 }
 
 export async function gradeAnswer(
@@ -106,12 +112,14 @@ export async function gradeAnswer(
 
   if (updErr || !updated) return null; // thua race hoặc đã trả lời
 
+  const ctx = decodeContext(data.context);
   return {
     correct,
     correctChoice: data.correct_choice,
     skillId: data.skill_id,
     difficulty: data.difficulty ?? 'Medium',
-    choiceAnalysis: decodeContext(data.context).ca ?? null,
+    choiceAnalysis: ctx.ca ?? null,
+    explanation: ctx.exp ?? null,
   };
 }
 

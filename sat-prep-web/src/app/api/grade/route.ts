@@ -39,7 +39,10 @@ export async function POST(req: Request) {
     if (typeof questionId !== 'string' || !questionId) {
       return NextResponse.json({ error: 'questionId bắt buộc' }, { status: 400 });
     }
-    if (typeof answer !== 'string' || !answer) {
+    // Cho phép answer = "" (chuỗi rỗng): dùng khi HẾT GIỜ tự nộp mà chưa chọn đáp
+    // án. Rỗng LUÔN chấm sai (0 thưởng) nhưng vẫn CAS answered:false→true + lộ đáp
+    // án đúng — KHÔNG có lỗ farm (rỗng không bao giờ khớp correct_choice).
+    if (typeof answer !== 'string') {
       return NextResponse.json({ error: 'answer bắt buộc' }, { status: 400 });
     }
 
@@ -83,6 +86,7 @@ export async function POST(req: Request) {
       skillId: result.skillId,
       difficulty: result.difficulty,
       choice_analysis: result.choiceAnalysis, // lộ SAU khi nộp (render block "vì sao đáp án kia sai")
+      explanation: result.explanation, // lộ SAU khi nộp (câu có lời giải tĩnh, vd đề thư viện)
       granted,
       economy: nextEconomy,
     });
