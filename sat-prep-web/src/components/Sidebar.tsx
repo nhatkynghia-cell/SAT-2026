@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useGamification } from '@/context/GamificationContext';
+import { useAuth } from '@/context/AuthContext';
 
 const MENU_GROUPS = [
   {
@@ -53,10 +54,17 @@ const MENU_GROUPS = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { learningMode, setLearningMode, subject, setSubject, focusMode, incrementQuestionKey } = useGamification();
+  const { isAuthenticated, signOut } = useAuth();
   const [expandedGroups, setExpandedGroups] = useState<number[]>([0]);
 
   if (focusMode) return null;
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push('/login');
+  };
 
   const toggleGroup = (idx: number) => {
     if (expandedGroups.includes(idx)) {
@@ -171,6 +179,25 @@ export function Sidebar() {
             );
           })}
         </div>
+
+        <hr className="border-[#262730]" />
+
+        {/* Lối vào/ra tài khoản */}
+        {isAuthenticated ? (
+          <button
+            onClick={handleSignOut}
+            className="w-full text-left px-3 py-2 rounded-md text-[14px] text-[#e2e8f0] hover:bg-[rgba(255,255,255,0.05)] hover:text-white transition-colors"
+          >
+            🚪 Đăng xuất
+          </button>
+        ) : (
+          <Link
+            href="/login"
+            className="block px-3 py-2 rounded-md text-[14px] text-[#e2e8f0] hover:bg-[rgba(255,255,255,0.05)] hover:text-white transition-colors"
+          >
+            🔑 Đăng nhập
+          </Link>
+        )}
       </div>
     </aside>
   );
