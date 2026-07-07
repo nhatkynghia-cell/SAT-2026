@@ -92,6 +92,17 @@ Trước khi chốt giá, cần bạn quyết:
 
 ---
 
+## ✅ ĐÃ LÀM — PHIÊN TINH CHỈNH 2026-07-07
+
+- **Step 0 — VÁ LINT (commit `891df6d`):** baseline "lint 0/0" KHÔNG còn đúng — `eslint-plugin-react-hooks@7.1.1` (theo `eslint-config-next@16.2.9`) bật bộ rule React-Compiler mới → `ExamRunner.tsx` (phiên adaptive-exam) đỏ 13 lỗi. Đây là BLOCKER push vì CI có lint là cổng chặn. Refactor an toàn KHÔNG đổi hành vi (tách `<ExamHeader/>` module-scope; chụp breakdown vào state `displayScore`; sắp lại thứ tự khai báo `finishExam`→`submitModule`; disable `set-state-in-effect` có chú thích cho auto-nộp-hết-giờ) + dọn dead var `mode`. Lint lại 0/0.
+- **C1 (commit `64f6e9a`):** thêm CTA nâng cấp đúng aha-moment cuối diagnostic. `/api/diagnostic` complete trả thêm `tier` (vẫn LUÔN full prediction — mồi đầu phễu); trang result thêm block "Mở khóa lộ trình cá nhân hóa" CHỈ cho free.
+- **C2 + C3 KHÔNG cần làm:** đã được Wave 1 (`6eab3bd`) xử lý từ trước — dashboard focus-skills locked→upsell (dashboard/page.tsx:220-227) + skill-tree adaptive panel upsell (skill-tree/page.tsx:185-198). Backlog này viết TRƯỚC Wave 1 nên phần C2/C3 lỗi thời.
+- **Nhóm A — QUYẾT ĐỊNH user 2026-07-07:** **A1 (model AI cao cấp) = GIỮ để LÀM. A2/A3/A4 = GỠ khỏi trang bán.** Khi code phiên sau: (a) switch model theo tier ở `chat/route.ts` + `generate-practice/route.ts` + cập nhật `PRICING` `ai-cost.ts` cho model mới (kill-switch tính đúng); (b) GỠ 3 dòng hứa A2/A3/A4 khỏi `upgrade/page.tsx:34-36`.
+- **C4 — GÁC** (user: bật app tinh chỉnh trước). ⚠️ Phát hiện khác backlog: `user_mastery.user_id` là UUID → write guest `local-default-user` FAIL âm thầm (`22P02`, confirm server log live) → dữ liệu diagnostic khách **chưa bao giờ lưu**. Hướng khuyến nghị: **ép login TRƯỚC diagnostic** (rẻ, đúng kỹ thuật, không đụng anti-cheat 9.1). Login page có sẵn.
+- **Verify:** tsc·lint 0/0·test **282/282**·build **64 pages**. **Git ahead 14** (chưa push).
+
+---
+
 ## 🔧 TRẠNG THÁI (đầu phiên tinh chỉnh sau)
 
 - **Git:** `origin/main` = `d18ed13`. **11 commit local CHƯA push** (git ahead 11): định giá phiên song song (`6eab3bd`/`5a7878c`/`ad03bf8`) + adaptive-exam (`2ad9967`/`9d978ad`/`a4fc319`) + phiên audit này (`cf154ab` vá ai-cost auth · `562f7b2` file này · `5ead85e` SUPERSEDED). User chọn **giữ local, CHƯA push** (giá chưa chốt, không công khai đề xuất giá) → phiên sau HỎI trước khi push.
