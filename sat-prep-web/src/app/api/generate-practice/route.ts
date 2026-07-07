@@ -6,6 +6,7 @@ import { checkQuota, recordUsage } from '@/lib/ai-quota';
 import { getUserTier } from '@/lib/subscription-store';
 import { isValidSkill } from '@/lib/skill-taxonomy';
 import { issueQuestion, type ChoiceAnalysis } from '@/lib/issued-questions';
+import { OPENAI_CHAT_COMPLETIONS_URL } from '@/lib/openai';
 
 /**
  * Map (moduleType, topic) → skillId chuẩn trong skill-taxonomy (task #9 Mastery).
@@ -295,7 +296,7 @@ BẮT BUỘC thêm trường "choice_analysis": MẢNG, mỗi phần tử ứng 
       temperature: 0.3
     };
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

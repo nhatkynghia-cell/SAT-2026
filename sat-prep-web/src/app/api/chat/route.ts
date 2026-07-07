@@ -9,6 +9,7 @@ import {
   bumpHitCount,
   saveCachedReply,
 } from '@/lib/chat-cache-store';
+import { OPENAI_CHAT_COMPLETIONS_URL } from '@/lib/openai';
 
 /**
  * ============================================================================
@@ -157,7 +158,7 @@ export async function POST(request: Request) {
       temperature: TEMPERATURE,
     };
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
