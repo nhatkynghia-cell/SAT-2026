@@ -36,6 +36,22 @@ function withTsExt(absPath) {
   return absPath;
 }
 
+/**
+ * LOAD hook: import JSON. Source dùng `import x from '@/data/y.json'` KHÔNG kèm
+ * `with { type: 'json' }` (Next/bundler tự xử lý), nhưng Node --test thuần (v20+)
+ * đòi import attribute → ERR_IMPORT_ATTRIBUTE_MISSING. Ta chuyển .json → module
+ * JS `export default <nội-dung>` để bỏ qua kiểm tra attribute. JSON là biểu thức
+ * JS hợp lệ (từ ES2019 cho phép U+2028/U+2029 trong chuỗi) nên an toàn.
+ */
+export async function load(url, context, nextLoad) {
+  if (url.endsWith('.json')) {
+    const { readFile } = await import('node:fs/promises');
+    const source = await readFile(fileURLToPath(url), 'utf8');
+    return { format: 'module', source: `export default ${source};`, shortCircuit: true };
+  }
+  return nextLoad(url, context);
+}
+
 export async function resolve(specifier, context, nextResolve) {
   // 1) stub cố định
   if (stubs[specifier]) {

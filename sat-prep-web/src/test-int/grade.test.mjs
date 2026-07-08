@@ -115,3 +115,57 @@ test('grade: streak âm/không hợp lệ → coi như 0, thưởng cơ bản (k
   const { body } = await readRes(await POST(postJson({ questionId: 'q', answer: 'B', streak: -50 })));
   assert.deepEqual(body.granted, { coins: 20, xp: 100 }, 'streak âm → 0 → base Hard');
 });
+
+// ── HẾT GIỜ TỰ NỘP (đề thư viện): answer rỗng chấm sai, KHÔNG có lỗ farm ──────
+
+test('grade: answer rỗng "" (hết giờ chưa chọn) → 200, chấm SAI, 0 thưởng, vẫn CAS + lộ đáp án', async () => {
+  resetDb(); setCurrentUser({ id: 'g-empty' });
+  seedUser('g-empty'); seedQuestion('q', 'g-empty', 'B', { difficulty: 'Hard' });
+
+  const { status, body } = await readRes(await POST(postJson({ questionId: 'q', answer: '' })));
+  assert.equal(status, 200);
+  assert.equal(body.correct, false, 'rỗng không bao giờ khớp đáp án → sai');
+  assert.deepEqual(body.granted, { coins: 0, xp: 0 }, 'không thưởng → không có lỗ farm');
+  assert.equal(body.correctChoice, 'B', 'lộ đáp án đúng sau nộp');
+  assert.equal(getRows('user_economy')[0].coins, 100);
+  // CAS đã lật answered → replay bị chặn
+  assert.equal(getRows('issued_questions')[0].answered, true);
+});
+
+test('grade: sau nộp rỗng → replay → 404 (đã CAS, không farm được)', async () => {
+  resetDb(); setCurrentUser({ id: 'g-empty2' });
+  seedUser('g-empty2'); seedQuestion('q', 'g-empty2', 'B');
+
+  await readRes(await POST(postJson({ questionId: 'q', answer: '' })));
+  const r2 = await readRes(await POST(postJson({ questionId: 'q', answer: 'B' })));
+  assert.equal(r2.status, 404, 'câu đã nộp rỗng → không chấm lại được');
+  assert.equal(getRows('user_economy')[0].coins, 100);
+});
+
+test('grade: answer THIẾU hẳn (không phải rỗng) → vẫn 400', async () => {
+  resetDb(); setCurrentUser({ id: 'g-noans' });
+  seedUser('g-noans'); seedQuestion('q', 'g-noans', 'B');
+  const { status } = await readRes(await POST(postJson({ questionId: 'q' })));
+  assert.equal(status, 400, 'undefined answer → 400 (chỉ chuỗi rỗng mới hợp lệ)');
+});
+
+// ── GIẢI THÍCH lộ sau khi nộp (đề thư viện lưu exp trong context) ────────────
+
+test('grade: câu có explanation trong context → trả explanation sau nộp', async () => {
+  resetDb(); setCurrentUser({ id: 'g-exp' });
+  seedUser('g-exp');
+  seedQuestion('q', 'g-exp', 'B', {
+    difficulty: 'Medium',
+    context: JSON.stringify({ src: 'library', exp: 'Vì B là đáp án đúng do...' }),
+  });
+
+  const { body } = await readRes(await POST(postJson({ questionId: 'q', answer: 'B' })));
+  assert.equal(body.explanation, 'Vì B là đáp án đúng do...', 'lộ lời giải sau khi nộp');
+});
+
+test('grade: câu KHÔNG có explanation → explanation null (backward-compatible)', async () => {
+  resetDb(); setCurrentUser({ id: 'g-noexp' });
+  seedUser('g-noexp'); seedQuestion('q', 'g-noexp', 'B'); // context = null
+  const { body } = await readRes(await POST(postJson({ questionId: 'q', answer: 'B' })));
+  assert.equal(body.explanation, null, 'câu cũ/không lưu exp → null, không vỡ');
+});
