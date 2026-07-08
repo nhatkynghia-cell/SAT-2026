@@ -47,9 +47,19 @@ export const ANSWER_REWARD: Record<Difficulty, { coins: number; xp: number }> = 
   Hard: { coins: 20, xp: 100 },
 };
 
-/** Hệ số combo khi chuỗi đúng dài (server tự tính, client không gửi). */
+/**
+ * Hệ số combo theo chuỗi câu ĐÚNG liên tiếp (server tự tính từ streak, client
+ * không gửi số tiền). BẬC THANG (thay ngưỡng nhị phân cũ ×1.0/×1.5):
+ *   <5 → ×1.0 · 5–9 → ×1.25 · 10–14 → ×1.5 · 15+ → ×1.75
+ * Trần ×1.75 chỉ đạt khi đúng LIÊN TIẾP 15+ câu (hiếm, đòi năng lực thật) → là
+ * phần thưởng kỹ năng, không lạm phát đại trà. Combo chỉ nhân khi câu THẬT đúng
+ * (CAS answered ở /api/grade) nên không phải vector faucet.
+ */
 export function comboMultiplier(streak: number): number {
-  return streak >= 5 ? 1.5 : 1.0;
+  if (streak >= 15) return 1.75;
+  if (streak >= 10) return 1.5;
+  if (streak >= 5) return 1.25;
+  return 1.0;
 }
 
 export interface RewardResult {

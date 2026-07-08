@@ -40,13 +40,19 @@ test('applyAnswerReward: Hard đúng → thưởng theo bảng cố định serv
   assert.equal(r.state.coins, DEFAULT_ECONOMY.coins + ANSWER_REWARD.Hard.coins);
 });
 
-test('comboMultiplier: streak >= 5 → x1.5', () => {
+test('comboMultiplier: bậc thang <5/5-9/10-14/15+', () => {
+  assert.equal(comboMultiplier(0), 1.0);
   assert.equal(comboMultiplier(4), 1.0);
-  assert.equal(comboMultiplier(5), 1.5);
+  assert.equal(comboMultiplier(5), 1.25);
+  assert.equal(comboMultiplier(9), 1.25);
+  assert.equal(comboMultiplier(10), 1.5);
+  assert.equal(comboMultiplier(14), 1.5);
+  assert.equal(comboMultiplier(15), 1.75);
+  assert.equal(comboMultiplier(100), 1.75);
 });
 
-test('applyAnswerReward: combo áp dụng khi streak dài', () => {
-  const r = applyAnswerReward(fresh(), true, 'Medium', 5);
+test('applyAnswerReward: combo bậc thang áp dụng khi streak dài (10 → ×1.5)', () => {
+  const r = applyAnswerReward(fresh(), true, 'Medium', 10);
   assert.equal(r.granted.coins, Math.floor(ANSWER_REWARD.Medium.coins * 1.5));
   assert.equal(r.granted.xp, Math.floor(ANSWER_REWARD.Medium.xp * 1.5));
 });
@@ -122,8 +128,8 @@ test('applyAnswerReward: hệ số 2 (ultimate) → xu ×2, XP GIỮ NGUYÊN', (
 });
 
 test('applyAnswerReward: hệ số 1.5 (premium) chồng với combo 1.5 (floor)', () => {
-  // streak≥5 → combo 1.5; tier premium 1.5 → tổng 2.25×, floor.
-  const r = applyAnswerReward(fresh(), true, 'Medium', 5, 1.5);
+  // streak 10-14 → combo 1.5; tier premium 1.5 → tổng 2.25×, floor.
+  const r = applyAnswerReward(fresh(), true, 'Medium', 10, 1.5);
   assert.equal(r.granted.coins, Math.floor(ANSWER_REWARD.Medium.coins * 1.5 * 1.5));
   assert.equal(r.granted.xp, Math.floor(ANSWER_REWARD.Medium.xp * 1.5), 'XP chỉ áp combo, KHÔNG áp hệ số gói');
 });

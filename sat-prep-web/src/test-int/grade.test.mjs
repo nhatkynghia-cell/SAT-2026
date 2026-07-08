@@ -98,15 +98,16 @@ test('grade: client KHÔNG gửi được số xu — payload isCorrect/granted 
   assert.equal(getRows('user_economy')[0].coins, 100);
 });
 
-test('grade: combo streak client gửi bị KẸP ở 1.5× — không bơm thưởng vô hạn', async () => {
+test('grade: combo streak client gửi bị KẸP ở trần 1.75× — không bơm thưởng vô hạn', async () => {
   resetDb(); setCurrentUser({ id: 'g-combo' });
   seedUser('g-combo'); seedQuestion('q', 'g-combo', 'B', { difficulty: 'Hard' });
 
-  // Kẻ tấn công gửi streak khổng lồ. comboMultiplier cap 1.5× → Hard 20/100 → 30/150.
+  // Kẻ tấn công gửi streak khổng lồ. comboMultiplier bậc thang cap 1.75× (streak>=15)
+  // → Hard 20/100 → 35/175. Trần TỒN TẠI (không scale theo streak) là điểm anti-cheat.
   const { body } = await readRes(await POST(postJson({ questionId: 'q', answer: 'B', streak: 999999 })));
   assert.equal(body.correct, true);
-  assert.deepEqual(body.granted, { coins: 30, xp: 150 }, 'trần combo 1.5× (KHÔNG scale theo streak khổng lồ)');
-  assert.equal(getRows('user_economy')[0].coins, 130);
+  assert.deepEqual(body.granted, { coins: 35, xp: 175 }, 'trần combo 1.75× (KHÔNG scale theo streak khổng lồ)');
+  assert.equal(getRows('user_economy')[0].coins, 135);
 });
 
 test('grade: streak âm/không hợp lệ → coi như 0, thưởng cơ bản (không combo)', async () => {

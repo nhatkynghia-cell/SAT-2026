@@ -102,6 +102,9 @@ type GamificationState = {
   pvpRank: number;
   pvpWinStreak: number;
   practiceStreak: number;
+  /** 🔥 Chuỗi NGÀY học liên tiếp (server-authoritative, từ daily_snapshots).
+   *  KHÁC practiceStreak (số câu đúng liên tiếp). Dẫn xuất, không persist client. */
+  dayStreak: number;
   lastSpinDate: string | null;
   activePet: string | null;
   bookmarkedQuestions: string[];
@@ -118,6 +121,10 @@ type GamificationState = {
   // chấm/thưởng SERVER-SIDE (thi: /api/exams/grade, ôn từ: /api/vocab) — client
   // KHÔNG tự tính số tiền, chỉ nhận state mới từ server rồi cập nhật hiển thị.
   syncServerEconomy: (economy: { coins?: number; xp?: number; lastSpinDate?: string | null } | null | undefined) => void;
+  /** 🔥 Đồng bộ chuỗi ngày từ server (POST action:'streak'). Trả kết quả để trang
+   *  gọi (đã ở trong ToastProvider) hiện toast ăn mừng khi đạt mốc. Server cộng
+   *  xu mốc idempotent + đồng bộ số dư mới. */
+  syncDayStreak: () => Promise<{ dayStreak: number; grantedCoins: number; milestonesReached: number[] }>;
   incrementCorrectAnswers: () => void;
   spinDailyWheel: () => Promise<{ success: boolean, message: string, rewardType: string }>;
   buyItem: (itemId: string, price: number) => BuyResult;
@@ -169,7 +176,10 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     maxPower: 50, correctAnswersCountToday: 0, pvpRank: 11, pvpWinStreak: 0,
     lastSpinDate: null, activePet: null
   });
-  
+
+  // 🔥 Chuỗi ngày học (server-authoritative, dẫn xuất — không persist client).
+  const [dayStreak, setDayStreak] = useState(0);
+
   const [inventory, setInventory] = useState<InventoryItem[]>([
     { instanceId: "eq_1", itemId: "kiem_go", name: "Kiếm Gỗ Tập Sự", tier: "Đồng", level: 1, icon: "🗡️", isBound: true },
     { instanceId: "eq_2", itemId: "giap_da", name: "Giáp Da Tập Sự", tier: "Đồng", level: 1, icon: "🛡️", isBound: true }
@@ -278,6 +288,11 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
           const diag = await diagRes.json();
           setOnboardingCompleted(diag.completed === true);
         }
+
+        // 5) 🔥 Chuỗi ngày học: KHÔNG fetch ở đây. Trang chủ (trong ToastProvider)
+        //    là nơi DUY NHẤT gọi syncDayStreak() — vừa cập nhật số + số dư, vừa
+        //    hiện toast ăn mừng khi đạt mốc. Gọi cả 2 nơi sẽ khiến grant idempotent
+        //    ở lần đầu nuốt mốc → lần sau mất toast. Chip 🔥 chỉ ở trang chủ.
       } catch (e) {
         console.error("Failed to load state from API", e);
       } finally {
@@ -333,6 +348,32 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
       xp: eco.xp ?? prev.xp,
       lastSpinDate: eco.lastSpinDate ?? prev.lastSpinDate,
     }));
+  };
+
+  // 🔥 Đồng bộ chuỗi ngày học từ server (POST action:'streak'). Server tính
+  // chuỗi từ daily_snapshots + cộng xu mốc idempotent. Client chỉ nhận state
+  // mới. Trả kết quả để trang gọi (đã trong ToastProvider) hiện toast ăn mừng.
+  const syncDayStreak = async () => {
+    try {
+      const res = await fetch('/api/economy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'streak' }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.dayStreak === 'number') setDayStreak(data.dayStreak);
+        if (data.state) syncEconomy(data.state); // đồng bộ số dư nếu grant xu mốc
+        return {
+          dayStreak: typeof data.dayStreak === 'number' ? data.dayStreak : 0,
+          grantedCoins: data.granted?.coins ?? 0,
+          milestonesReached: Array.isArray(data.milestonesReached) ? data.milestonesReached : [],
+        };
+      }
+    } catch (e) {
+      console.error('Failed to sync day streak', e);
+    }
+    return { dayStreak: 0, grantedCoins: 0, milestonesReached: [] };
   };
 
   const incrementCorrectAnswers = () => {
@@ -654,13 +695,14 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
       pvpRank: userStats.pvpRank,
       pvpWinStreak: userStats.pvpWinStreak,
       practiceStreak: userStats.streak,
+      dayStreak,
       lastSpinDate: userStats.lastSpinDate,
       activePet: userStats.activePet,
       bookmarkedQuestions: practiceQuestion.bookmarkedQuestions || [],
 
       unlockedBadges,
 
-      incrementCorrectAnswers, registerGradedResult, syncServerEconomy, spinDailyWheel, buyItem, redeemReward, spendCoins, toggleBookmark, upgradeItem, fightPvP, equipPet,
+      incrementCorrectAnswers, registerGradedResult, syncServerEconomy, syncDayStreak, spinDailyWheel, buyItem, redeemReward, spendCoins, toggleBookmark, upgradeItem, fightPvP, equipPet,
       updateQuestProgress, claimQuest,
       soundEnabled, setSoundEnabled, focusMode, setFocusMode,
       hideBanner, setHideBanner, learningMode, setLearningMode,

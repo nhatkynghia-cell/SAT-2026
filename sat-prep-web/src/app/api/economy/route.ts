@@ -17,6 +17,8 @@ import {
 } from '@/lib/economy';
 import { getUserTier } from '@/lib/subscription-store';
 import { TIER_COIN_MULTIPLIER } from '@/lib/subscription';
+import { loadSnapshots, todayVN } from '@/lib/daily-snapshot-store';
+import { computeDayStreak, pendingStreakGrant, STREAK_CLAIM_KEY } from '@/lib/day-streak';
 
 /**
  * ECONOMY API (server-authoritative) — implementation_plan.md §9.1, task #2
@@ -89,6 +91,39 @@ export async function POST(req: Request) {
       }
       await saveEconomy(user.id, next);
       return NextResponse.json({ success: true, granted, state: next });
+    }
+
+    if (action === 'streak') {
+      // 🔥 Chuỗi NGÀY học liên tiếp — server-authoritative. Chuỗi DẪN XUẤT từ
+      // daily_snapshots (mỗi ngày user chấm câu → 1 row server-ghi), client KHÔNG
+      // gửi số ngày/số xu. Mốc 7/30/100 tặng 1 LẦN (idempotent qua quest_claims
+      // sentinel STREAK_CLAIM_KEY). KHÔNG phạt gãy chuỗi (chỉ về 0, không mất xu).
+      const today = todayVN();
+      // Lấy đủ xa để phủ mốc 100 (110 ngày). loadSnapshots đọc từ ngày >= since.
+      const since = new Date(Date.now() - 110 * 86_400_000).toISOString().slice(0, 10);
+      const snaps = await loadSnapshots(user.id, since);
+      const dayStreak = computeDayStreak(snaps.map((s) => s.snapshot_date), today);
+
+      const claimedMilestones = await loadQuestClaims(user.id, STREAK_CLAIM_KEY);
+      const grant = pendingStreakGrant(dayStreak, claimedMilestones);
+
+      if (grant.coins > 0) {
+        // Cộng xu mốc vào economy (server quyết số từ STREAK_MILESTONE_REWARD).
+        // Xu mốc KHÔNG nhân hệ số gói (thưởng cố định — như phần XP quest).
+        await saveEconomy(user.id, { ...state, coins: state.coins + grant.coins });
+        // Đánh dấu từng mốc đã nhận (idempotent — lần sau pendingStreakGrant bỏ qua).
+        for (const m of grant.milestones) {
+          await saveQuestClaim(user.id, STREAK_CLAIM_KEY, String(m));
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        dayStreak,
+        granted: { coins: grant.coins },
+        milestonesReached: grant.milestones,
+        state: grant.coins > 0 ? { ...state, coins: state.coins + grant.coins } : state,
+      });
     }
 
     if (action === 'spend') {

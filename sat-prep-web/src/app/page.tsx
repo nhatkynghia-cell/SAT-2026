@@ -1,6 +1,8 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import { useGamification } from '@/context/GamificationContext';
+import { useToast } from '@/context/ToastContext';
 import { BadgeSystem } from '@/components/BadgeSystem';
 import { AITutoring } from '@/components/AITutoring';
 import { MistakeNotebook } from '@/components/MistakeNotebook';
@@ -8,12 +10,32 @@ import { DiagnosticBanner } from '@/components/DiagnosticBanner';
 
 export default function Home() {
   const {
-    level, masteredCount, totalNodes, coins, shields, maxPower,
+    level, masteredCount, totalNodes, coins, shields, maxPower, dayStreak,
+    syncDayStreak,
     soundEnabled, setSoundEnabled,
     focusMode, setFocusMode,
     hideBanner, setHideBanner,
     learningMode
   } = useGamification();
+
+  const { showToast } = useToast();
+
+  // 🔥 Đồng bộ chuỗi ngày học 1 lần khi vào trang chủ. Đây là nơi DUY NHẤT gọi
+  // (trong ToastProvider) → cập nhật số + hiện toast ăn mừng khi vừa đạt mốc.
+  // Server grant xu mốc idempotent nên gọi lại các lần sau chỉ cập nhật số, 0 xu.
+  const streakSyncedRef = useRef(false);
+  useEffect(() => {
+    if (streakSyncedRef.current) return;
+    streakSyncedRef.current = true;
+    async function sync() {
+      const r = await syncDayStreak();
+      if (r.grantedCoins > 0 && r.milestonesReached.length > 0) {
+        const topMilestone = Math.max(...r.milestonesReached);
+        showToast(`🔥 Chuỗi ${topMilestone} ngày! Nhận thưởng ${r.grantedCoins} Xu. Giữ lửa nhé!`, 'success');
+      }
+    }
+    sync();
+  }, [syncDayStreak, showToast]);
 
 
   // Thanh tiến trình giờ phản ánh ĐỘ PHỦ KỸ NĂNG (số skill đã tinh thông),
@@ -90,6 +112,9 @@ export default function Home() {
               </div>
               <div style={{ fontSize: "12px", fontWeight: "bold", color: "#f87171" }}>
                 🛡️ {shields} <span style={{ fontWeight: "normal", color: "#cbd5e1", fontSize: "10px" }}>Khiên</span>
+              </div>
+              <div style={{ fontSize: "12px", fontWeight: "bold", color: "#fb923c" }} title="Chuỗi ngày học liên tiếp">
+                🔥 {dayStreak} <span style={{ fontWeight: "normal", color: "#cbd5e1", fontSize: "10px" }}>ngày</span>
               </div>
             </div>
 
