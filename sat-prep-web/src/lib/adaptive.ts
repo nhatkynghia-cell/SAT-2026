@@ -162,3 +162,65 @@ export function pickTowerSkill(
     difficulty: towerDifficulty(pick.score, floor),
   };
 }
+
+/**
+ * ============================================================================
+ *  TRẢ LỜI NHANH (Speed Quiz) — chọn skill + độ khó cho từng câu trong lượt
+ * ============================================================================
+ *  Khác Tower ở 2 điểm:
+ *    • ĐA MÔN: rút skill từ MỌI moduleType (Toán + Đọc/Viết + Từ vựng + Desmos…),
+ *      không giới hạn Toán — Speed Quiz là "trả lời nhanh toàn diện".
+ *    • Áp lực theo SỐ CÂU ĐÃ ĐÚNG trong lượt (không phải "tầng"): càng đúng nhiều
+ *      → câu càng khó (giữ thử thách), mirror towerDifficulty nhưng thang riêng.
+ *  Vẫn giữ: nền ZPD theo mastery + xoay vòng nhóm skill yếu nhất (đa dạng, dồn
+ *  vào điểm yếu, ghi mastery đúng skill qua /api/grade).
+ * ============================================================================
+ */
+
+/** Số skill yếu nhất đưa vào vòng xoay mỗi lượt Speed Quiz (đa dạng chủ đề, đa môn). */
+export const SPEED_QUIZ_SKILL_WINDOW = 8;
+
+/**
+ * Độ khó câu Speed Quiz: nền ZPD theo mastery, cộng áp lực theo số câu đã đúng.
+ *   0-4 đúng   → +0  (khởi động, giữ flow)
+ *   5-9 đúng   → +1
+ *   10+ đúng   → +2
+ * Kết quả kẹp trong [Easy..Hard]. `answered` = số câu ĐÚNG tính tới hiện tại.
+ */
+export function speedQuizDifficulty(masteryScore: number, answered: number): Difficulty {
+  const base = DIFFICULTY_LADDER.indexOf(selectDifficulty(masteryScore)); // 0..2
+  const pressure = answered < 5 ? 0 : answered < 10 ? 1 : 2;
+  const idx = Math.min(DIFFICULTY_LADDER.length - 1, base + pressure);
+  return DIFFICULTY_LADDER[idx];
+}
+
+/**
+ * Chọn skill + độ khó cho 1 câu Speed Quiz (đa môn).
+ * Xoay vòng trong nhóm skill yếu nhất (ưu tiên chưa thành thạo) theo số câu đã đúng.
+ * Trả null nếu summary rỗng (chưa có skill nào để sinh câu).
+ */
+export function pickSpeedQuizSkill(
+  skills: MasterySummary['skills'],
+  answered: number
+): TowerPick | null {
+  if (skills.length === 0) return null;
+
+  // Ưu tiên skill CHƯA thành thạo; nếu đã thạo hết thì ôn duy trì trên toàn bộ.
+  const notMastered = skills.filter((s) => !s.mastered);
+  const ranked = [...(notMastered.length > 0 ? notMastered : skills)];
+
+  // Yếu nhất trước; cùng score thì ít luyện hơn trước (độ phủ) — như pickTowerSkill.
+  ranked.sort((a, b) => a.score - b.score || a.attempts - b.attempts);
+
+  // Cửa sổ skill yếu nhất rồi xoay theo số câu đã đúng → mỗi câu một chủ đề khác.
+  const window = ranked.slice(0, Math.min(SPEED_QUIZ_SKILL_WINDOW, ranked.length));
+  const pick = window[answered % window.length];
+
+  return {
+    skillId: pick.id,
+    label: pick.label,
+    moduleType: pick.moduleType,
+    masteryScore: pick.score,
+    difficulty: speedQuizDifficulty(pick.score, answered),
+  };
+}

@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/settle-speed-quiz",
+      "schedule": "7 17 * * *"
+    }
+  ]
+}

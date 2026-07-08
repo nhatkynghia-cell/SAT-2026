@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { selectDifficulty, recommendNext, towerDifficulty, pickTowerSkill, TOWER_SKILL_WINDOW, EASY_CEILING, HARD_FLOOR } from './adaptive.ts';
+import { selectDifficulty, recommendNext, towerDifficulty, pickTowerSkill, TOWER_SKILL_WINDOW, EASY_CEILING, HARD_FLOOR, speedQuizDifficulty, pickSpeedQuizSkill, SPEED_QUIZ_SKILL_WINDOW } from './adaptive.ts';
 import type { MasterySummary } from './mastery.ts';
 
 // Helper dựng MasterySummary giả từ map skillId → {score, attempts, ...}.
@@ -174,4 +174,72 @@ test('pickTowerSkill: window giới hạn TOWER_SKILL_WINDOW skill yếu nhất'
   }
   assert.equal(seen.size, TOWER_SKILL_WINDOW);
   assert.ok(!seen.has('data.probability'), 'skill mạnh nhất không được vào vòng xoay');
+});
+
+// ─── TRẢ LỜI NHANH (Speed Quiz) ────────────────────────────────────────────
+
+test('speedQuizDifficulty: ít câu đúng giữ NỀN theo mastery (không cộng áp lực)', () => {
+  // answered < 5 → +0: bằng selectDifficulty thuần.
+  assert.equal(speedQuizDifficulty(10, 0), 'Easy');
+  assert.equal(speedQuizDifficulty(50, 4), 'Medium');
+  assert.equal(speedQuizDifficulty(90, 0), 'Hard');
+});
+
+test('speedQuizDifficulty: đúng nhiều đẩy độ khó lên (cùng mastery)', () => {
+  assert.equal(speedQuizDifficulty(10, 4), 'Easy');    // +0
+  assert.equal(speedQuizDifficulty(10, 5), 'Medium');  // +1
+  assert.equal(speedQuizDifficulty(10, 10), 'Hard');   // +2
+});
+
+test('speedQuizDifficulty: KẸP trần ở Hard (không vượt)', () => {
+  assert.equal(speedQuizDifficulty(95, 20), 'Hard');
+  assert.equal(speedQuizDifficulty(50, 20), 'Hard'); // Medium nền +2 → cap Hard
+});
+
+test('pickSpeedQuizSkill: summary rỗng → null', () => {
+  assert.equal(pickSpeedQuizSkill([], 0), null);
+});
+
+test('pickSpeedQuizSkill: ĐA MÔN — chọn skill yếu nhất bất kể môn (khác Tower chỉ Toán)', () => {
+  const s = fakeSummary({
+    'rw.vocab': { score: 5, attempts: 5 },           // reading, yếu nhất
+    'algebra.linear_eq': { score: 40, attempts: 5 }, // math
+  });
+  const pick = pickSpeedQuizSkill(s.skills, 0); // câu đầu → phần tử đầu window (yếu nhất)
+  assert.ok(pick);
+  assert.equal(pick.skillId, 'rw.vocab'); // Speed Quiz KHÔNG bỏ qua reading như Tower
+});
+
+test('pickSpeedQuizSkill: XOAY VÒNG chủ đề theo số câu đúng', () => {
+  const s = fakeSummary({
+    'rw.vocab': { score: 10, attempts: 6 },          // window[0]
+    'data.probability': { score: 20, attempts: 6 },  // window[1]
+    'algebra.linear_eq': { score: 30, attempts: 6 }, // window[2]
+  });
+  const a0 = pickSpeedQuizSkill(s.skills, 0)?.skillId;
+  const a1 = pickSpeedQuizSkill(s.skills, 1)?.skillId;
+  const a2 = pickSpeedQuizSkill(s.skills, 2)?.skillId;
+  assert.equal(new Set([a0, a1, a2]).size, 3);
+  // Câu thứ 4 (answered=3) quay lại đầu vòng.
+  assert.equal(pickSpeedQuizSkill(s.skills, 3)?.skillId, a0);
+});
+
+test('pickSpeedQuizSkill: gắn difficulty khớp speedQuizDifficulty', () => {
+  const s = fakeSummary({ 'geo.trig': { score: 10, attempts: 6 } });
+  const pick = pickSpeedQuizSkill(s.skills, 10);
+  assert.equal(pick?.difficulty, speedQuizDifficulty(10, 10)); // 'Hard' (Easy nền +2)
+});
+
+test('pickSpeedQuizSkill: window giới hạn SPEED_QUIZ_SKILL_WINDOW skill yếu nhất', () => {
+  const entries: Record<string, { score: number; attempts: number }> = {};
+  for (let i = 0; i < 10; i++) entries[`skill.${i}`] = { score: i * 5, attempts: 6 };
+  entries['strong.one'] = { score: 99, attempts: 6 }; // mạnh nhất — ngoài window
+  const s = fakeSummary(entries);
+  const seen = new Set<string>();
+  for (let a = 0; a < 12; a++) {
+    const id = pickSpeedQuizSkill(s.skills, a)?.skillId;
+    if (id) seen.add(id);
+  }
+  assert.equal(seen.size, SPEED_QUIZ_SKILL_WINDOW);
+  assert.ok(!seen.has('strong.one'), 'skill mạnh nhất không được vào vòng xoay');
 });
