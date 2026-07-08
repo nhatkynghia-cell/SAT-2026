@@ -194,7 +194,7 @@ export default function ExamRunner({
       mathTotal: math.total,
       mathPathResult,
     });
-    updateQuestProgress('q3', 1);
+    updateQuestProgress('exam', 1);
     setPhase('finished');
   }, [updateQuestProgress]);
 

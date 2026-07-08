@@ -3,7 +3,8 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { attemptUpgrade, getForgeCost, Equipment } from '@/helpers/forge';
 import { PVP_OPPONENTS } from '@/helpers/pvp';
-import { computeUnlockedBadges, resolveStreakOnWrong, rolloverDailyQuests, resolveBuy } from '@/lib/rpg-rules';
+import { computeUnlockedBadges, resolveStreakOnWrong, resolveBuy } from '@/lib/rpg-rules';
+import { resolveDailyQuests, type QuestTrack } from '@/lib/quests';
 
 export type InventoryItem = string | Equipment;
 
@@ -22,6 +23,8 @@ export const ITEM_CATALOG = [
   { id: "skin_1", name: "Đại Pháp Sư Desmos", icon: "🧙‍♂️", type: "skin", price: 1500, effectClass: "shadow-[0_0_20px_#8b5cf6] animate-pulse text-purple-400 border-[#8b5cf6]" },
   { id: "skin_2", name: "Kiếm Khách SAT Cổ Đại", icon: "🗡️", type: "skin", price: 1800, effectClass: "shadow-[0_0_20px_#ef4444] text-red-400 border-[#ef4444]" },
   { id: "skin_3", name: "Đỉnh Phong Thủ Khoa", icon: "👑", type: "skin", price: 3000, effectClass: "shadow-[0_0_30px_#fbbf24] animate-bounce text-yellow-300 border-[#fbbf24]" },
+  { id: "title_gold", name: "Vương Miện Trí Tuệ", icon: "👑", type: "skin", price: 3500, effectClass: "shadow-[0_0_30px_#fde047] text-yellow-200 border-[#fde047]" },
+  { id: "theme_fire", name: "Áo Choàng Bóng Tối", icon: "🦇", type: "skin", price: 4000, effectClass: "shadow-[0_0_25px_#7c3aed] text-violet-300 border-[#7c3aed]" },
   { id: "eq_epic_1", name: "Găng Tay Tri Thức", icon: "🥊", type: "equipment", price: 800, effectClass: "text-blue-400" },
   { id: "eq_epic_2", name: "Mũ Cú Vọ Ban Đêm", icon: "🎩", type: "equipment", price: 850, effectClass: "text-indigo-400" },
   { id: "eq_leg_1", name: "Huy Hiệu Ivy League (Cũ)", icon: "🛡️", type: "equipment", price: 5000, effectClass: "shadow-[0_0_15px_#34d399] text-emerald-400" },
@@ -60,6 +63,10 @@ export interface PracticeQuestionState {
 
 export interface Quest {
   id: string;
+  /** Loại hook tiến độ (answer/vocab/exam). Optional cho tương thích dữ liệu cũ
+   *  (quest lưu trước bản xoay vòng chưa có track — updateQuestProgress fallback
+   *  match theo id q1/q2/q3). */
+  track?: QuestTrack;
   name: string;
   desc: string;
   progress: number;
@@ -125,6 +132,9 @@ type GamificationState = {
    *  gọi (đã ở trong ToastProvider) hiện toast ăn mừng khi đạt mốc. Server cộng
    *  xu mốc idempotent + đồng bộ số dư mới. */
   syncDayStreak: () => Promise<{ dayStreak: number; grantedCoins: number; milestonesReached: number[] }>;
+  /** 🎁 Nhận thưởng đăng nhập mỗi ngày (server idempotent). Trả xu vừa nhận để
+   *  trang chủ (trong ToastProvider) hiện toast. 0 nếu hôm nay đã nhận. */
+  claimDailyLogin: () => Promise<{ grantedCoins: number }>;
   incrementCorrectAnswers: () => void;
   spinDailyWheel: () => Promise<{ success: boolean, message: string, rewardType: string }>;
   buyItem: (itemId: string, price: number) => BuyResult;
@@ -134,12 +144,12 @@ type GamificationState = {
   redeemReward: (rewardId: string) => Promise<{ success: boolean; message: string }>;
   spendCoins: (amount: number) => boolean;
   toggleBookmark: (questionId: string) => void;
-  upgradeItem: (instanceId: string) => { success: boolean, message: string };
+  upgradeItem: (instanceId: string, useBua?: boolean) => { success: boolean, message: string };
   fightPvP: () => Promise<{ success: boolean, message: string, won: boolean }>;
   equipPet: (petId: string) => void;
 
   // Quest Actions
-  updateQuestProgress: (questId: string, amount: number) => void;
+  updateQuestProgress: (track: QuestTrack, amount: number) => void;
   claimQuest: (questId: string) => Promise<void>;
 
   // UI States
@@ -252,12 +262,13 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
           }
 
           if (parsed.quests) {
-            // Reset nhiệm vụ NGÀY nếu bộ quests đã lưu thuộc ngày cũ (hoặc chưa có
-            // dấu ngày — dữ liệu trước bản này). Trước đây progress/claimed đứng im
-            // vĩnh viễn sau ngày 1. Server vẫn quyết tiền claim (QUEST_REWARD, scope
-            // theo ngày ở saveQuestClaim) — reset chỉ mở lại nút cho ngày mới.
+            // Nhiệm vụ NGÀY XOAY VÒNG: cùng ngày → giữ nguyên (bảo toàn progress/
+            // claimed); ngày mới (hoặc chưa có dấu ngày) → bộ MỚI cho hôm nay theo
+            // hàm băm deterministic từ dayKey (mỗi ngày một biến thể khác → tươi
+            // mới). Server vẫn quyết tiền claim (QUEST_REWARD dẫn xuất từ QUEST_POOL,
+            // scope theo ngày ở saveQuestClaim) — client chỉ mở lại nút cho ngày mới.
             const today = clientToday();
-            const { daily } = rolloverDailyQuests(parsed.quests.daily ?? [], parsed.quests.date, today);
+            const { daily } = resolveDailyQuests(parsed.quests.daily ?? [], parsed.quests.date, today);
             setQuests({ ...parsed.quests, daily, date: today });
           }
         }
@@ -376,9 +387,29 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     return { dayStreak: 0, grantedCoins: 0, milestonesReached: [] };
   };
 
+  // 🎁 Nhận thưởng đăng nhập mỗi ngày (server idempotent 1 lần/ngày VN). Trả xu
+  // vừa nhận (0 nếu hôm nay đã nhận) để trang chủ hiện toast. Mẫu như syncDayStreak.
+  const claimDailyLogin = async () => {
+    try {
+      const res = await fetch('/api/economy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'dailyLogin' }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.state) syncEconomy(data.state); // đồng bộ số dư nếu vừa cộng xu
+        return { grantedCoins: data.claimed ? (data.granted?.coins ?? 0) : 0 };
+      }
+    } catch (e) {
+      console.error('Failed to claim daily login', e);
+    }
+    return { grantedCoins: 0 };
+  };
+
   const incrementCorrectAnswers = () => {
     setUserStats(prev => ({ ...prev, correctAnswersCountToday: prev.correctAnswersCountToday + 1 }));
-    updateQuestProgress('q1', 1);
+    updateQuestProgress('answer', 1);
   };
 
   // 🔴 ROOT A (2026-07-04): phần thưởng 1 câu luyện tập giờ do `/api/grade` quyết
@@ -540,30 +571,36 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     });
   };
 
-  const upgradeItem = (instanceId: string) => {
+  const upgradeItem = (instanceId: string, useBua: boolean = false) => {
     const itemIndex = inventory.findIndex(i => typeof i === 'object' && i.instanceId === instanceId);
     if (itemIndex === -1) return { success: false, message: "Không tìm thấy trang bị!" };
-    
+
     const item = inventory[itemIndex] as Equipment;
     const { coins: costCoins } = getForgeCost(item.tier, item.level);
-    
+
     if (userStats.coins < costCoins) {
       return { success: false, message: `Không đủ ${costCoins} Xu để cường hóa!` };
     }
-    
+
     setUserStats(prev => ({ ...prev, coins: prev.coins - costCoins }));
     postSpend(costCoins);
 
-    const result = attemptUpgrade(item.tier, item.level);
-    
+    // Bùa Bảo Hộ tái dùng Khiên Bảo Vệ Streak (shield): bật + còn khiên → fail thì
+    // giữ nguyên cấp, tiêu 1 khiên. Helper trả buaUsed để context trừ shield.
+    const hasBua = userStats.shield > 0;
+    const result = attemptUpgrade(item.tier, item.level, useBua, hasBua);
+
     const newInventory = [...inventory];
     newInventory[itemIndex] = { ...item, level: result.newLevel };
     setInventory(newInventory);
-    
+
     if (result.success) {
       setUserStats(prev => ({ ...prev, maxPower: prev.maxPower + 15 }));
     }
-    
+    if (result.buaUsed) {
+      setUserStats(prev => ({ ...prev, shield: Math.max(0, prev.shield - 1) }));
+    }
+
     return { success: result.success, message: result.message };
   };
 
@@ -627,10 +664,18 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     setUserStats(prev => ({ ...prev, activePet: petId }));
   };
 
-  const updateQuestProgress = (questId: string, amount: number) => {
+  // Cập nhật tiến độ quest theo TRACK (answer/vocab/exam) — vì id quest giờ xoay
+  // vòng theo ngày (q1/q1b/q1c...), không còn cố định. Fallback: quest dữ liệu cũ
+  // chưa có track → match theo id gốc q1/q2/q3 (tương thích ngược).
+  const TRACK_LEGACY_ID: Record<QuestTrack, string> = { answer: 'q1', vocab: 'q2', exam: 'q3' };
+  const updateQuestProgress = (track: QuestTrack, amount: number) => {
     setQuests(prev => {
-      // Find quest in daily
-      const updatedDaily = prev.daily.map(q => q.id === questId ? { ...q, progress: Math.min(q.target, q.progress + amount) } : q);
+      const legacyId = TRACK_LEGACY_ID[track];
+      const updatedDaily = prev.daily.map(q =>
+        (q.track === track || (!q.track && q.id === legacyId))
+          ? { ...q, progress: Math.min(q.target, q.progress + amount) }
+          : q
+      );
       return { ...prev, daily: updatedDaily };
     });
   };
@@ -702,7 +747,7 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
 
       unlockedBadges,
 
-      incrementCorrectAnswers, registerGradedResult, syncServerEconomy, syncDayStreak, spinDailyWheel, buyItem, redeemReward, spendCoins, toggleBookmark, upgradeItem, fightPvP, equipPet,
+      incrementCorrectAnswers, registerGradedResult, syncServerEconomy, syncDayStreak, claimDailyLogin, spinDailyWheel, buyItem, redeemReward, spendCoins, toggleBookmark, upgradeItem, fightPvP, equipPet,
       updateQuestProgress, claimQuest,
       soundEnabled, setSoundEnabled, focusMode, setFocusMode,
       hideBanner, setHideBanner, learningMode, setLearningMode,

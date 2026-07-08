@@ -21,6 +21,8 @@
  * ============================================================================
  */
 
+import { QUEST_REWARD_MAP } from './quests';
+
 export type Difficulty = 'Easy' | 'Medium' | 'Hard';
 
 export interface EconomyState {
@@ -164,16 +166,12 @@ export function applyExamRewardFromDifficulties(
 
 /**
  * BẢNG THƯỞNG NHIỆM VỤ CỐ ĐỊNH Ở SERVER, keyed theo questId.
- * Client chỉ gửi questId — KHÔNG gửi số xu/XP. Trước đây client tự gửi
- * `addReward(q.xp, q.coins)` với q.xp/q.coins lấy từ state client (bơm tùy ý).
- * Nay server tra bảng này → đóng vector cheat (§9.1). Phải khớp DEFAULT_STATE
- * quests trong /api/load-data.
+ * Client chỉ gửi questId — KHÔNG gửi số xu/XP. Server tra bảng này → đóng vector
+ * cheat (§9.1). DẪN XUẤT từ QUEST_POOL (quests.ts) → mọi biến thể quest xoay vòng
+ * đều có reward, không cần bảng tay (đóng drift-risk khi thêm quest mà quên thưởng).
+ * q1/q2/q3 (biến thể đầu mỗi track) vẫn có mặt → tương thích ngược.
  */
-export const QUEST_REWARD: Record<string, { coins: number; xp: number }> = {
-  q1: { coins: 10, xp: 50 },   // Khởi động ngày mới — làm đúng 5 câu
-  q2: { coins: 20, xp: 100 },  // Chúa tể ngôn từ — học 10 từ vựng
-  q3: { coins: 100, xp: 500 }, // Kẻ hủy diệt Practice Test — hoàn thành 1 bài thi thử
-};
+export const QUEST_REWARD: Record<string, { coins: number; xp: number }> = QUEST_REWARD_MAP;
 
 /**
  * Phần thưởng khi NHẬN nhiệm vụ (claim quest). Server tra QUEST_REWARD theo

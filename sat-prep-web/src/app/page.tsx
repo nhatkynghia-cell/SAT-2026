@@ -11,7 +11,7 @@ import { DiagnosticBanner } from '@/components/DiagnosticBanner';
 export default function Home() {
   const {
     level, masteredCount, totalNodes, coins, shields, maxPower, dayStreak,
-    syncDayStreak,
+    syncDayStreak, claimDailyLogin,
     soundEnabled, setSoundEnabled,
     focusMode, setFocusMode,
     hideBanner, setHideBanner,
@@ -33,9 +33,14 @@ export default function Home() {
         const topMilestone = Math.max(...r.milestonesReached);
         showToast(`🔥 Chuỗi ${topMilestone} ngày! Nhận thưởng ${r.grantedCoins} Xu. Giữ lửa nhé!`, 'success');
       }
+      // 🎁 Thưởng đăng nhập mỗi ngày (server idempotent 1 lần/ngày VN).
+      const login = await claimDailyLogin();
+      if (login.grantedCoins > 0) {
+        showToast(`🎁 Điểm danh hôm nay: +${login.grantedCoins} Xu! Mai quay lại nhé.`, 'success');
+      }
     }
     sync();
-  }, [syncDayStreak, showToast]);
+  }, [syncDayStreak, claimDailyLogin, showToast]);
 
 
   // Thanh tiến trình giờ phản ánh ĐỘ PHỦ KỸ NĂNG (số skill đã tinh thông),

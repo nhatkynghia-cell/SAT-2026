@@ -49,7 +49,7 @@ export default function VocabPage() {
         syncServerEconomy(data.economy);
       }
 
-      updateQuestProgress('q2', 1);
+      updateQuestProgress('vocab', 1);
 
       setIsFlipped(false);
       setCurrentIndex(prev => prev + 1);

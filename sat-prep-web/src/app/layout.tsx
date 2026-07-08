@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { AuthProvider } from "@/context/AuthContext";
 import { GamificationProvider } from "@/context/GamificationContext";
 import { ToastProvider } from "@/context/ToastContext";
+import { BadgeUnlockWatcher } from "@/components/BadgeUnlockWatcher";
 
 export const metadata: Metadata = {
   title: "Gia sư AI SAT - Phú Gia Education",
@@ -24,6 +25,7 @@ export default function RootLayout({
         <AuthProvider>
           <GamificationProvider>
             <ToastProvider>
+              <BadgeUnlockWatcher />
               <Sidebar />
 
               <main className="flex-1 overflow-y-auto">

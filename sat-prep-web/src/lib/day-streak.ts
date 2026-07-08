@@ -79,6 +79,15 @@ export const STREAK_MILESTONE_REWARD: Record<number, number> = {
  *  KHÁC HẲN ngày 'YYYY-MM-DD' nên không đụng quest daily dùng chung cột). */
 export const STREAK_CLAIM_KEY = '__streak_milestones__';
 
+/** Sentinel key trong quest_claims để lưu các NGÀY đã nhận thưởng đăng nhập.
+ *  Mỗi ngày VN mở app lần đầu → +DAILY_LOGIN_COINS (quick-hit dopamine, tách
+ *  khỏi mốc streak). Idempotent: ngày đã có trong mảng thì không cộng lại. */
+export const DAILY_LOGIN_KEY = '__daily_login__';
+
+/** Xu thưởng đăng nhập mỗi ngày. KHÔNG nhân hệ số gói (không phải nỗ lực học —
+ *  cùng triết lý spin/mốc streak: chỉ hành động nỗ lực mới được tier nhân xu). */
+export const DAILY_LOGIN_COINS = 20;
+
 export interface StreakGrant {
   /** Các mốc (ngày) mới đạt mà chưa nhận thưởng. */
   milestones: number[];

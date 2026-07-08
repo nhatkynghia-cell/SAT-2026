@@ -18,7 +18,7 @@ import {
 import { getUserTier } from '@/lib/subscription-store';
 import { TIER_COIN_MULTIPLIER } from '@/lib/subscription';
 import { loadSnapshots, todayVN } from '@/lib/daily-snapshot-store';
-import { computeDayStreak, pendingStreakGrant, STREAK_CLAIM_KEY } from '@/lib/day-streak';
+import { computeDayStreak, pendingStreakGrant, STREAK_CLAIM_KEY, DAILY_LOGIN_KEY, DAILY_LOGIN_COINS } from '@/lib/day-streak';
 
 /**
  * ECONOMY API (server-authoritative) — implementation_plan.md §9.1, task #2
@@ -123,6 +123,26 @@ export async function POST(req: Request) {
         granted: { coins: grant.coins },
         milestonesReached: grant.milestones,
         state: grant.coins > 0 ? { ...state, coins: state.coins + grant.coins } : state,
+      });
+    }
+
+    if (action === 'dailyLogin') {
+      // 🎁 Thưởng đăng nhập mỗi ngày (quick-hit, tách khỏi mốc streak). Idempotent
+      // qua quest_claims sentinel DAILY_LOGIN_KEY: mảng chứa các NGÀY VN đã nhận.
+      // Ngày hôm nay đã có → không cộng lại (server quyết, client không gửi số xu).
+      const today = todayVN();
+      const claimedDays = await loadQuestClaims(user.id, DAILY_LOGIN_KEY);
+      if (claimedDays.includes(today)) {
+        return NextResponse.json({ success: true, claimed: false, granted: { coins: 0 }, state });
+      }
+      const next = { ...state, coins: state.coins + DAILY_LOGIN_COINS };
+      await saveEconomy(user.id, next);
+      await saveQuestClaim(user.id, DAILY_LOGIN_KEY, today);
+      return NextResponse.json({
+        success: true,
+        claimed: true,
+        granted: { coins: DAILY_LOGIN_COINS },
+        state: next,
       });
     }
 
