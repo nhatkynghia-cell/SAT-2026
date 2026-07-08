@@ -45,6 +45,7 @@ const MENU_GROUPS = [
       { name: '📜 Sổ Tay Nhiệm Vụ', path: '/quests' },
       { name: '🗼 Tháp Vô Tận', path: '/tower' },
       { name: '🏟️ Đấu Trường PvP', path: '/pvp' },
+      { name: '🏆 Bảng Xếp Hạng', path: '/leaderboard' },
       { name: '⚒️ Lò Rèn Chiến Binh', path: '/forge' },
       { name: '🗺️ Hành Trình Chinh Phục', path: '/journey' },
       { name: '📔 Thư Viện Quái Thú', path: '/pets' },
