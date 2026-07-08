@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --import ./src/test-int/loader-register.mjs --test \"src/**/*.test.ts\" \"src/test-int/**/*.test.mjs\""
+    "test": "node --import ./src/test-int/loader-register.mjs --test \"src/**/*.test.ts\" \"src/test-int/**/*.test.mjs\"",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
@@ -26,6 +27,7 @@
     "vnpay": "^2.5.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

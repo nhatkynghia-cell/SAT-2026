@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { isE2E, E2E_USER_ID } from '@/lib/e2e';
 
 /**
  * ============================================================================
@@ -37,6 +38,12 @@ export interface CurrentUser {
  * Đã tích hợp Supabase Auth.
  */
 export async function getCurrentUser(): Promise<CurrentUser> {
+  // E2E: khi E2E_TEST_MODE=1 (chỉ máy test), trả user test cố định, KHÔNG gọi
+  // Supabase. Env không set trên prod → nhánh này coi như không tồn tại. Xem src/lib/e2e.ts.
+  if (isE2E()) {
+    return { id: E2E_USER_ID, isAuthenticated: true };
+  }
+
   try {
     const supabase = await createClient();
     const { data, error } = await supabase.auth.getUser();

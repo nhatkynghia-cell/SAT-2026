@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isE2E, E2E_COOKIE } from '@/lib/e2e'
 
 /**
  * Các path CÔNG KHAI — KHÔNG ép đăng nhập (khớp bằng prefix).
@@ -25,6 +26,13 @@ function isPublicPath(path: string): boolean {
 }
 
 export async function updateSession(request: NextRequest) {
+  // E2E: khi E2E_TEST_MODE=1 (chỉ máy test) VÀ có cookie e2e_auth → coi như đã
+  // đăng nhập, cho qua thẳng (bỏ Supabase). Cần CẢ env LẪN cookie (defense-in-depth):
+  // env không set trên prod → nhánh này chết; cookie thiếu → vẫn đi đường auth thật.
+  if (isE2E() && request.cookies.get(E2E_COOKIE)) {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({
     request,
   })

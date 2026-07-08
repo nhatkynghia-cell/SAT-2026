@@ -7,6 +7,7 @@ import { getMasterySummary } from '@/lib/mastery';
 import { loadGates } from '@/lib/gate-store';
 import { buildSkillTree } from '@/lib/skill-tree';
 import { getUserTier } from '@/lib/subscription-store';
+import { isE2E, e2eModule } from '@/lib/e2e';
 
 /**
  * BẮT ĐẦU 1 SECTION THI ADAPTIVE (RW hoặc Math) — sinh Module 1 + phát đề.
@@ -38,6 +39,11 @@ export async function POST(request: NextRequest) {
 
     if (!section) {
       return NextResponse.json({ error: 'section phải là "rw" hoặc "math"' }, { status: 400 });
+    }
+
+    // E2E: trả module đề TẤT ĐỊNH (bỏ OpenAI + DB) để Playwright chạy offline/nhanh.
+    if (isE2E()) {
+      return NextResponse.json({ section, mode, module: e2eModule(section, 1) });
     }
 
     // Thi Thật (QAS): gate tier + năng lực server-side (đóng lỗ hổng gate-level client).

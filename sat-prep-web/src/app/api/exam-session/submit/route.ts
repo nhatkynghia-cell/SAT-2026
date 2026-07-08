@@ -8,6 +8,7 @@ import { getUserTier } from '@/lib/subscription-store';
 import { TIER_COIN_MULTIPLIER } from '@/lib/subscription';
 import { generateModule } from '@/lib/exam-generator';
 import { determineAdaptivePath } from '@/lib/exam-scoring';
+import { isE2E, e2eModule, e2eGrade, E2E_ECONOMY } from '@/lib/e2e';
 
 /**
  * NỘP 1 MODULE THI ADAPTIVE — server chấm + thưởng, và (nếu Module 1) sinh Module 2.
@@ -47,6 +48,26 @@ export async function POST(request: NextRequest) {
 
     if (!section || !moduleNum) {
       return NextResponse.json({ error: 'section/moduleNum không hợp lệ' }, { status: 400 });
+    }
+
+    // E2E: chấm tất định (đáp án "A" = đúng), bỏ DB/OpenAI. Module 1 → trả Module 2
+    // tất định; Module 2 → kết thúc section. Đủ để drive luồng UI tới bảng điểm.
+    if (isE2E()) {
+      const correctE2E = e2eGrade(rawAnswers);
+      if (moduleNum === 1) {
+        return NextResponse.json({
+          moduleResult: { correct: correctE2E, total: rawAnswers.length },
+          adaptivePath: 'hard',
+          granted: { coins: 0, xp: 0 },
+          economy: E2E_ECONOMY,
+          module: e2eModule(section, 2),
+        });
+      }
+      return NextResponse.json({
+        moduleResult: { correct: correctE2E, total: rawAnswers.length },
+        granted: { coins: 0, xp: 0 },
+        economy: E2E_ECONOMY,
+      });
     }
 
     const answers: SubmittedAnswer[] = rawAnswers
