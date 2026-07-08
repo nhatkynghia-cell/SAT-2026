@@ -18,9 +18,12 @@ export default function PetsPage() {
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
-          { id: "pet_1", name: "Cú Thông Thái", icon: "🦉", buff: "+10% XP khi học Reading", unlockLevel: 1 },
-          { id: "pet_2", name: "Sói Cô Độc", icon: "🐺", buff: "+20% sát thương PvP", unlockLevel: 3 },
-          { id: "pet_3", name: "Rồng Lửa", icon: "🐉", buff: "+50% Vàng nhận được", unlockLevel: 6 }
+          // Linh thú ĐỒNG HÀNH (thẩm mỹ) — mở khóa theo số kỹ năng tinh thông.
+          // KHÔNG hứa % buff xu/XP/PvP: xu/XP do server chấm cố định, lực PvP CHỈ
+          // từ mastery học thật (chống pay/grind-to-win). Buff giả cũ đã bỏ.
+          { id: "pet_1", name: "Cú Thông Thái", icon: "🦉", buff: "Người bạn khởi đầu — luôn đồng hành từ những kỹ năng đầu tiên.", unlockLevel: 1 },
+          { id: "pet_2", name: "Sói Cô Độc", icon: "🐺", buff: "Mở khi tinh thông 2 kỹ năng — dấu mốc kiên trì của bạn.", unlockLevel: 3 },
+          { id: "pet_3", name: "Rồng Lửa", icon: "🐉", buff: "Mở khi tinh thông 5 kỹ năng — biểu tượng cho hành trình bền bỉ.", unlockLevel: 6 }
         ].map((pet, idx) => {
           const isLocked = level < pet.unlockLevel;
           const isActive = activePet === pet.id || (activePet === null && idx === 0 && !isLocked); // Default to first if none equipped
@@ -31,8 +34,8 @@ export default function PetsPage() {
               {isLocked && <div className="absolute top-2 right-2 bg-[#475569] text-white text-xs px-2 py-1 rounded-full font-bold">Mở ở LV {pet.unlockLevel}</div>}
               <div className="text-6xl mb-4 mt-4">{isLocked ? '🔒' : pet.icon}</div>
               <h3 className="text-xl font-bold text-white mb-1">{isLocked ? 'Chưa mở khóa' : pet.name}</h3>
-              <div className="text-sm text-[#f472b6] font-bold mb-4">{!isLocked && `Level ${Math.floor(level / pet.unlockLevel)}`}</div>
-              <p className="text-gray-400 text-sm mb-6 h-10">{isLocked ? 'Cần đạt cấp độ cao hơn để mở khóa linh thú này.' : pet.buff}</p>
+              <div className="text-sm text-[#f472b6] font-bold mb-4">{!isLocked && '🐾 Bạn đồng hành'}</div>
+              <p className="text-gray-400 text-sm mb-6 min-h-[3.5rem]">{isLocked ? 'Cần tinh thông thêm kỹ năng để mở khóa linh thú này.' : pet.buff}</p>
               <button 
                 disabled={isLocked || isActive} 
                 onClick={() => equipPet(pet.id)}

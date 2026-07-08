@@ -39,25 +39,21 @@ export const getSuccessRate = (tier: Tier, level: number): number => {
   return 100;
 };
 
-export const attemptUpgrade = (tier: Tier, level: number, useBua: boolean = false) => {
+export const attemptUpgrade = (tier: Tier, level: number) => {
   const maxLvl = getMaxLevel(tier);
   if (level >= maxLvl) return { success: false, message: `Trang bị đã đạt cấp tối đa (+${maxLvl})!`, newLevel: level };
-  
+
   const rate = getSuccessRate(tier, level);
   const roll = Math.floor(Math.random() * 100) + 1; // 1 to 100
-  
+
   if (roll <= rate) {
     return { success: true, message: `Cường hóa thành công! Trang bị đạt cấp +${level + 1} 🎉`, newLevel: level + 1 };
-  } else {
-    // Fail
-    if (useBua) {
-      return { success: false, message: "Cường hóa thất bại! May mắn có Bùa Bảo Hộ nên trang bị giữ nguyên cấp độ. 🛡️", newLevel: level };
-    } else {
-      if (level > 1) {
-        return { success: false, message: `CƯỜNG HÓA THẤT BẠI! Trang bị của bạn đã bị rớt xuống cấp +${level - 1} 😭`, newLevel: level - 1 };
-      } else {
-        return { success: false, message: "Cường hóa thất bại! Đá cường hóa đã bị vỡ vụn... ⚡", newLevel: level };
-      }
-    }
   }
+
+  // Thất bại: rớt 1 cấp (nếu >1), hoặc vỡ đá giữ nguyên cấp 1. (Nhánh "Bùa Bảo
+  // Hộ" giữ cấp đã gỡ — chưa từng có nút kích hoạt nào truyền useBua=true.)
+  if (level > 1) {
+    return { success: false, message: `CƯỜNG HÓA THẤT BẠI! Trang bị của bạn đã bị rớt xuống cấp +${level - 1} 😭`, newLevel: level - 1 };
+  }
+  return { success: false, message: "Cường hóa thất bại! Đá cường hóa đã bị vỡ vụn... ⚡", newLevel: level };
 };

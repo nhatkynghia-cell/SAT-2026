@@ -44,13 +44,5 @@ export const getPvpRankName = (rank: number): string => {
   return "Huyền Thoại Thách Đấu";
 };
 
-export const calculateFightResult = (playerPower: number, opponentPower: number): boolean => {
-  // Simple algorithm: higher power has higher chance, but some randomness
-  const totalPower = playerPower + opponentPower;
-  if (totalPower === 0) return false;
-  
-  const winProbability = playerPower / totalPower;
-  const roll = Math.random();
-  
-  return roll <= winProbability;
-};
+// (đã gỡ calculateFightResult — dead code client-side, không caller. Kết quả PvP
+//  do SERVER quyết trong resolvePvpFight (@/lib/economy) dựa lực chiến từ mastery.)

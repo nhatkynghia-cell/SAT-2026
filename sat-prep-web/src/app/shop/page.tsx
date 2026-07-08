@@ -54,9 +54,12 @@ export default function ShopPage() {
   }, []);
 
   const handleBuyItem = (price: number, name: string, id: string) => {
-    const success = buyItem(id, price);
-    if (success) {
-      showToast(`🎉 Mua thành công: ${name}!`, 'success');
+    const result = buyItem(id, price);
+    if (result.success) {
+      const powerMsg = result.maxPowerGained ? ` (+${result.maxPowerGained} Lực chiến)` : '';
+      showToast(`🎉 Mua thành công: ${name}!${powerMsg}`, 'success');
+    } else if (result.reason === 'already_owned') {
+      showToast(`⚠️ Bạn đã sở hữu ${name} rồi. Trang bị chỉ cần mua một lần.`, 'error');
     } else {
       showToast(`❌ Không đủ Xu để mua ${name}. Hãy cày cuốc thêm!`, 'error');
     }

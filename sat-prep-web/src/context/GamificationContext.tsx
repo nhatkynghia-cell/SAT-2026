@@ -3,30 +3,20 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { attemptUpgrade, getForgeCost, Equipment } from '@/helpers/forge';
 import { PVP_OPPONENTS } from '@/helpers/pvp';
+import { computeUnlockedBadges, resolveStreakOnWrong, rolloverDailyQuests, resolveBuy } from '@/lib/rpg-rules';
 
 export type InventoryItem = string | Equipment;
 
-export interface BadgeState {
-  level: number;
-  maxPower: number;
-  coins: number;
+// Kết quả mua hàng: phân biệt thiếu xu vs mua trùng đồ vĩnh viễn (shop hiện toast
+// khác nhau); maxPowerGained để hiện "+X Lực chiến" khi mua trang bị.
+export interface BuyResult {
+  success: boolean;
+  reason?: 'insufficient' | 'already_owned';
+  maxPowerGained?: number;
 }
 
-// Static Badge Database
-// ⚠️ Ngưỡng theo THANG KỸ NĂNG mới (level = số skill tinh thông + 1, tối đa ~19),
-// KHÔNG còn Level phẳng 1-200 (§10). req_desc mô tả theo số chương/skill.
-export const BADGE_CATALOG = [
-  { id: "b_1", title: "Tân Binh Xuất Thế", req_desc: "Tinh thông 1 kỹ năng", icon: "🥉", category: "Tu Vi", check: (state: BadgeState) => state.level >= 2 },
-  { id: "b_2", title: "Kiếm Khách SAT", req_desc: "Tinh thông 3 kỹ năng", icon: "🗡️", category: "Tu Vi", check: (state: BadgeState) => state.level >= 4 },
-  { id: "b_3", title: "Đại Pháp Sư SAT", req_desc: "Tinh thông 6 kỹ năng", icon: "🧙‍♂️", category: "Tu Vi", check: (state: BadgeState) => state.level >= 7 },
-  { id: "b_4", title: "Đỉnh Phong Thủ Khoa", req_desc: "Tinh thông 10 kỹ năng", icon: "👑", category: "Tu Vi", check: (state: BadgeState) => state.level >= 11 },
-  { id: "b_5", title: "Thần Thoại Học Thuật", req_desc: "Tinh thông 14 kỹ năng", icon: "🌟", category: "Tu Vi", check: (state: BadgeState) => state.level >= 15 },
-  
-  { id: "l_1", title: "Sức Mạnh Đánh Thức", req_desc: "Cần 100 Lực chiến", icon: "🔥", category: "Lực Chiến", check: (state: BadgeState) => state.maxPower >= 100 },
-  { id: "l_2", title: "Kẻ Phá Vỡ Giới Hạn", req_desc: "Cần 300 Lực chiến", icon: "⚔️", category: "Lực Chiến", check: (state: BadgeState) => state.maxPower >= 300 },
-  
-  { id: "c_1", title: "💰 Phú Hộ Học Thuật", req_desc: "Tích lũy 500 Xu", icon: "💰", category: "Chiến Tích", check: (state: BadgeState) => state.coins >= 500 }
-];
+// Badge catalog + logic dẫn xuất chuyển sang @/lib/rpg-rules (nguồn DUY NHẤT,
+// unit-test được). BadgeSystem.tsx cũng import trực tiếp từ đó — hết trùng ID.
 
 export const ITEM_CATALOG = [
   { id: "skin_1", name: "Đại Pháp Sư Desmos", icon: "🧙‍♂️", type: "skin", price: 1500, effectClass: "shadow-[0_0_20px_#8b5cf6] animate-pulse text-purple-400 border-[#8b5cf6]" },
@@ -83,6 +73,9 @@ export interface QuestsState {
   daily: Quest[];
   weekly: Quest[];
   monthly: Quest[];
+  /** Ngày (YYYY-MM-DD) của bộ daily hiện tại. Khi load mà != hôm nay → reset
+   *  daily về progress 0/claimed false (nhiệm vụ ngày làm mới mỗi ngày). */
+  date?: string;
 }
 
 type GamificationState = {
@@ -127,7 +120,7 @@ type GamificationState = {
   syncServerEconomy: (economy: { coins?: number; xp?: number; lastSpinDate?: string | null } | null | undefined) => void;
   incrementCorrectAnswers: () => void;
   spinDailyWheel: () => Promise<{ success: boolean, message: string, rewardType: string }>;
-  buyItem: (itemId: string, price: number) => boolean;
+  buyItem: (itemId: string, price: number) => BuyResult;
   // 🔴 Đổi xu lấy quà THẬT (Phase 2 Bước 3): server tra REWARDS lấy giá + trừ xu
   // ATOMIC + tạo phiếu fulfillment (/api/redeem). Client CHỈ gửi rewardId, KHÔNG
   // gửi số xu; đồng bộ số dư MỚI từ server. Trả kết quả để UI hiện toast.
@@ -156,6 +149,16 @@ type GamificationState = {
   questionKey: number;
   incrementQuestionKey: () => void;
 };
+
+/** Ngày local YYYY-MM-DD (chỉ để reset UI nhiệm vụ ngày — tiền vẫn do server
+ *  quyết theo ngày server ở /api/economy). Dùng local để khớp cảm nhận "hôm nay"
+ *  của học sinh; lệch múi giờ chỉ ảnh hưởng thời điểm nút quest mở lại. */
+function clientToday(): string {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
 
 const GamificationContext = createContext<GamificationState | undefined>(undefined);
 
@@ -238,7 +241,15 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
             setPracticeQuestion(prev => ({ ...prev, bookmarkedQuestions: parsed.bookmarkedQuestions }));
           }
 
-          if (parsed.quests) setQuests(parsed.quests);
+          if (parsed.quests) {
+            // Reset nhiệm vụ NGÀY nếu bộ quests đã lưu thuộc ngày cũ (hoặc chưa có
+            // dấu ngày — dữ liệu trước bản này). Trước đây progress/claimed đứng im
+            // vĩnh viễn sau ngày 1. Server vẫn quyết tiền claim (QUEST_REWARD, scope
+            // theo ngày ở saveQuestClaim) — reset chỉ mở lại nút cho ngày mới.
+            const today = clientToday();
+            const { daily } = rolloverDailyQuests(parsed.quests.daily ?? [], parsed.quests.date, today);
+            setQuests({ ...parsed.quests, daily, date: today });
+          }
         }
 
         // 2) Economy server-authoritative: ghi đè coins/xp/lastSpinDate.
@@ -339,7 +350,12 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     economy?: { coins?: number; xp?: number; lastSpinDate?: string | null } | null
   ): { comboMultiplier: number } => {
     if (!isCorrect) {
-      setUserStats(prev => ({ ...prev, streak: 0 }));
+      // Khiên Bảo Vệ Streak (shield_1): còn khiên → tiêu 1, GIỮ chuỗi; hết → về 0.
+      // Cosmetic (chỉ cứu combo ×1.5, không phải vector tiền — xem rpg-rules.ts).
+      setUserStats(prev => {
+        const r = resolveStreakOnWrong(prev.streak, prev.shield);
+        return { ...prev, streak: r.streak, shield: r.shield };
+      });
       return { comboMultiplier: 1.0 };
     }
 
@@ -390,25 +406,34 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     return { success: false, message: 'Lỗi kết nối, vui lòng thử lại sau.', rewardType: 'none' };
   };
 
-  const buyItem = (itemId: string, price: number) => {
-    if (userStats.coins >= price) {
-      setUserStats(prev => {
-        const newState = { ...prev, coins: prev.coins - price };
-        if (itemId.includes("shield")) newState.shield += 1;
-        if (itemId.includes("power")) newState.maxPower += 10;
-        return newState;
-      });
-      postSpend(price);
+  const buyItem = (itemId: string, price: number): BuyResult => {
+    // resolveBuy (thuần) quyết: đủ xu? · đồ vĩnh viễn đã sở hữu? · maxPower/shield
+    // cộng thêm. Equipment/skin mua 1 LẦN (chống bơm maxPower ảo bằng mua lại);
+    // consumable mua lặp. maxPower là cosmetic (không bơm lực PvP — xem rpg-rules).
+    const item = ITEM_CATALOG.find(i => i.id === itemId);
+    const type = item?.type ?? 'consumable';
+    const owned = inventory.filter((i): i is string => typeof i === 'string');
+    const decision = resolveBuy({ id: itemId, type, price }, userStats.coins, owned);
 
-      setInventory(prev => [...prev, itemId]);
-      
-      if (itemId.includes("da_cuong_hoa")) {
-        setInventory(prev => [...prev, { instanceId: `eq_${Date.now()}`, itemId: "da_cuong_hoa", name: "Đá Cường Hóa", tier: "Đồng", level: 1, icon: "🪨", isBound: true }]);
-      }
-      
-      return true;
+    if (!decision.ok) {
+      return { success: false, reason: decision.reason };
     }
-    return false;
+
+    setUserStats(prev => ({
+      ...prev,
+      coins: prev.coins - price,
+      shield: prev.shield + decision.shieldDelta,
+      maxPower: prev.maxPower + decision.maxPowerDelta,
+    }));
+    postSpend(price);
+
+    setInventory(prev => [...prev, itemId]);
+
+    if (itemId.includes("da_cuong_hoa")) {
+      setInventory(prev => [...prev, { instanceId: `eq_${Date.now()}`, itemId: "da_cuong_hoa", name: "Đá Cường Hóa", tier: "Đồng", level: 1, icon: "🪨", isBound: true }]);
+    }
+
+    return { success: true, maxPowerGained: decision.maxPowerDelta };
   };
 
   // 🔴 Đổi xu lấy quà THẬT (Phase 2 Bước 3). KHÁC buyItem (item ẢO, optimistic):
@@ -488,7 +513,7 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     setUserStats(prev => ({ ...prev, coins: prev.coins - costCoins }));
     postSpend(costCoins);
 
-    const result = attemptUpgrade(item.tier, item.level, false);
+    const result = attemptUpgrade(item.tier, item.level);
     
     const newInventory = [...inventory];
     newInventory[itemIndex] = { ...item, level: result.newLevel };
@@ -555,7 +580,10 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
   };
 
   const equipPet = (petId: string) => {
-    setUserStats(prev => ({ ...prev, activePet: petId, maxPower: prev.maxPower + 50 }));
+    // Chỉ đổi linh thú đang theo (cosmetic). TRƯỚC ĐÂY cộng dồn +50 maxPower MỖI
+    // lần đổi → bơm lực ảo vô hạn (đổi qua-lại nhiều lần). Pet là bạn đồng hành
+    // thẩm mỹ, không cộng chỉ số (mô tả buff đã bỏ khỏi pets/page.tsx).
+    setUserStats(prev => ({ ...prev, activePet: petId }));
   };
 
   const updateQuestProgress = (questId: string, amount: number) => {
@@ -595,10 +623,10 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
 
   // Badge: neo vào level (đã DẪN XUẤT từ masteredCount), coins, maxPower.
   // useMemo (không phải effect+setState) — thuần dẫn xuất, tránh cascading render.
-  const unlockedBadges = useMemo(() => {
-    const state = { level: userStats.level, coins: userStats.coins, maxPower: userStats.maxPower };
-    return BADGE_CATALOG.filter(b => b.check(state)).map(b => b.id);
-  }, [userStats.level, userStats.coins, userStats.maxPower]);
+  const unlockedBadges = useMemo(
+    () => computeUnlockedBadges({ level: userStats.level, coins: userStats.coins, maxPower: userStats.maxPower }),
+    [userStats.level, userStats.coins, userStats.maxPower]
+  );
 
   if (!isLoaded) {
     return (

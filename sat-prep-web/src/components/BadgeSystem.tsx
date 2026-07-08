@@ -2,28 +2,14 @@
 
 import { useState } from 'react';
 import { useGamification } from '@/context/GamificationContext';
+import { BADGE_CATALOG } from '@/lib/rpg-rules';
 import { cn } from '@/lib/utils';
 
-// Static Data for UI mockup (Logic sẽ được nối với DB ở Phase 2)
-const BADGES = [
-  { id: "b_1", title: "Tân Binh Xuất Thế", req_desc: "Tinh thông 1 kỹ năng", icon: "🥉", category: "Tu Vi" },
-  { id: "b_2", title: "Kiếm Khách SAT", req_desc: "Tinh thông 3 kỹ năng", icon: "🗡️", category: "Tu Vi" },
-  { id: "b_3", title: "Đại Pháp Sư SAT", req_desc: "Tinh thông 6 kỹ năng", icon: "🧙‍♂️", category: "Tu Vi" },
-  { id: "b_4", title: "Đỉnh Phong Thủ Khoa", req_desc: "Tinh thông 10 kỹ năng", icon: "👑", category: "Tu Vi" },
-  { id: "b_5", title: "Thần Thoại Học Thuật", req_desc: "Tinh thông 14 kỹ năng", icon: "🌟", category: "Tu Vi" },
-  
-  { id: "l_1", title: "Sức Mạnh Đánh Thức", req_desc: "Cần 100 Lực chiến", icon: "🔥", category: "Lực Chiến" },
-  { id: "l_2", title: "Kẻ Phá Vỡ Giới Hạn", req_desc: "Cần 300 Lực chiến", icon: "⚔️", category: "Lực Chiến" },
-  { id: "l_3", title: "💥 Đòn Đánh Chí Mạng", req_desc: "Cần 500 Lực chiến", icon: "💥", category: "Lực Chiến" },
-  { id: "l_4", title: "Chiến Thần Hủy Diệt", req_desc: "Cần 1000 Lực chiến", icon: "🌋", category: "Lực Chiến" },
-  { id: "l_5", title: "Chúa Tể Sức Mạnh", req_desc: "Cần 2000 Lực chiến", icon: "⚡", category: "Lực Chiến" },
-  
-  { id: "c_1", title: "🏹 Thợ Săn Tập Sự", req_desc: "Diệt 10 Boss", icon: "🏹", category: "Chiến Tích" },
-  { id: "c_2", title: "Sát Thần Giờ Vàng", req_desc: "Diệt 5 Boss Vàng", icon: "👹", category: "Chiến Tích" },
-  { id: "c_3", title: "🛡️ Chiến Binh Kiên Trì", req_desc: "Chuỗi 30 ngày", icon: "🛡️", category: "Chiến Tích" },
-  { id: "c_4", title: "🌌 Đại Sứ Bền Bỉ", req_desc: "Chuỗi 180 ngày", icon: "🌌", category: "Chiến Tích" },
-  { id: "c_5", title: "💰 Phú Hộ Học Thuật", req_desc: "Tích lũy 500 Xu", icon: "💰", category: "Chiến Tích" }
-];
+// Nguồn badge DUY NHẤT = BADGE_CATALOG (@/lib/rpg-rules) — cùng bảng mà context
+// dùng để chấm unlock. Trước đây file này có mảng BADGES TĨNH RIÊNG với ID trùng
+// khác nghĩa (c_1 = "Diệt 10 Boss" ở đây vs "Tích 500 Xu" ở catalog) → thắp sai
+// thẻ, thẻ đúng tắt vĩnh viễn. Nay chỉ hiện badge THẬT SỰ chấm được.
+const BADGES = BADGE_CATALOG;
 
 export function BadgeSystem() {
   const { unlockedBadges } = useGamification();
@@ -72,10 +58,6 @@ export function BadgeSystem() {
                   <div className="text-[13px] font-bold text-white mt-1 text-center leading-tight">{badge.title}</div>
                   <div className="text-[11px] text-[#34d399] mt-0.5">Đã mở 🔓</div>
                 </div>
-                {/* Button Nhận Quà Mock */}
-                <button className="mt-2 text-xs font-bold bg-[#262730] border border-[#404353] hover:border-[#fbbf24] hover:text-[#fbbf24] text-white py-1 px-3 rounded w-full transition-colors">
-                  🎁 Nhận Quà
-                </button>
               </div>
             );
           } else {
