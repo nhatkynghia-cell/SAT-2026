@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { loadEconomy, saveEconomy, loadPvpState, savePvpState, tryConsumePvpFightAtomic, loadQuestClaims, saveQuestClaim } from '@/lib/economy-store';
+import { loadEconomy, saveEconomy, loadPvpState, savePvpState, tryConsumePvpFightAtomic, loadQuestClaims, saveQuestClaim, tryClaimQuestRewardAtomic } from '@/lib/economy-store';
 import { getMasterySummary } from '@/lib/mastery';
 import { computeStats } from '@/lib/stats';
 import { PVP_OPPONENTS } from '@/helpers/pvp';
@@ -33,11 +33,14 @@ import { computeDayStreak, pendingStreakGrant, STREAK_CLAIM_KEY, DAILY_LOGIN_KEY
  *   { action: 'pvp',    targetRank }
  *
  * 🔴 Client KHÔNG gửi số xu/XP. Mọi con số do server tính từ bảng thưởng cố định.
+ *
+ * ⏰ "Hôm nay" DÙNG GIỜ VN (todayVN, UTC+7) cho MỌI ranh giới ngày: quest reset,
+ * spin 1-lượt/ngày, pvp cap/ngày — nhất quán với streak/dailyLogin (đã dùng
+ * todayVN). Trước đây quest/spin/pvp dùng UTC → "ngày mới" nhảy lúc 07:00 sáng
+ * VN (nửa đêm UTC) giữa buổi học, lệch cảm nhận học sinh. Đổi sang VN → mọi mốc
+ * reset đúng nửa đêm giờ VN. (Chuyển tiếp vô hại: VN date >= UTC date nên chỉ có
+ * thể cho reset SỚM hơn 1 lần lúc đổi, không mở faucet.)
  */
-
-function todayStr(): string {
-  return new Date().toISOString().split('T')[0];
-}
 
 export async function GET() {
   const user = await getCurrentUser();
@@ -77,7 +80,46 @@ export async function POST(req: Request) {
 
     if (action === 'quest') {
       const questId = typeof body.questId === 'string' ? body.questId : '';
-      const today = todayStr();
+      const today = todayVN();
+
+      // 🔴 ROOT A: số thưởng do SERVER tính từ QUEST_REWARD (client chỉ gửi questId).
+      const { state: next, granted } = applyQuestReward(state, questId, coinMult);
+
+      // questId lạ / không có thưởng → không đánh dấu claim, trả về luôn (khớp cũ).
+      if (granted.coins === 0 && granted.xp === 0) {
+        return NextResponse.json({ success: true, granted, state });
+      }
+
+      // Đường ATOMIC (ROOT C — chống race): RPC khóa dòng user_economy + kiểm
+      // questId đã nhận hôm nay chưa + cộng delta server-cấp TRONG 1 transaction
+      // → 2 request cùng questId đồng thời KHÔNG thể cộng xu 2 lần. Fail-safe
+      // null (RPC chưa có, pre-migration) → fallback đường load-check-save cũ.
+      const atomic = await tryClaimQuestRewardAtomic(user.id, questId, today, granted.coins, granted.xp);
+      if (atomic) {
+        if (atomic.ok) {
+          // RPC đã cộng coins/xp + ghi claim atomic. state mới lấy tổng từ RPC.
+          return NextResponse.json({
+            success: true,
+            granted,
+            state: { ...state, coins: atomic.coins, xp: atomic.xp },
+          });
+        }
+        if (atomic.reason === 'already_claimed') {
+          return NextResponse.json(
+            { success: false, error: 'Quest đã nhận hôm nay', code: 'ALREADY_CLAIMED' },
+            { status: 409 }
+          );
+        }
+        // rpc_error → fail-closed (KHÔNG cộng, tránh faucet). no_row (user chưa có
+        // economy row — hiếm, vì claim quest cần đã cày câu tạo row) → rơi xuống
+        // fallback bên dưới để upsert tạo row.
+        if (atomic.reason !== 'no_row') {
+          return NextResponse.json({ success: false, error: 'Không thể nhận thưởng lúc này.' }, { status: 500 });
+        }
+      }
+
+      // ── FALLBACK non-atomic (pre-migration hoặc no_row) — hành vi CŨ, race vẫn
+      // hở tới khi chạy quest_claim_atomic.sql. Giữ y nguyên để 0 regression. ──
       const claimed = await loadQuestClaims(user.id, today);
       if (claimed.includes(questId)) {
         return NextResponse.json(
@@ -85,10 +127,7 @@ export async function POST(req: Request) {
           { status: 409 }
         );
       }
-      const { state: next, granted } = applyQuestReward(state, questId, coinMult);
-      if (granted.coins > 0 || granted.xp > 0) {
-        await saveQuestClaim(user.id, today, questId);
-      }
+      await saveQuestClaim(user.id, today, questId);
       await saveEconomy(user.id, next);
       return NextResponse.json({ success: true, granted, state: next });
     }
@@ -157,7 +196,7 @@ export async function POST(req: Request) {
 
     if (action === 'spin') {
       // Random CHẠY Ở SERVER (client không gửi kết quả).
-      const result = applySpin(state, todayStr(), Math.random);
+      const result = applySpin(state, todayVN(), Math.random);
       if (result.ok) await saveEconomy(user.id, result.state);
       return NextResponse.json({
         success: result.ok,
@@ -181,7 +220,7 @@ export async function POST(req: Request) {
         );
       }
 
-      const today = todayStr();
+      const today = todayVN();
       // Đối thủ = hạng KẾ TRÊN theo rank THẬT ở server (bỏ qua targetRank client gửi).
       const targetRank = pvp.pvpRank - 1;
 

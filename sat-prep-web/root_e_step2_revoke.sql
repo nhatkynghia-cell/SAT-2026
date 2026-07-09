@@ -31,6 +31,14 @@ REVOKE EXECUTE ON FUNCTION consume_pvp_fight(uuid, int, boolean, text, int) FROM
 REVOKE EXECUTE ON FUNCTION increment_ai_usage(uuid, text, int, int) FROM public;
 REVOKE EXECUTE ON FUNCTION increment_ai_cost_ledger(text, int, int, numeric) FROM public;
 
+-- claim_quest_reward (2026-07-09): RPC quest atomic nhận p_coins/p_xp làm tham số
+-- → authenticated gọi trực tiếp = ĐÚC XU. ĐÃ revoke tường minh anon+authenticated
+-- ngay trong quest_claim_atomic.sql + chạy prod (không đợi soak — faucet trực tiếp).
+-- Liệt kê ở đây để nhất quán (REVOKE idempotent — chạy lại vô hại).
+REVOKE EXECUTE ON FUNCTION claim_quest_reward(uuid, text, text, int, int) FROM public;
+REVOKE EXECUTE ON FUNCTION claim_quest_reward(uuid, text, text, int, int) FROM anon;
+REVOKE EXECUTE ON FUNCTION claim_quest_reward(uuid, text, text, int, int) FROM authenticated;
+
 -- GIỮ SELECT cho authenticated (client cần đọc số dư/mastery/progress)
 -- (Đã có sẵn từ RLS policy using(auth.uid()=user_id) — chỉ cần KHÔNG revoke SELECT)
 

@@ -94,6 +94,70 @@ export async function saveQuestClaim(userId: string, today: string, questId: str
   if (error) console.error('saveQuestClaim error:', error.message);
 }
 
+export interface QuestClaimResult {
+  ok: boolean;
+  reason: string;
+  coins: number;
+  xp: number;
+}
+
+/**
+ * ============================================================================
+ *  NHẬN THƯỞNG QUEST — ATOMIC (đóng nốt race của ROOT C, cùng họ consume_pvp_fight)
+ * ============================================================================
+ *  Vấn đề cũ: route làm loadQuestClaims (đọc) → check → applyQuestReward →
+ *  saveQuestClaim + saveEconomy (ghi) KHÔNG khóa dòng → 2 request 'quest' cùng
+ *  questId đồng thời cùng đọc "chưa claim" → CỘNG XU 2 LẦN (faucet, xu đổi quà thật).
+ *
+ *  Vá: RPC `claim_quest_reward` khóa dòng (SELECT ... FOR UPDATE) rồi trong CÙNG
+ *  transaction: kiểm questId đã có trong mảng ngày chưa → nếu có trả
+ *  already_claimed (KHÔNG cộng), nếu chưa cộng coins/xp + ghi questId. 2 request
+ *  đồng thời bị tuần tự hóa → request thứ 2 bị chặn. Idempotent tuyệt đối.
+ *
+ *  🔴 ROOT A: số thưởng (coins/xp) do ROUTE tính từ QUEST_REWARD rồi truyền vào —
+ *  client KHÔNG gửi số. RPC chỉ KHÓA + kiểm trùng + cộng delta server cấp.
+ *
+ *  Trả:
+ *    • QuestClaimResult — RPC chạy được (ok=true đã cộng + ghi claim; ok=false:
+ *      'already_claimed' đã nhận / 'no_row' chưa có economy row).
+ *    • null — hàm CHƯA tồn tại (pre-migration 42883/PGRST202) → route FALLBACK
+ *      về đường loadQuestClaims + saveQuestClaim + saveEconomy cũ (0 regression,
+ *      race vẫn hở như trước tới khi user chạy quest_claim_atomic.sql).
+ * ============================================================================
+ */
+export async function tryClaimQuestRewardAtomic(
+  userId: string,
+  questId: string,
+  today: string,
+  coins: number,
+  xp: number
+): Promise<QuestClaimResult | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('claim_quest_reward', {
+    p_user_id: userId,
+    p_quest_id: questId,
+    p_today: today,
+    p_coins: coins,
+    p_xp: xp,
+  });
+
+  if (error) {
+    if (error.code === '42883' || error.code === 'PGRST202') {
+      return null; // pre-migration: fallback to non-atomic path
+    }
+    console.error('claim_quest_reward RPC lỗi (fail-closed, KHÔNG fallback):', error.message);
+    return { ok: false, reason: 'rpc_error', coins: 0, xp: 0 };
+  }
+
+  const r = (data ?? {}) as Partial<QuestClaimResult>;
+  return {
+    ok: !!r.ok,
+    reason: typeof r.reason === 'string' ? r.reason : 'unknown',
+    coins: typeof r.coins === 'number' ? r.coins : 0,
+    xp: typeof r.xp === 'number' ? r.xp : 0,
+  };
+}
+
 /**
  * ============================================================================
  *  PvP STATE (server-authoritative, tách RIÊNG khỏi coins) — anti-faucet

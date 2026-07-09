@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { rateLimit } from '@/lib/rate-limit';
 import fs from 'fs';
 import path from 'path';
@@ -90,7 +91,12 @@ export async function GET() {
       if (existing) {
         economyError = 'Account đã có dữ liệu economy — bỏ qua để không ghi đè số dư.';
       } else {
-        const { error } = await supabase.from('user_economy').insert({
+        // GHI user_economy qua service-role (ROOT E): sau khi chạy
+        // root_e_step2_revoke.sql, role authenticated KHÔNG còn quyền INSERT bảng
+        // này → dùng admin client (bỏ qua RLS/grant) để route không vỡ khi bật lại.
+        // 4 lớp phòng thủ trên vẫn giữ (env flag + auth + rate-limit + no-overwrite).
+        const admin = createAdminClient();
+        const { error } = await admin.from('user_economy').insert({
           user_id: user.id,
           coins: streakData.sat_coins || 100,
           xp: streakData.total_xp || 0,
