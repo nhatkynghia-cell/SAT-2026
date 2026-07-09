@@ -19,6 +19,10 @@ import { tryRedeemReward, listRedemptions } from '@/lib/redemption-store';
 
 export async function GET() {
   const user = await getCurrentUser();
+  // Money-out surface: chốt auth tường minh (không dựa may rủi vào kiểu uuid của RPC).
+  if (!user.isAuthenticated) {
+    return NextResponse.json({ error: 'Cần đăng nhập.' }, { status: 401 });
+  }
   const redemptions = await listRedemptions(user.id);
   return NextResponse.json({ redemptions });
 }
@@ -26,6 +30,11 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
+
+    // Money-out surface: chốt auth tường minh (mirror /api/payment/create).
+    if (!user.isAuthenticated) {
+      return NextResponse.json({ success: false, error: 'Cần đăng nhập.' }, { status: 401 });
+    }
 
     // Rate-limit chặt hơn economy (đây là tiền-RA): 10 req/phút/user.
     const rl = rateLimit(`redeem:${user.id}`, 10, 60_000);

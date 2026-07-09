@@ -37,7 +37,14 @@ export async function GET(req: Request) {
       return NextResponse.json(IpnFailChecksum);
     }
 
-    // 2) Xác nhận atomic (kiểm tiền + idempotent). amountVnd từ IPN đã ÷100 (lib).
+    // 2) Giao dịch THẤT BẠI/hủy (chữ ký hợp lệ nhưng responseCode≠'00') → KHÔNG
+    //    đụng vào đơn (tránh lật pending→'paid' oan, kẹt đơn, nuốt thanh toán
+    //    thật sau). Ack IpnSuccess để VNPay dừng retry — đối xứng momo-ipn:38.
+    if (!result.isSuccess) {
+      return NextResponse.json(IpnSuccess);
+    }
+
+    // 3) Xác nhận atomic (kiểm tiền + idempotent). amountVnd từ IPN đã ÷100 (lib).
     const outcome = await confirmPaymentAtomic(result.orderId, result.gatewayTxnId, result.amountVnd);
 
     if (!outcome.ok) {
@@ -47,14 +54,13 @@ export async function GET(req: Request) {
       return NextResponse.json(IpnUnknownError);
     }
 
-    // 3) Đã xác nhận trước đó → idempotent, KHÔNG cấp lại gói.
+    // 4) Đã xác nhận trước đó → idempotent, KHÔNG cấp lại gói.
     if (outcome.alreadyConfirmed) {
       return NextResponse.json(InpOrderAlreadyConfirmed);
     }
 
-    // 4) Lật pending→paid THÀNH CÔNG lần đầu. Nếu giao dịch thành công → cấp gói.
-    //    (isSuccess=false: đã 'paid' nhưng cổng báo thất bại — hiếm; không cấp gói.)
-    if (result.isSuccess && outcome.userId && outcome.tier && outcome.period) {
+    // 5) Lật pending→paid THÀNH CÔNG lần đầu (isSuccess đã đảm bảo ở bước 2) → cấp gói.
+    if (outcome.userId && outcome.tier && outcome.period) {
       await grantSubscription(outcome.userId, outcome.tier, outcome.period);
     }
 

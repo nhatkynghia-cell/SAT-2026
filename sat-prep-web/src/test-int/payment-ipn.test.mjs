@@ -236,6 +236,18 @@ test('vnpay-ipn: IDEMPOTENT — IPN gọi lại đơn đã paid → alreadyConfi
   assert.equal(getRows('user_subscriptions').length, 1, 'chỉ cấp 1 lần dù IPN gọi 2 lần');
 });
 
+test('vnpay-ipn: ký HỢP LỆ nhưng GIAO DỊCH THẤT BẠI (responseCode≠00) → KHÔNG lật paid, KHÔNG cấp, ack IpnSuccess (A1)', async () => {
+  resetDb();
+  seedPendingTxn('VNP-FAIL', { gateway: 'vnpay', amountVnd: 199000 });
+  // Chữ ký hợp lệ (ký trên chính query này) nhưng responseCode/transactionStatus='24'
+  // (user hủy). KHÔNG được lật đơn thành 'paid' → tránh kẹt đơn + nuốt thanh toán thật sau.
+  const failQuery = { ...vnpayOkQuery('VNP-FAIL', 199000), vnp_ResponseCode: '24', vnp_TransactionStatus: '24' };
+  const { body } = await readRes(await vnpayIpn(vnpayReq(failQuery)));
+  assert.equal(body.RspCode, '00', 'ack IpnSuccess để VNPay dừng retry');
+  assert.equal(getRows('payment_transactions')[0].status, 'pending', 'KHÔNG lật paid');
+  assert.equal(getRows('user_subscriptions').length, 0, 'KHÔNG cấp gói');
+});
+
 test('vnpay-ipn: SAI SỐ TIỀN (amount lệch amount_vnd) → KHÔNG cấp gói', async () => {
   resetDb();
   seedPendingTxn('VNP-AMT', { gateway: 'vnpay', amountVnd: 199000 });
