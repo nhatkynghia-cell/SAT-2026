@@ -131,6 +131,9 @@ export default function MathPage() {
   };
 
   const handleSubmit = async () => {
+    // Chặn nộp trùng (double-click) — nhất quán với CorePracticeUI. Quan trọng sau
+    // H1: nộp 2 lần sẽ POST /api/cau-sai 2 lần → lưu câu sai trùng vào Sổ tay.
+    if (isSubmitted) return;
     if (!selectedAnswer || !lessonData) return;
     setIsSubmitted(true);
 
