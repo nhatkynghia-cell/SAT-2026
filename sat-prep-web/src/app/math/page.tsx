@@ -138,6 +138,9 @@ export default function MathPage() {
     // đã bị GIẤU nên KHÔNG còn chấm client-side; grade lỗi → coi như chưa đúng.
     let isAnsCorrect = false;
     let economyState: { coins?: number; xp?: number; lastSpinDate?: string | null } | null = null;
+    // correct_choice bị GIẤU trong payload → lấy từ /api/grade để lưu Sổ tay câu sai.
+    let gradeCorrectChoice: string | null = null;
+    let gradeExplanation: string | null = null;
     if (lessonData.questionId) {
       const res = await fetch("/api/grade", {
         method: "POST",
@@ -151,12 +154,37 @@ export default function MathPage() {
       if (res.ok) {
         const grade = await res.json();
         isAnsCorrect = grade.correct;
+        gradeCorrectChoice = grade.correctChoice ?? null;
+        gradeExplanation = grade.explanation ?? null;
         setRevealedCorrectChoice(grade.correctChoice);
         if (Array.isArray(grade.choice_analysis)) setRevealedAnalysis(grade.choice_analysis);
         economyState = grade.economy ?? null;
       }
     }
     setIsCorrect(isAnsCorrect);
+
+    // Lưu câu Toán SAI vào Sổ tay để resurfacing (mẫu CorePracticeUI.tsx:160-179).
+    // Trang math tự viết handleSubmit nên trước đây KHÔNG lưu → câu sai biến mất,
+    // đứt vòng ôn lại. Không đụng đường chấm/thưởng (đã ROOT A). Fire-and-forget.
+    if (!isAnsCorrect && lessonData.questionId) {
+      try {
+        await fetch("/api/cau-sai", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            question: lessonData.practice_question,
+            choices: lessonData.choices,
+            correct_choice: gradeCorrectChoice,
+            user_choice: selectedAnswer,
+            explanation: gradeExplanation,
+            source: "Math (Next.js)",
+            skill_id: currentSkillId,
+          }),
+        });
+      } catch (e) {
+        console.error("Failed to save mistake", e);
+      }
+    }
 
     // Cập nhật streak/quest/HUD (đồng bộ coins/xp từ economy grade trả về). Mastery
     // + phần thưởng đã do /api/grade xử lý server-side.

@@ -56,3 +56,25 @@ test('vocab: wordId không tồn tại → 404', async () => {
   const { status } = await readRes(await POST(postJson({ wordId: 'ghost', isRemembered: true })));
   assert.equal(status, 404);
 });
+
+// H2: ôn từ vựng NUÔI mastery rw.vocab (trước đây KHÔNG ghi → adaptive/dashboard mù).
+test('vocab: từ đến hạn → GHI mastery rw.vocab (attempts tăng)', async () => {
+  resetDb(); setCurrentUser({ id: 'v-mastery' }); seedUser('v-mastery');
+  seedVocab('v-mastery', [{ id: 'w1', box: 1, next_review: '2020-01-01' }]);
+
+  await readRes(await POST(postJson({ wordId: 'w1', isRemembered: true })));
+  const mrow = getRows('user_mastery').find((r) => r.user_id === 'v-mastery');
+  assert.ok(mrow, 'đã tạo row user_mastery');
+  assert.ok(mrow.skills['rw.vocab'], 'skill rw.vocab được ghi');
+  assert.equal(mrow.skills['rw.vocab'].attempts, 1, 'ôn 1 từ due → 1 attempt');
+});
+
+test('vocab: farm chặn cũng KHÔNG ghi mastery (không due → không recordAnswer)', async () => {
+  resetDb(); setCurrentUser({ id: 'v-nofarm' }); seedUser('v-nofarm');
+  seedVocab('v-nofarm', [{ id: 'w1', box: 1, next_review: '2020-01-01' }]);
+
+  await readRes(await POST(postJson({ wordId: 'w1', isRemembered: true }))); // due lần 1 → ghi
+  await readRes(await POST(postJson({ wordId: 'w1', isRemembered: true }))); // không due → KHÔNG ghi
+  const mrow = getRows('user_mastery').find((r) => r.user_id === 'v-nofarm');
+  assert.equal(mrow.skills['rw.vocab'].attempts, 1, 'chỉ ghi lần due, spam không thổi mastery');
+});
