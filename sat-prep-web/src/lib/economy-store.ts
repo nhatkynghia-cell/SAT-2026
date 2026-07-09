@@ -159,6 +159,29 @@ export async function tryClaimQuestRewardAtomic(
 }
 
 /**
+ * Claim-once ATOMIC tổng quát — tái dùng RPC claim_quest_reward như một primitive
+ * "cộng coins/xp đúng 1 lần cho cặp (bucketKey, itemId)". RPC khóa dòng + kiểm
+ * itemId đã có trong mảng dưới key bucketKey chưa → idempotent chống race.
+ *
+ * Dùng cho các mặt phẳng cộng xu idempotent KHÁC quest (cùng cột quest_claims,
+ * cùng lỗ race ROOT C nếu để read-check-write):
+ *   • dailyLogin: bucketKey = DAILY_LOGIN_KEY, itemId = ngày VN.
+ *   • streak milestone: bucketKey = STREAK_CLAIM_KEY, itemId = số mốc.
+ *
+ * Ánh xạ: RPC p_today = bucketKey (khóa jsonb top-level), p_quest_id = itemId
+ * (phần tử trong mảng). Trả null pre-migration (route fallback đường cũ).
+ */
+export async function tryClaimOnceAtomic(
+  userId: string,
+  bucketKey: string,
+  itemId: string,
+  coins: number,
+  xp: number
+): Promise<QuestClaimResult | null> {
+  return tryClaimQuestRewardAtomic(userId, itemId, bucketKey, coins, xp);
+}
+
+/**
  * ============================================================================
  *  PvP STATE (server-authoritative, tách RIÊNG khỏi coins) — anti-faucet
  * ============================================================================

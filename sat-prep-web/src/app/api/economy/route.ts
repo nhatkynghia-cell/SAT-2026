@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { loadEconomy, saveEconomy, loadPvpState, savePvpState, tryConsumePvpFightAtomic, loadQuestClaims, saveQuestClaim, tryClaimQuestRewardAtomic } from '@/lib/economy-store';
+import { loadEconomy, saveEconomy, loadPvpState, savePvpState, tryConsumePvpFightAtomic, loadQuestClaims, saveQuestClaim, tryClaimQuestRewardAtomic, tryClaimOnceAtomic } from '@/lib/economy-store';
 import { getMasterySummary } from '@/lib/mastery';
 import { computeStats } from '@/lib/stats';
 import { PVP_OPPONENTS } from '@/helpers/pvp';
@@ -18,7 +18,7 @@ import {
 import { getUserTier } from '@/lib/subscription-store';
 import { TIER_COIN_MULTIPLIER } from '@/lib/subscription';
 import { loadSnapshots, todayVN } from '@/lib/daily-snapshot-store';
-import { computeDayStreak, pendingStreakGrant, STREAK_CLAIM_KEY, DAILY_LOGIN_KEY, DAILY_LOGIN_COINS } from '@/lib/day-streak';
+import { computeDayStreak, pendingStreakGrant, STREAK_CLAIM_KEY, STREAK_MILESTONE_REWARD, DAILY_LOGIN_KEY, DAILY_LOGIN_COINS } from '@/lib/day-streak';
 
 /**
  * ECONOMY API (server-authoritative) — implementation_plan.md §9.1, task #2
@@ -146,22 +146,57 @@ export async function POST(req: Request) {
       const claimedMilestones = await loadQuestClaims(user.id, STREAK_CLAIM_KEY);
       const grant = pendingStreakGrant(dayStreak, claimedMilestones);
 
-      if (grant.coins > 0) {
-        // Cộng xu mốc vào economy (server quyết số từ STREAK_MILESTONE_REWARD).
-        // Xu mốc KHÔNG nhân hệ số gói (thưởng cố định — như phần XP quest).
-        await saveEconomy(user.id, { ...state, coins: state.coins + grant.coins });
-        // Đánh dấu từng mốc đã nhận (idempotent — lần sau pendingStreakGrant bỏ qua).
-        for (const m of grant.milestones) {
-          await saveQuestClaim(user.id, STREAK_CLAIM_KEY, String(m));
+      // 🔴 ROOT C (chống race đúc xu): mỗi mốc là 1 claim-once ATOMIC qua RPC
+      // (khóa dòng user_economy + kiểm mốc đã nhận + cộng xu trong 1 transaction).
+      // Trước đây load-check-save không khóa dòng → 2 request 'streak' đồng thời
+      // cùng thấy mốc chưa nhận → cộng đôi xu mốc (tới 5000). Nay RPC tuần tự hóa.
+      // Xu mốc KHÔNG nhân hệ số gói (thưởng cố định). Fail-safe: RPC chưa có (null)
+      // hoặc chưa có economy row (no_row) → fallback đường cũ (0 regression).
+      let grantedCoins = 0;
+      let coinsNow = state.coins;
+      const milestonesReached: number[] = [];
+      let needFallback = false;
+
+      for (const m of grant.milestones) {
+        const reward = STREAK_MILESTONE_REWARD[m] ?? 0;
+        const atomic = await tryClaimOnceAtomic(user.id, STREAK_CLAIM_KEY, String(m), reward, 0);
+        if (!atomic || atomic.reason === 'no_row') {
+          // pre-migration / chưa có row → chưa cộng gì atomic (no_row chỉ xảy ra ở
+          // mốc đầu vì mốc sau đã tạo/khóa row) → rơi xuống fallback cho TẤT CẢ mốc.
+          needFallback = true;
+          break;
         }
+        if (atomic.ok) {
+          grantedCoins += reward;
+          coinsNow = atomic.coins;
+          milestonesReached.push(m);
+        }
+        // already_claimed (race thua) / rpc_error → bỏ qua, KHÔNG cộng (fail-closed).
+      }
+
+      if (needFallback) {
+        // ── FALLBACK non-atomic (pre-migration / no_row) — hành vi CŨ, 0 regression ──
+        if (grant.coins > 0) {
+          await saveEconomy(user.id, { ...state, coins: state.coins + grant.coins });
+          for (const m of grant.milestones) {
+            await saveQuestClaim(user.id, STREAK_CLAIM_KEY, String(m));
+          }
+        }
+        return NextResponse.json({
+          success: true,
+          dayStreak,
+          granted: { coins: grant.coins },
+          milestonesReached: grant.milestones,
+          state: grant.coins > 0 ? { ...state, coins: state.coins + grant.coins } : state,
+        });
       }
 
       return NextResponse.json({
         success: true,
         dayStreak,
-        granted: { coins: grant.coins },
-        milestonesReached: grant.milestones,
-        state: grant.coins > 0 ? { ...state, coins: state.coins + grant.coins } : state,
+        granted: { coins: grantedCoins },
+        milestonesReached,
+        state: { ...state, coins: coinsNow },
       });
     }
 
@@ -170,6 +205,31 @@ export async function POST(req: Request) {
       // qua quest_claims sentinel DAILY_LOGIN_KEY: mảng chứa các NGÀY VN đã nhận.
       // Ngày hôm nay đã có → không cộng lại (server quyết, client không gửi số xu).
       const today = todayVN();
+
+      // 🔴 ROOT C (chống race đúc xu): claim-once ATOMIC qua RPC (khóa dòng + kiểm
+      // ngày đã nhận + cộng xu trong 1 transaction). Trước đây load-check-save
+      // không khóa dòng → 2 request 'dailyLogin' đồng thời cùng thấy ngày chưa nhận
+      // → cộng đôi +20. Fail-safe: RPC chưa có (null) / chưa có row (no_row) → fallback.
+      const atomic = await tryClaimOnceAtomic(user.id, DAILY_LOGIN_KEY, today, DAILY_LOGIN_COINS, 0);
+      if (atomic) {
+        if (atomic.ok) {
+          return NextResponse.json({
+            success: true,
+            claimed: true,
+            granted: { coins: DAILY_LOGIN_COINS },
+            state: { ...state, coins: atomic.coins },
+          });
+        }
+        if (atomic.reason === 'already_claimed') {
+          return NextResponse.json({ success: true, claimed: false, granted: { coins: 0 }, state });
+        }
+        // rpc_error → fail-closed. no_row → rơi xuống fallback (tạo row).
+        if (atomic.reason !== 'no_row') {
+          return NextResponse.json({ success: false, error: 'Không thể nhận thưởng lúc này.' }, { status: 500 });
+        }
+      }
+
+      // ── FALLBACK non-atomic (pre-migration / no_row) — hành vi CŨ, 0 regression ──
       const claimedDays = await loadQuestClaims(user.id, DAILY_LOGIN_KEY);
       if (claimedDays.includes(today)) {
         return NextResponse.json({ success: true, claimed: false, granted: { coins: 0 }, state });
