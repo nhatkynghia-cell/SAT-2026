@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useToast } from '@/context/ToastContext';
+import { LoadingState } from '@/components/LoadingState';
+import { EmptyState } from '@/components/EmptyState';
 
 interface Entry {
   rank: number;
@@ -118,13 +120,9 @@ export default function LeaderboardPage() {
       </div>
 
       {loading ? (
-        <div className="text-center text-gray-400 p-12">Đang tải bảng xếp hạng...</div>
+        <LoadingState message="Đang tải bảng xếp hạng..." />
       ) : !board?.available ? (
-        <div className="bg-[#1b2533] border border-[#262730] rounded-xl p-12 text-center">
-          <div className="text-5xl mb-4">🚧</div>
-          <h2 className="text-xl font-bold text-white mb-2">Bảng xếp hạng sắp ra mắt</h2>
-          <p className="text-gray-400">Tính năng đang được hoàn thiện. Quay lại sau nhé!</p>
-        </div>
+        <EmptyState icon="🚧" title="Bảng xếp hạng sắp ra mắt" message="Tính năng đang được hoàn thiện. Quay lại sau nhé!" />
       ) : (
         <>
           {/* Nhãn mùa + đếm ngược */}
@@ -178,9 +176,7 @@ export default function LeaderboardPage() {
 
           {/* Bảng xếp hạng */}
           {board.top.length === 0 ? (
-            <div className="bg-[#1b2533] border border-[#262730] rounded-xl p-12 text-center text-gray-400">
-              Chưa có ai trên bảng mùa này. Hãy là người đầu tiên!
-            </div>
+            <EmptyState message="Chưa có ai trên bảng mùa này. Hãy là người đầu tiên!" />
           ) : (
             <div className="bg-[#1b2533] border border-[#262730] rounded-xl overflow-hidden">
               {board.top.map((e) => (

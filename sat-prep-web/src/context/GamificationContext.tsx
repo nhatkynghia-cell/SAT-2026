@@ -177,6 +177,18 @@ function clientToday(): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
+// Bộ đếm đơn điệu sinh instanceId DUY NHẤT cho item tạo lúc chạy (Đá Cường Hóa
+// từ vòng quay / shop). TRƯỚC ĐÂY dùng `eq_${Date.now()}`: 2 item sinh trong
+// cùng mili-giây (mua nhanh liên tiếp, hoặc quay + mua sát nhau) nhận TRÙNG
+// instanceId → React key trùng + forge/upgrade thao tác nhầm item (findIndex bắt
+// đúng cái đầu). Timestamp giữ để dễ đọc, counter đảm bảo duy nhất trong phiên;
+// tính NGOÀI updater setInventory để an toàn với StrictMode gọi updater 2 lần.
+let instanceCounter = 0;
+function nextInstanceId(): string {
+  instanceCounter += 1;
+  return `eq_${Date.now().toString(36)}_${instanceCounter}`;
+}
+
 const GamificationContext = createContext<GamificationState | undefined>(undefined);
 
 export function GamificationProvider({ children }: { children: React.ReactNode }) {
@@ -464,7 +476,8 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
         if (data.success && r) {
           // Đồng bộ item ẢO vào inventory hiển thị (server đã ghi vào túi của nó).
           if (r.type === 'item') {
-            setInventory(prev => [...prev, { instanceId: `eq_${Date.now()}`, itemId: 'da_cuong_hoa', name: 'Đá Cường Hóa', tier: 'Đồng', level: 1, icon: '🪨', isBound: true }]);
+            const instanceId = nextInstanceId();
+            setInventory(prev => [...prev, { instanceId, itemId: 'da_cuong_hoa', name: 'Đá Cường Hóa', tier: 'Đồng', level: 1, icon: '🪨', isBound: true }]);
           } else if (r.type === 'epic' && r.itemId) {
             setInventory(prev => [...prev, r.itemId]);
           }
@@ -502,7 +515,8 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     setInventory(prev => [...prev, itemId]);
 
     if (itemId.includes("da_cuong_hoa")) {
-      setInventory(prev => [...prev, { instanceId: `eq_${Date.now()}`, itemId: "da_cuong_hoa", name: "Đá Cường Hóa", tier: "Đồng", level: 1, icon: "🪨", isBound: true }]);
+      const instanceId = nextInstanceId();
+      setInventory(prev => [...prev, { instanceId, itemId: "da_cuong_hoa", name: "Đá Cường Hóa", tier: "Đồng", level: 1, icon: "🪨", isBound: true }]);
     }
 
     return { success: true, maxPowerGained: decision.maxPowerDelta };

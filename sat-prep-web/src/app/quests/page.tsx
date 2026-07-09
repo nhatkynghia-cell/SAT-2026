@@ -1,5 +1,6 @@
 'use client';
 import { useGamification } from '@/context/GamificationContext';
+import { EmptyState } from '@/components/EmptyState';
 
 export default function QuestsPage() {
   const { quests, claimQuest } = useGamification();
@@ -49,7 +50,7 @@ export default function QuestsPage() {
             );
           })
         ) : (
-          <div className="text-gray-500 text-center p-12 bg-[#1b2533] rounded-xl">Không có nhiệm vụ nào hôm nay!</div>
+          <EmptyState icon="📭" message="Không có nhiệm vụ nào hôm nay!" />
         )}
       </div>
     </div>
