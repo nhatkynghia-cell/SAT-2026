@@ -76,7 +76,8 @@ export function computePrediction(summary: MasterySummary, targetScore: number |
   const total = math + reading;
 
   const totalAttempts = summary.skills.reduce((sum, s) => sum + s.attempts, 0);
-  const confidence = confidenceOf(totalAttempts);
+  const reliableSkills = summary.skills.filter((s) => s.reliable).length;
+  const confidence = confidenceOf(totalAttempts, reliableSkills);
 
   const pointsToTarget = targetScore !== null ? Math.max(0, targetScore - total) : null;
 

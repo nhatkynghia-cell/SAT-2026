@@ -3,6 +3,7 @@ import { summarizeMastery, type SkillMastery } from './mastery';
 import { computePrediction, type ScorePrediction } from './score-prediction';
 import { loadSnapshots } from './daily-snapshot-store';
 import { computeWeeklyTrend, type WeeklyTrend } from './daily-snapshot';
+import { computeDayStreak } from './day-streak';
 import { todayVN } from './daily-snapshot-store';
 import { getUserTierAdmin } from './subscription-store';
 import type { AiTier } from './ai-quota';
@@ -44,19 +45,6 @@ export interface ParentReport {
   trendWindowDays: number;
 }
 
-/** Đọc streak của con từ user_progress.data_json (signed JSON) — chỉ parse lấy streak. */
-async function readStreak(admin: ReturnType<typeof createAdminClient>, studentId: string): Promise<number> {
-  const { data } = await admin.from('user_progress').select('data_json').eq('user_id', studentId).maybeSingle();
-  if (!data?.data_json || typeof data.data_json !== 'string') return 0;
-  try {
-    const parsed = JSON.parse(data.data_json);
-    const streak = parsed?.user_stats?.streak;
-    return typeof streak === 'number' && streak >= 0 ? streak : 0;
-  } catch {
-    return 0;
-  }
-}
-
 export async function buildParentReport(studentId: string): Promise<ParentReport> {
   const admin = createAdminClient();
 
@@ -86,8 +74,12 @@ export async function buildParentReport(studentId: string): Promise<ParentReport
   const snapshots = await loadSnapshots(studentId, since);
   const weeklyTrend = computeWeeklyTrend(snapshots, today, trendWindowDays);
 
-  // 4) Streak + lịch sử thi gần đây (số bài theo tier).
-  const streak = await readStreak(admin, studentId);
+  // 4) Streak SERVER-SIDE từ daily_snapshots (không tin blob client save-data —
+  //    HS có thể POST user_stats.streak=9999 để lừa phụ huynh). computeDayStreak
+  //    dẫn xuất từ ngày CÓ snapshot (server ghi mỗi lần /api/grade).
+  const streak = computeDayStreak(snapshots.map((s) => s.snapshot_date), today);
+
+  // Lịch sử thi gần đây (số bài theo tier).
   const { data: hRows } = await admin
     .from('test_history')
     .select('module, subject, correct, total, score, test_timestamp')

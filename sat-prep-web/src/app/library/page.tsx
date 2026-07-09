@@ -99,7 +99,7 @@ export default function LibraryPage() {
           <div className="math-icon">📚</div>
           <div>
             <h1 className="math-title" style={{ background: "linear-gradient(to right, #93c5fd, #60a5fa)", WebkitBackgroundClip: "text" }}>THƯ VIỆN ĐỀ THỰC CHIẾN</h1>
-            <p className="math-subtitle text-blue-200">Kho tàng lưu trữ hàng ngàn câu hỏi đã được phân loại chi tiết.</p>
+            <p className="math-subtitle text-blue-200">Kho đề luyện tập được phân loại theo kỹ năng.</p>
           </div>
         </div>
       </div>

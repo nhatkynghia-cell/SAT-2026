@@ -7,6 +7,7 @@ import { getUserTier } from '@/lib/subscription-store';
 import { isValidSkill } from '@/lib/skill-taxonomy';
 import { issueQuestion, type ChoiceAnalysis } from '@/lib/issued-questions';
 import { OPENAI_CHAT_COMPLETIONS_URL } from '@/lib/openai';
+import { rateLimit } from '@/lib/rate-limit';
 
 /**
  * Map (moduleType, topic) → skillId chuẩn trong skill-taxonomy (task #9 Mastery).
@@ -81,8 +82,11 @@ async function issueBankResponse(
 
 export async function POST(req: Request) {
   try {
-    const { moduleType, topic, prefer = 'auto', skillId: clientSkillId, difficulty: reqDiffRaw } = await req.json();
+    const { moduleType, topic: topicRaw, prefer = 'auto', skillId: clientSkillId, difficulty: reqDiffRaw } = await req.json();
     const user = await getCurrentUser();
+
+    // Kẹp độ dài topic client gửi (nội suy thẳng vào prompt) → chặn phồng input token.
+    const topic = typeof topicRaw === 'string' ? topicRaw.slice(0, 200) : topicRaw;
 
     // Độ khó YÊU CẦU (Easy/Medium/Hard) — tham số adaptive (Tower/Gate). Khi caller
     // KHÔNG truyền → reqDifficulty = undefined → giữ NGUYÊN hành vi cũ (math mặc định
@@ -131,6 +135,18 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "Hệ thống AI tạm đạt giới hạn vận hành trong ngày. Vui lòng thử lại sau.", budgetExceeded: true },
         { status: 503 }
+      );
+    }
+
+    // Rate-limit per-user CHỈ khi sắp gọi AI thật (bank hits ở trên đã return,
+    // không bị chặn). Chống burst đồng thời vượt quota + giảm race TOCTOU; áp mọi
+    // tier vì premium/ultimate quota vô hạn nên đây là trần duy nhất chặn 1 tài
+    // khoản đốt sạch budget chung.
+    const rl = rateLimit(`genpractice:${user.id}`, 10, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Bạn tạo câu hơi nhanh. Chờ chút rồi thử lại nhé.', retryAfterMs: rl.retryAfterMs },
+        { status: 429 }
       );
     }
 
@@ -293,7 +309,9 @@ BẮT BUỘC thêm trường "choice_analysis": MẢNG, mỗi phần tử ứng 
           schema: moduleType === "math" ? mathSchema : baseSchema
         }
       },
-      temperature: 0.3
+      temperature: 0.3,
+      // Trần output token: bài math (schema lớn nhất) vẫn đủ, chặn cost blowup.
+      max_completion_tokens: 2000
     };
 
     const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {

@@ -119,24 +119,6 @@ export function Sidebar() {
               </button>
             </div>
           )}
-          {learningMode === 'notebook' && (
-            <div className="mt-4 space-y-3">
-              <div>
-                <label className="text-xs text-gray-400 mb-1 block">Lọc theo Phân hệ:</label>
-                <select className="w-full bg-[#1b2533] border border-[#262730] text-[#fafafa] text-sm rounded p-2 outline-none">
-                  <option>Tất cả</option>
-                  <option>Reading &amp; Writing</option>
-                  <option>Math</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-gray-400 mb-1 block">Lọc theo Chủ đề:</label>
-                <select className="w-full bg-[#1b2533] border border-[#262730] text-[#fafafa] text-sm rounded p-2 outline-none">
-                  <option>Tất cả</option>
-                </select>
-              </div>
-            </div>
-          )}
         </div>
         
         <hr className="border-[#262730]" />

@@ -10,6 +10,7 @@ import {
   saveCachedReply,
 } from '@/lib/chat-cache-store';
 import { OPENAI_CHAT_COMPLETIONS_URL } from '@/lib/openai';
+import { rateLimit } from '@/lib/rate-limit';
 
 /**
  * ============================================================================
@@ -55,6 +56,17 @@ function clamp(s: unknown, max: number): string {
 export async function POST(request: Request) {
   try {
     const user = await getCurrentUser();
+
+    // Rate-limit per-user (chống burst đồng thời vượt quota + giảm race TOCTOU).
+    // Áp cho MỌI tier — premium/ultimate quota vô hạn nên đây là trần duy nhất
+    // chặn 1 tài khoản đốt sạch budget chung.
+    const rl = rateLimit(`chat:${user.id}`, 10, 60_000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: 'Bạn hỏi hơi nhanh. Chờ chút rồi thử lại nhé.', retryAfterMs: rl.retryAfterMs },
+        { status: 429 }
+      );
+    }
 
     // Phase 2: tier THẬT từ subscription (fail-safe → 'free' khi lỗi/không có gói).
     const tier = await getUserTier(user.id);

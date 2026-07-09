@@ -1,7 +1,20 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { predictScore, setGoal } from '@/lib/score-prediction';
+import { predictScore, setGoal, type ScorePrediction } from '@/lib/score-prediction';
 import { getUserTier } from '@/lib/subscription-store';
+import type { AiTier } from '@/lib/ai-quota';
+
+/**
+ * Cắt tầng HIỂN THỊ theo tier: free chỉ thấy TỔNG điểm (miếng mồi), premium/
+ * ultimate mở breakdown môn + focus skills. Redact SERVER-SIDE để client free
+ * không đọc được breakdown từ network response — dùng chung cho GET và POST.
+ */
+function redactForTier(prediction: ScorePrediction, tier: AiTier) {
+  if (tier === 'free') {
+    return { ...prediction, math: null, reading: null, focusSkills: [], detailLocked: true };
+  }
+  return { ...prediction, detailLocked: false };
+}
 
 /**
  * SCORE PREDICTION API (implementation_plan.md §10.A.5, task #11)
@@ -23,18 +36,7 @@ export async function GET() {
     getUserTier(user.id),
   ]);
 
-  // Free → khóa chi tiết: giữ tổng/độ tin cậy/mục tiêu, ẩn breakdown + focus.
-  if (tier === 'free') {
-    return NextResponse.json({
-      ...prediction,
-      math: null,
-      reading: null,
-      focusSkills: [],
-      detailLocked: true,
-    });
-  }
-
-  return NextResponse.json({ ...prediction, detailLocked: false });
+  return NextResponse.json(redactForTier(prediction, tier));
 }
 
 export async function POST(req: Request) {
@@ -47,7 +49,11 @@ export async function POST(req: Request) {
     }
 
     const goal = await setGoal(user.id, targetScore);
-    return NextResponse.json({ success: true, goal, prediction: await predictScore(user.id) });
+    const [prediction, tier] = await Promise.all([
+      predictScore(user.id),
+      getUserTier(user.id),
+    ]);
+    return NextResponse.json({ success: true, goal, prediction: redactForTier(prediction, tier) });
   } catch (error) {
     console.error('Lỗi đặt mục tiêu:', error);
     return NextResponse.json({ error: 'Failed to set goal' }, { status: 500 });

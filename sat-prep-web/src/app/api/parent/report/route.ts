@@ -28,6 +28,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Quá nhiều yêu cầu. Thử lại sau.', retryAfterMs: rl.retryAfterMs }, { status: 429 });
   }
 
+  // Rate-limit theo IP proxy (chống dò NHIỀU mã từ 1 nguồn — key-theo-mã ở trên
+  // cho mỗi mã đoán 1 bucket mới nên không chặn enumeration). 60 lần/phút/IP.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+  const rlIp = rateLimit(`parent-report-ip:${ip}`, 60, 60_000);
+  if (!rlIp.allowed) {
+    return NextResponse.json({ error: 'Quá nhiều yêu cầu. Thử lại sau.', retryAfterMs: rlIp.retryAfterMs }, { status: 429 });
+  }
+
   const studentId = await resolveShareCode(code);
   if (!studentId) {
     return NextResponse.json({ error: 'Mã không tồn tại hoặc đã hết hạn' }, { status: 404 });
