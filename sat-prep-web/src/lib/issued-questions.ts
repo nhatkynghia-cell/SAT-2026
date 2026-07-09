@@ -79,6 +79,9 @@ export interface GradeResult {
   choiceAnalysis: ChoiceAnalysis[] | null;
   /** Lời giải đầy đủ — chỉ trả về sau khi chấm. null nếu câu không lưu lời giải. */
   explanation: string | null;
+  /** Nguồn câu (ai/bank/diagnostic/golden_hour…). Route dùng để KHÔNG trao xu cho
+   *  câu diagnostic (test xếp lớp — re-issue được nên nếu thưởng sẽ thành faucet). */
+  src: string | null;
 }
 
 export async function gradeAnswer(
@@ -125,6 +128,7 @@ export async function gradeAnswer(
     difficulty: data.difficulty ?? 'Medium',
     choiceAnalysis: ctx.ca ?? null,
     explanation: ctx.exp ?? null,
+    src: ctx.src ?? null,
   };
 }
 

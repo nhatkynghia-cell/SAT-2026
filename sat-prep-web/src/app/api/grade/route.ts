@@ -60,9 +60,17 @@ export async function POST(req: Request) {
       : 'Medium';
     const streak = Number.isInteger(streakRaw) && streakRaw >= 0 ? streakRaw : 0;
 
+    // 🔴 ROOT A: câu DIAGNOSTIC (test xếp lớp) KHÔNG trao xu/XP. Bài diagnostic
+    // có thể phát lại (re-issue) khi user chưa 'complete' → nếu thưởng thì gọi
+    // lại 'start' rồi grade = faucet xu vô hạn trên bộ câu cố định. Diagnostic chỉ
+    // GIEO mastery (mục đích xếp lớp), không phải bề mặt kiếm xu. Câu luyện thường
+    // (src ai/bank/null) vẫn thưởng như cũ.
+    const isDiagnostic = result.src === 'diagnostic';
     const [economy, tier] = await Promise.all([loadEconomy(user.id), getUserTier(user.id)]);
     const coinMult = TIER_COIN_MULTIPLIER[tier];
-    const { state: nextEconomy, granted } = applyAnswerReward(economy, result.correct, difficulty, streak, coinMult);
+    const { state: nextEconomy, granted } = isDiagnostic
+      ? { state: economy, granted: { coins: 0, xp: 0 } }
+      : applyAnswerReward(economy, result.correct, difficulty, streak, coinMult);
     if (granted.coins > 0 || granted.xp > 0) {
       await saveEconomy(user.id, nextEconomy);
     }

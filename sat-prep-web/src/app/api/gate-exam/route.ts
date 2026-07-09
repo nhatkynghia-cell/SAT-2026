@@ -101,20 +101,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid domain' }, { status: 400 });
   }
 
-  // Server-side grading: count correct answers from issued_questions
-  let correctCount = 0;
-  if (Array.isArray(questionIds) && questionIds.length > 0) {
-    const admin = createAdminClient();
-    const { data } = await admin
-      .from('issued_questions')
-      .select('was_correct')
-      .in('id', questionIds.slice(0, GATE_QUESTIONS))
-      .eq('user_id', user.id)
-      .eq('answered', true);
-    correctCount = data?.filter((r: { was_correct: boolean }) => r.was_correct).length ?? 0;
-  } else if (typeof body.correctCount === 'number') {
-    correctCount = Math.min(Math.max(0, body.correctCount), GATE_QUESTIONS);
+  // Server-side grading: ĐẾM số câu đúng TỪ issued_questions (was_correct do
+  // /api/grade set qua CAS). 🔴 ROOT A: KHÔNG có nhánh tin `body.correctCount`
+  // client gửi — trước đây POST {domain, correctCount:5} (bỏ questionIds) là vượt
+  // cổng không cần trả lời (cổng = mở khoá chương/Premium). Bắt buộc questionIds.
+  if (!Array.isArray(questionIds) || questionIds.length === 0) {
+    return NextResponse.json(
+      { error: 'Thiếu danh sách câu hỏi đã làm (questionIds).' },
+      { status: 400 }
+    );
   }
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from('issued_questions')
+    .select('was_correct')
+    .in('id', questionIds.slice(0, GATE_QUESTIONS))
+    .eq('user_id', user.id)
+    .eq('answered', true);
+  const correctCount = data?.filter((r: { was_correct: boolean }) => r.was_correct).length ?? 0;
 
   // RE-CHECK eligibility server-side
   const [summary, gates] = await Promise.all([
