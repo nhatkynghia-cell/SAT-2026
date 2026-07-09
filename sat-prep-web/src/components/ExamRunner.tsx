@@ -238,7 +238,14 @@ export default function ExamRunner({
       acc.raw += data.moduleResult?.correct ?? 0;
       acc.total += data.moduleResult?.total ?? 0;
 
-      if (moduleNum === 1) {
+      if (moduleNum === 1 && !data.module) {
+        // Module 1 đã chấm + điểm đã cộng vào acc ở trên; server KHÔNG sinh được
+        // Module 2 (moduleGenerationFailed, thường do OpenAI chặn VN). KHÔNG mất
+        // điểm M1 — kết thúc section êm: RW nghỉ giải lao qua Math, Math chấm luôn.
+        acc.path = data.adaptivePath;
+        if (section === 'rw') { setRwPath(data.adaptivePath); setPhase('break'); }
+        else finishExam();
+      } else if (moduleNum === 1) {
         acc.path = data.adaptivePath;
         if (section === 'rw') setRwPath(data.adaptivePath);
         setLoadingProgress(100);

@@ -114,10 +114,19 @@ export async function POST(request: NextRequest) {
 
       const generated = await generateModule(section, 2, origin, cookie, adaptivePath);
       if (generated.questions.length === 0) {
-        return NextResponse.json(
-          { error: 'Không thể sinh Module 2. Vui lòng thử lại.' },
-          { status: 503 }
-        );
+        // Module 1 ĐÃ chấm xong (CAS) + thưởng đã cộng server-side; chỉ Module 2
+        // sinh hụt (thường do OpenAI chặn VN). KHÔNG trả 503 — vì client throw thì
+        // MẤT điểm Module 1 vừa chấm (điểm section về sàn). Trả kết quả M1 kèm
+        // module:null để client GHI điểm rồi kết thúc section êm. Endpoint không
+        // idempotent (CAS) nên client KHÔNG được retry — đây là đường thoát an toàn.
+        return NextResponse.json({
+          moduleResult: { correct, total: answers.length },
+          adaptivePath,
+          granted,
+          economy: nextEconomy,
+          module: null,
+          moduleGenerationFailed: true,
+        });
       }
 
       const safeQuestions = await Promise.all(
