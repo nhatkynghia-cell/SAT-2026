@@ -6,6 +6,8 @@
  * Phi tuyến: sai ít ở đỉnh mất nhiều điểm/câu hơn sai nhiều ở đáy.
  */
 
+import { matchesAnswer } from '@/lib/answer-match';
+
 export type AdaptivePath = 'hard' | 'easy';
 
 export interface SectionScore {
@@ -78,7 +80,8 @@ function countCorrect(set: AnswerSet): number {
   let count = 0;
   for (const [qId, correct] of Object.entries(set.correctAnswers)) {
     const userAns = set.answers[qId];
-    if (userAns && userAns.trim()[0]?.toUpperCase() === correct.trim()[0]?.toUpperCase()) {
+    // 🔴 CRITICAL FIX (ROOT A): so đúng cách (câu thô so toàn chuỗi) — xem answer-match.ts.
+    if (matchesAnswer(userAns, correct)) {
       count++;
     }
   }

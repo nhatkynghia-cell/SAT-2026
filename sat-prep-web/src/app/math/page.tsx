@@ -5,6 +5,7 @@ import { useGamification } from '@/context/GamificationContext';
 import { useToast } from '@/context/ToastContext';
 import { SKILL_TREE } from '@/lib/skill-taxonomy';
 import { LoadingState } from '@/components/LoadingState';
+import { matchesAnswer } from '@/lib/answer-match';
 
 // 4 domain Toán + skill con, lấy thẳng từ skill-taxonomy (single source of truth).
 // Mỗi skill con map đúng 1 skillId → mastery phủ đủ 13 skill Toán (nền cho Skill Tree).
@@ -255,8 +256,10 @@ export default function MathPage() {
     
     // Skill: Nhãn Thuật Desmos removes one wrong answer
     if (activeSkills.desmos && !isSubmitted) {
-      const correctPrefix = (revealedCorrectChoice ?? lessonData!.correct_choice ?? '').trim()[0]?.toUpperCase() ?? '';
-      const wrongIndices = choicesToShow.map((c, i) => c.trim()[0].toUpperCase() !== correctPrefix ? i : -1).filter(i => i !== -1);
+      const cc = revealedCorrectChoice ?? lessonData!.correct_choice ?? '';
+      // Lựa chọn SAI = không khớp đáp án đúng (matchesAnswer: câu thô so toàn chuỗi
+      // → không nhận nhầm "x = 3" là đúng khi đáp án "x = 2").
+      const wrongIndices = choicesToShow.map((c, i) => !matchesAnswer(c, cc) ? i : -1).filter(i => i !== -1);
       if (wrongIndices.length > 0) {
         const newChoices = [...choicesToShow];
         newChoices[wrongIndices[0]] = "❌ [Bị triệt tiêu bởi Nhãn Thuật]";
@@ -271,7 +274,7 @@ export default function MathPage() {
       let choiceClass = "bg-[#1b2533] border-[#334155] text-[#e2e8f0]";
       if (isEliminated) choiceClass = "bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed opacity-50";
       else if (isSubmitted) {
-        const isThisChoiceCorrect = choice.trim()[0].toUpperCase() === (revealedCorrectChoice ?? lessonData!.correct_choice ?? '').trim()[0]?.toUpperCase();
+        const isThisChoiceCorrect = matchesAnswer(choice, revealedCorrectChoice ?? lessonData!.correct_choice);
         if (isThisChoiceCorrect) choiceClass = "bg-[#064e3b] border-[#10b981] text-[#34d399]";
         else if (isSelected) choiceClass = "bg-[#7f1d1d] border-[#ef4444] text-[#fca5a5]";
       } else if (isSelected) {

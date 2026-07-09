@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useGamification } from '@/context/GamificationContext';
 import { LoadingState } from './LoadingState';
+import { matchesAnswer } from '@/lib/answer-match';
 
 export interface PracticeQuestion {
   title: string;
@@ -283,7 +284,9 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
           let choiceClass = "bg-[#1b2533] border-[#334155] text-[#e2e8f0]";
           
           if (isSubmitted) {
-            const isThisChoiceCorrect = choice.trim()[0].toUpperCase() === (revealedCorrectChoice ?? questionData.correct_choice ?? '').trim()[0]?.toUpperCase();
+            // Tô màu đáp án đúng sau khi nộp — dùng matchesAnswer (câu thô so toàn
+            // chuỗi) để không tô nhầm nhiều lựa chọn "x = *" cùng ký tự đầu.
+            const isThisChoiceCorrect = matchesAnswer(choice, revealedCorrectChoice ?? questionData.correct_choice);
             if (isThisChoiceCorrect) {
               choiceClass = "bg-[#064e3b] border-[#10b981] text-[#34d399]";
             } else if (isSelected) {

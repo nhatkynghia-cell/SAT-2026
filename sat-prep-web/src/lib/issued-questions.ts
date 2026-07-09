@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { matchesAnswer } from '@/lib/answer-match';
 
 export interface ChoiceAnalysis {
   choice_letter: string;
@@ -96,7 +97,11 @@ export async function gradeAnswer(
   if (data.user_id !== userId) return null;
   if (data.answered) return null; // fast-fail cho replay hiển nhiên
 
-  const correct = userAnswer.trim()[0]?.toUpperCase() === data.correct_choice.trim()[0]?.toUpperCase();
+  // 🔴 CRITICAL FIX (ROOT A): so khớp đáp án đúng cách — câu có nhãn "A)/B)" so
+  // ký tự đầu, câu THÔ ("x = 2", "(1,0)", "49π") so toàn chuỗi. Trước đây chỉ so
+  // [0] → mọi lựa chọn "x = 1/2/3/4" cùng 'x' → chọn sai vẫn chấm đúng (faucet xu
+  // + mastery bẩn). Xem answer-match.ts.
+  const correct = matchesAnswer(userAnswer, data.correct_choice);
 
   // 🔒 COMPARE-AND-SWAP (ROOT A): chỉ chấm-và-trao-thưởng khi CHÍNH request này
   // lật answered false→true. `.eq('answered', false)` khiến 2 request đua nhau

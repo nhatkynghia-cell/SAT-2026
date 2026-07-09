@@ -1,4 +1,5 @@
 import mockExams from '@/data/mock_exams.json';
+import { matchesAnswer } from '@/lib/answer-match';
 
 /**
  * ============================================================================
@@ -87,9 +88,8 @@ export function getExamQuestionMap(exam: FullExam): Map<string, ExamQuestion> {
   return map;
 }
 
-/** Chấm 1 đáp án client gửi so với đáp án đúng lưu server (so ký tự đầu: "B) ..."). */
+/** Chấm 1 đáp án client gửi so với đáp án đúng lưu server. Câu có nhãn "B) .."
+ *  so ký tự đầu, câu THÔ so toàn chuỗi (xem answer-match.ts — fix CRITICAL). */
 export function isChoiceCorrect(userAnswer: string, correctChoice: string): boolean {
-  const u = userAnswer?.trim()?.[0]?.toUpperCase();
-  const c = correctChoice?.trim()?.[0]?.toUpperCase();
-  return !!u && !!c && u === c;
+  return matchesAnswer(userAnswer, correctChoice);
 }
