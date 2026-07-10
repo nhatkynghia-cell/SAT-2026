@@ -90,6 +90,55 @@ export async function getUserTierAdmin(userId: string): Promise<AiTier> {
 }
 
 /**
+ * Tier HIỆU LỰC của NHIỀU user cùng lúc (đọc SERVICE-ROLE, tránh N+1). Dùng cho
+ * leaderboard/giải đấu: cần biết tier của mọi user để gán khung/danh hiệu cosmetic
+ * (danh vọng) — KHÔNG đổi thứ hạng. Mẫu batch .in('user_id', ids) như
+ * leaderboard-store.ts. Với mỗi user lấy gói CÒN-HẠN-MỚI-NHẤT rồi resolveTier.
+ *
+ * FAIL-SAFE: userIds rỗng → {}; bảng chưa tồn tại / lỗi đọc → map RỖNG (mọi user
+ * coi 'free') — hướng an toàn: lỗi hạ tầng KHÔNG vô tình mở quyền lợi trả phí.
+ * User không có gói → 'free'.
+ */
+export async function getUsersTierMap(
+  userIds: string[]
+): Promise<Record<string, 'free' | 'premium' | 'ultimate'>> {
+  const result: Record<string, 'free' | 'premium' | 'ultimate'> = {};
+  const ids = Array.from(new Set(userIds.filter((id) => typeof id === 'string' && id.length > 0)));
+  if (ids.length === 0) return result;
+
+  try {
+    const admin = createAdminClient();
+    const nowISO = new Date().toISOString();
+    // MỘT query cho MỌI user (order expires_at desc → gói mới-nhất đứng trước).
+    const { data, error } = await admin
+      .from('user_subscriptions')
+      .select('user_id, tier, period, started_at, expires_at')
+      .in('user_id', ids)
+      .order('expires_at', { ascending: false });
+
+    if (error || !data) return result; // fail-safe: map rỗng → mọi user 'free'
+
+    // Chỉ giữ gói ĐẦU TIÊN gặp mỗi user (đã sort desc → mới-nhất). resolveTier
+    // tự trả 'free' nếu gói đã hết hạn.
+    for (const row of data as Array<Record<string, unknown>>) {
+      const uid = typeof row.user_id === 'string' ? row.user_id : null;
+      if (!uid || result[uid] !== undefined) continue;
+      const sub: SubscriptionRecord = {
+        tier: row.tier as PaidTier,
+        period: row.period as BillingPeriod,
+        startedAt: (row.started_at as string) ?? '',
+        expiresAt: (row.expires_at as string) ?? '',
+      };
+      result[uid] = resolveTier(sub, nowISO);
+    }
+    return result;
+  } catch (e) {
+    console.error('getUsersTierMap lỗi (fail-safe → map rỗng):', e);
+    return result;
+  }
+}
+
+/**
  * Cấp/ gia hạn gói cho user (đường GHI, admin service-role). Được gọi bởi
  * webhook thanh toán SAU khi xác nhận giao dịch server-side (chưa nối phiên này).
  * Server tra PLANS để lấy durationDays + tính expiresAt — client KHÔNG gửi ngày

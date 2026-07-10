@@ -81,16 +81,26 @@ test('economy quest: questId lạ → granted 0 (không bơm tùy ý)', async ()
   assert.equal(getRows('user_economy')[0].coins, 100);
 });
 
-test('economy spend: đủ xu → trừ đúng + thêm item; overdraw → 400', async () => {
-  resetDb(); setCurrentUser({ id: 'e-spend' }); seedUser('e-spend', { coins: 300 });
-  const ok = await readRes(await POST(postJson({ action: 'spend', amount: 120, itemId: 'skin_1' })));
+test('economy spend: đúng giá catalog → trừ đúng + thêm item; overdraw → 400', async () => {
+  resetDb(); setCurrentUser({ id: 'e-spend' }); seedUser('e-spend', { coins: 2000 });
+  // skin_1 giá niêm yết 1500 — amount PHẢI khớp giá catalog (server chống client gửi amount rẻ).
+  const ok = await readRes(await POST(postJson({ action: 'spend', amount: 1500, itemId: 'skin_1' })));
   assert.equal(ok.status, 200);
-  assert.equal(getRows('user_economy')[0].coins, 180);
+  assert.equal(getRows('user_economy')[0].coins, 500);
   assert.deepEqual(getRows('user_economy')[0].inventory, ['skin_1']);
 
-  const over = await readRes(await POST(postJson({ action: 'spend', amount: 999999 })));
+  const over = await readRes(await POST(postJson({ action: 'spend', amount: 999999, itemId: 'skin_2' })));
   assert.equal(over.status, 400);
-  assert.equal(getRows('user_economy')[0].coins, 180, 'overdraw không trừ');
+  assert.equal(getRows('user_economy')[0].coins, 500, 'overdraw không trừ');
+});
+
+test('economy spend: amount KHÔNG khớp giá catalog → 400 (chống gửi giá rẻ)', async () => {
+  resetDb(); setCurrentUser({ id: 'e-spend2' }); seedUser('e-spend2', { coins: 2000 });
+  // skin_1 giá 1500 nhưng client gửi 120 → server từ chối, không trừ, không thêm item.
+  const bad = await readRes(await POST(postJson({ action: 'spend', amount: 120, itemId: 'skin_1' })));
+  assert.equal(bad.status, 400);
+  assert.equal(getRows('user_economy')[0].coins, 2000, 'giá sai không trừ');
+  assert.deepEqual(getRows('user_economy')[0].inventory ?? [], [], 'giá sai không thêm item');
 });
 
 test('economy spin: quay được 1 lần → set lastSpinDate; quay lại cùng ngày → không thưởng', async () => {

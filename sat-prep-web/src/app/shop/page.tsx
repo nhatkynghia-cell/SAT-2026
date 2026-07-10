@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useGamification, ITEM_CATALOG } from '@/context/GamificationContext';
 import { useToast } from '@/context/ToastContext';
 import type { RedemptionRecord, RedemptionStatus } from '@/lib/rewards';
@@ -12,8 +13,11 @@ const STATUS_META: Record<RedemptionStatus, { label: string; cls: string }> = {
   cancelled: { label: '✖ Đã hủy', cls: 'bg-[#450a0a] border-[#ef4444] text-[#fca5a5]' },
 };
 
+// Thứ hạng gói để so điều kiện gate hiển thị (free < premium < ultimate).
+const TIER_RANK: Record<string, number> = { free: 0, premium: 1, ultimate: 2 };
+
 export default function ShopPage() {
-  const { coins, buyItem, redeemReward } = useGamification();
+  const { coins, buyItem, redeemReward, tier } = useGamification();
   const { showToast } = useToast();
 
   // Quà THẬT cần xác nhận (đổi xong không hoàn) + tránh double-click khi đang gọi API.
@@ -60,6 +64,8 @@ export default function ShopPage() {
       showToast(`🎉 Mua thành công: ${name}!${powerMsg}`, 'success');
     } else if (result.reason === 'already_owned') {
       showToast(`⚠️ Bạn đã sở hữu ${name} rồi. Trang bị chỉ cần mua một lần.`, 'error');
+    } else if (result.reason === 'tier_locked') {
+      showToast(`🔒 ${name} là vật phẩm độc quyền của gói cao hơn. Hãy nâng cấp để mở khóa!`, 'error');
     } else {
       showToast(`❌ Không đủ Xu để mua ${name}. Hãy cày cuốc thêm!`, 'error');
     }
@@ -97,14 +103,33 @@ export default function ShopPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {ITEM_CATALOG.map((item, idx) => {
           const isReward = item.type === 'reward';
+          // Gate HIỂN THỊ: item có requiredTier mà gói user chưa đạt → khóa, hiện
+          // nhãn gói + link /upgrade thay nút mua (chốt bảo mật thật ở server).
+          const requiredTier = (item as { requiredTier?: 'premium' | 'ultimate' }).requiredTier;
+          const tierLocked = !!requiredTier && TIER_RANK[tier] < TIER_RANK[requiredTier];
+          const tierLabel = requiredTier === 'ultimate' ? 'Ultimate' : 'Premium';
           return (
-            <div key={idx} className={`bg-[#1b2533] border border-[#262730] rounded-xl p-6 text-center hover:border-[#fbbf24] transition-all group ${item.effectClass || ''}`}>
-              <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">{item.icon}</div>
-              <h3 className="text-lg font-bold text-white mb-2">{item.name}</h3>
+            <div key={idx} className={`bg-[#1b2533] border border-[#262730] rounded-xl p-6 text-center hover:border-[#fbbf24] transition-all group ${tierLocked ? 'opacity-70' : ''} ${item.effectClass || ''}`}>
+              <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">{tierLocked ? '🔒' : item.icon}</div>
+              <h3 className="text-lg font-bold text-white mb-2 flex items-center justify-center gap-2">
+                {item.name}
+                {requiredTier && (
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    {tierLabel}
+                  </span>
+                )}
+              </h3>
               <p className="text-[#94a3b8] text-sm mb-6 h-10">
                 {isReward ? '🎁 QUÀ THẬT — đổi bằng Xu (nhận sau khi duyệt)' : `Loại: ${item.type.toUpperCase()}`}
               </p>
-              {isReward ? (
+              {tierLocked ? (
+                <Link
+                  href="/upgrade"
+                  className="w-full inline-flex justify-center items-center gap-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-amber-950 font-bold py-2 rounded transition-colors"
+                >
+                  🔒 Mở khóa với {tierLabel}
+                </Link>
+              ) : isReward ? (
                 <button
                   onClick={() => setConfirmReward({ id: item.id, name: item.name, price: item.price })}
                   className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-bold py-2 rounded transition-colors flex justify-center items-center gap-2"

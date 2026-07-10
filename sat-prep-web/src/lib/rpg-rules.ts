@@ -128,7 +128,10 @@ export const EQUIPMENT_POWER: Record<string, number> = {
   eq_leg_2: 300, // Nhẫn Chân Lý SAT (6.000 xu)
 };
 
-export type BuyReason = 'insufficient' | 'already_owned';
+export type BuyReason = 'insufficient' | 'already_owned' | 'tier_locked';
+
+/** Gói dùng cho gate hiển thị (free < premium < ultimate). */
+export type BuyTier = 'free' | 'premium' | 'ultimate';
 
 export interface BuyDecision {
   ok: boolean;
@@ -139,18 +142,34 @@ export interface BuyDecision {
   shieldDelta: number;
 }
 
+function buyTierRank(t: BuyTier | undefined): number {
+  if (t === 'ultimate') return 2;
+  if (t === 'premium') return 1;
+  return 0;
+}
+
 /**
  * Quyết định mua 1 item (thuần). Kiểm số dư + CHỐNG MUA TRÙNG đồ vĩnh viễn:
  * equipment/skin cộng maxPower MỘT LẦN — mua lại sẽ bơm ảo (đúng lỗi equipPet
  * cũ cộng dồn +50 mỗi lần đổi). Consumable (shield/mana/heal/skip/exp) vẫn mua
  * lặp được. Việc TRỪ XU THẬT do server làm (/api/economy 'spend'); ở đây chỉ
  * kiểm optimistic để phản hồi UI.
+ *
+ * GATE TIER (UX): nếu item.requiredTier và userTier chưa đạt → reason 'tier_locked'
+ * (kiểm TRƯỚC số dư để hiện đúng lời mời nâng cấp). Đây CHỈ là gate hiển thị; chốt
+ * bảo mật thật ở server (applySpend nhận userTier — client resolveBuy KHÔNG đủ).
+ * userTier optional để KHÔNG phá caller cũ (không truyền = không gate tier).
  */
 export function resolveBuy(
-  item: { id: string; type: string; price: number },
+  item: { id: string; type: string; price: number; requiredTier?: 'premium' | 'ultimate' },
   coins: number,
-  owned: string[]
+  owned: string[],
+  userTier?: BuyTier
 ): BuyDecision {
+  if (item.requiredTier && buyTierRank(userTier) < buyTierRank(item.requiredTier)) {
+    return { ok: false, reason: 'tier_locked', maxPowerDelta: 0, shieldDelta: 0 };
+  }
+
   if (coins < item.price) {
     return { ok: false, reason: 'insufficient', maxPowerDelta: 0, shieldDelta: 0 };
   }

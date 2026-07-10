@@ -8,13 +8,16 @@ import { resolveDailyQuests, type QuestTrack } from '@/lib/quests';
 
 export type InventoryItem = string | Equipment;
 
-// Kết quả mua hàng: phân biệt thiếu xu vs mua trùng đồ vĩnh viễn (shop hiện toast
-// khác nhau); maxPowerGained để hiện "+X Lực chiến" khi mua trang bị.
+// Kết quả mua hàng: phân biệt thiếu xu vs mua trùng đồ vĩnh viễn vs khóa theo gói
+// (shop hiện toast khác nhau); maxPowerGained để hiện "+X Lực chiến" khi mua trang bị.
 export interface BuyResult {
   success: boolean;
-  reason?: 'insufficient' | 'already_owned';
+  reason?: 'insufficient' | 'already_owned' | 'tier_locked';
   maxPowerGained?: number;
 }
+
+/** Gói hiệu lực của user (server-authoritative, từ /api/economy). free < premium < ultimate. */
+export type UserTier = 'free' | 'premium' | 'ultimate';
 
 // Badge catalog + logic dẫn xuất chuyển sang @/lib/rpg-rules (nguồn DUY NHẤT,
 // unit-test được). BadgeSystem.tsx cũng import trực tiếp từ đó — hết trùng ID.
@@ -22,9 +25,12 @@ export interface BuyResult {
 export const ITEM_CATALOG = [
   { id: "skin_1", name: "Đại Pháp Sư Desmos", icon: "🧙‍♂️", type: "skin", price: 1500, effectClass: "shadow-[0_0_20px_#8b5cf6] animate-pulse text-purple-400 border-[#8b5cf6]" },
   { id: "skin_2", name: "Kiếm Khách SAT Cổ Đại", icon: "🗡️", type: "skin", price: 1800, effectClass: "shadow-[0_0_20px_#ef4444] text-red-400 border-[#ef4444]" },
-  { id: "skin_3", name: "Đỉnh Phong Thủ Khoa", icon: "👑", type: "skin", price: 3000, effectClass: "shadow-[0_0_30px_#fbbf24] animate-bounce text-yellow-300 border-[#fbbf24]" },
-  { id: "title_gold", name: "Vương Miện Trí Tuệ", icon: "👑", type: "skin", price: 3500, effectClass: "shadow-[0_0_30px_#fde047] text-yellow-200 border-[#fde047]" },
-  { id: "theme_fire", name: "Áo Choàng Bóng Tối", icon: "🦇", type: "skin", price: 4000, effectClass: "shadow-[0_0_25px_#7c3aed] text-violet-300 border-[#7c3aed]" },
+  // requiredTier: gate HIỂN THỊ thẩm mỹ độc quyền Ultimate (chỉ skin cao cấp;
+  // KHÔNG BAO GIỜ gắn cho equipment/reward/consumable — chống pay-to-win, xem
+  // rpg-rules.ts EQUIPMENT_POWER). Skin thuần thẩm mỹ, không cộng maxPower.
+  { id: "skin_3", name: "Đỉnh Phong Thủ Khoa", icon: "👑", type: "skin", price: 3000, requiredTier: "ultimate", effectClass: "shadow-[0_0_30px_#fbbf24] animate-bounce text-yellow-300 border-[#fbbf24]" },
+  { id: "title_gold", name: "Vương Miện Trí Tuệ", icon: "👑", type: "skin", price: 3500, requiredTier: "ultimate", effectClass: "shadow-[0_0_30px_#fde047] text-yellow-200 border-[#fde047]" },
+  { id: "theme_fire", name: "Áo Choàng Bóng Tối", icon: "🦇", type: "skin", price: 4000, requiredTier: "ultimate", effectClass: "shadow-[0_0_25px_#7c3aed] text-violet-300 border-[#7c3aed]" },
   { id: "eq_epic_1", name: "Găng Tay Tri Thức", icon: "🥊", type: "equipment", price: 800, effectClass: "text-blue-400" },
   { id: "eq_epic_2", name: "Mũ Cú Vọ Ban Đêm", icon: "🎩", type: "equipment", price: 850, effectClass: "text-indigo-400" },
   { id: "eq_leg_1", name: "Huy Hiệu Ivy League (Cũ)", icon: "🛡️", type: "equipment", price: 5000, effectClass: "shadow-[0_0_15px_#34d399] text-emerald-400" },
@@ -115,6 +121,8 @@ type GamificationState = {
   lastSpinDate: string | null;
   activePet: string | null;
   bookmarkedQuestions: string[];
+  /** Gói hiệu lực (server-authoritative, từ /api/economy) — gate HIỂN THỊ cosmetic. */
+  tier: UserTier;
 
   // Actions
   // 🔴 Economy server-authoritative (§9.1): coins/xp do SERVER quyết. Các hàm
@@ -202,6 +210,10 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
   // 🔥 Chuỗi ngày học (server-authoritative, dẫn xuất — không persist client).
   const [dayStreak, setDayStreak] = useState(0);
 
+  // Gói hiệu lực (server-authoritative, từ /api/economy). Mặc định 'free' để KHÔNG
+  // vô tình mở khóa cosmetic trước khi biết chắc tier (hướng an toàn, khớp fail-safe server).
+  const [tier, setTier] = useState<UserTier>('free');
+
   const [inventory, setInventory] = useState<InventoryItem[]>([
     { instanceId: "eq_1", itemId: "kiem_go", name: "Kiếm Gỗ Tập Sự", tier: "Đồng", level: 1, icon: "🗡️", isBound: true },
     { instanceId: "eq_2", itemId: "giap_da", name: "Giáp Da Tập Sự", tier: "Đồng", level: 1, icon: "🛡️", isBound: true }
@@ -285,7 +297,7 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
           }
         }
 
-        // 2) Economy server-authoritative: ghi đè coins/xp/lastSpinDate.
+        // 2) Economy server-authoritative: ghi đè coins/xp/lastSpinDate + tier.
         if (ecoRes.ok) {
           const eco = await ecoRes.json();
           setUserStats(prev => ({
@@ -294,6 +306,9 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
             xp: eco.xp ?? prev.xp,
             lastSpinDate: eco.lastSpinDate ?? prev.lastSpinDate,
           }));
+          if (eco.tier === 'free' || eco.tier === 'premium' || eco.tier === 'ultimate') {
+            setTier(eco.tier);
+          }
         }
 
         // 3) Level dẫn xuất từ masteredCount (số skill đã tinh thông).
@@ -497,8 +512,10 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     // consumable mua lặp. maxPower là cosmetic (không bơm lực PvP — xem rpg-rules).
     const item = ITEM_CATALOG.find(i => i.id === itemId);
     const type = item?.type ?? 'consumable';
+    const requiredTier = (item as { requiredTier?: 'premium' | 'ultimate' } | undefined)?.requiredTier;
     const owned = inventory.filter((i): i is string => typeof i === 'string');
-    const decision = resolveBuy({ id: itemId, type, price }, userStats.coins, owned);
+    // Gate tier (UX) + số dư + mua trùng. userTier từ /api/economy (server-auth).
+    const decision = resolveBuy({ id: itemId, type, price, requiredTier }, userStats.coins, owned, tier);
 
     if (!decision.ok) {
       return { success: false, reason: decision.reason };
@@ -510,7 +527,8 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
       shield: prev.shield + decision.shieldDelta,
       maxPower: prev.maxPower + decision.maxPowerDelta,
     }));
-    postSpend(price);
+    // Gửi itemId để server tra catalog + gate giá/tier (chốt bảo mật thật).
+    postSpend(price, itemId);
 
     setInventory(prev => [...prev, itemId]);
 
@@ -551,11 +569,11 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
   // 🔴 Trừ xu qua server (§9.1): optimistic deduct cục bộ để UI phản hồi ngay +
   // giữ chữ ký sync (boolean), rồi POST 'spend' và đồng bộ lại coins từ server.
   // Spend KHÔNG phải vector cheat (chỉ tiêu được xu đang có) nên optimistic an toàn.
-  const postSpend = (amount: number) => {
+  const postSpend = (amount: number, itemId?: string) => {
     fetch('/api/economy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'spend', amount }),
+      body: JSON.stringify({ action: 'spend', amount, ...(itemId ? { itemId } : {}) }),
     })
       .then(async (res) => {
         if (res.ok) {
@@ -758,6 +776,7 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
       lastSpinDate: userStats.lastSpinDate,
       activePet: userStats.activePet,
       bookmarkedQuestions: practiceQuestion.bookmarkedQuestions || [],
+      tier,
 
       unlockedBadges,
 

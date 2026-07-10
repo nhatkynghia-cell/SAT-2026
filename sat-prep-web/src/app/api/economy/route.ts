@@ -14,7 +14,10 @@ import {
   bumpPvpCounter,
   nextPvpRank,
   PVP_MAX_FIGHTS_PER_DAY,
+  SPENDABLE_ITEMS,
+  type SpendItemInfo,
 } from '@/lib/economy';
+import { cosmeticById } from '@/lib/cosmetics';
 import { getUserTier } from '@/lib/subscription-store';
 import { TIER_COIN_MULTIPLIER } from '@/lib/subscription';
 import { loadSnapshots, todayVN } from '@/lib/daily-snapshot-store';
@@ -44,8 +47,11 @@ import { computeDayStreak, pendingStreakGrant, STREAK_CLAIM_KEY, STREAK_MILESTON
 
 export async function GET() {
   const user = await getCurrentUser();
-  const economy = await loadEconomy(user.id);
-  return NextResponse.json(economy);
+  // Kèm `tier` để UI (shop/collection) gate HIỂN THỊ cosmetic theo gói. Đây chỉ là
+  // gate hiển thị; chốt bảo mật spend ở POST (applySpend nhận userTier). FAIL-SAFE
+  // getUserTier → 'free' khi lỗi. Đọc song song để không thêm độ trễ đáng kể.
+  const [economy, tier] = await Promise.all([loadEconomy(user.id), getUserTier(user.id)]);
+  return NextResponse.json({ ...economy, tier });
 }
 
 export async function POST(req: Request) {
@@ -64,8 +70,10 @@ export async function POST(req: Request) {
     const action = body?.action;
 
     const state = await loadEconomy(user.id);
+    // Tier hiệu lực đọc 1 LẦN, tái dùng cho: hệ số nhân xu (quest/pvp) + gate spend.
+    const userTier = await getUserTier(user.id);
     // Hệ số nhân xu theo gói (phễu RPG) — dùng cho quest + pvp (faucet do nỗ lực).
-    const coinMult = TIER_COIN_MULTIPLIER[await getUserTier(user.id)];
+    const coinMult = TIER_COIN_MULTIPLIER[userTier];
 
     // ⚠️ action 'answer' ĐÃ GỠ (ROOT A, 2026-07-04): phần thưởng 1 câu luyện tập
     // trước đây tin `isCorrect` client gửi → faucet xu (POST isCorrect:true không
@@ -246,7 +254,23 @@ export async function POST(req: Request) {
     }
 
     if (action === 'spend') {
-      const result = applySpend(state, body.amount, body.itemId);
+      // 🔴 CHỐT BẢO MẬT (B1a): với itemId, tra catalog server (SPENDABLE_ITEMS +
+      // COSMETIC_CATALOG) rồi truyền giá + gate tier vào applySpend. Server-side là
+      // nơi DUY NHẤT gate có hiệu lực (client resolveBuy chỉ để UX). userTier tái
+      // dùng getUserTier đã đọc ở đầu POST (biến tier cục bộ dưới đây).
+      const itemId = typeof body.itemId === 'string' ? body.itemId : undefined;
+      let opts: { userTier: 'free' | 'premium' | 'ultimate'; item: SpendItemInfo | null; itemKnown: boolean } | undefined;
+      if (itemId) {
+        // Tra 2 catalog: item RPG (SPENDABLE_ITEMS) hoặc cosmetic mua được
+        // (COSMETIC_CATALOG — chỉ skin/theme có price; frame/title KHÔNG bán).
+        const cosmetic = cosmeticById(itemId);
+        const cosmeticSellable = cosmetic && typeof cosmetic.price === 'number'
+          ? { price: cosmetic.price, requiredTier: cosmetic.requiredTier }
+          : null;
+        const item: SpendItemInfo | null = SPENDABLE_ITEMS[itemId] ?? cosmeticSellable;
+        opts = { userTier, item, itemKnown: item !== null };
+      }
+      const result = applySpend(state, body.amount, itemId, opts);
       if (!result.ok) {
         return NextResponse.json({ success: false, error: result.error }, { status: 400 });
       }

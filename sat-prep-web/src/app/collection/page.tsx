@@ -1,8 +1,31 @@
 'use client';
 import { useGamification } from '@/context/GamificationContext';
+import { COSMETIC_CATALOG, seasonKey, type CosmeticItem } from '@/lib/cosmetics';
+
+// Thứ hạng gói để so điều kiện mở khóa (free < premium < ultimate).
+const TIER_RANK: Record<string, number> = { free: 0, premium: 1, ultimate: 2 };
+
+// Nhãn loại cosmetic cho phụ đề thẻ (thẩm mỹ + danh vọng, KHÔNG chỉ số).
+const KIND_LABEL: Record<CosmeticItem['kind'], string> = {
+  skin: 'Trang phục',
+  theme: 'Chủ đề',
+  frame: 'Khung viền',
+  title: 'Danh hiệu',
+};
 
 export default function CollectionPage() {
-  const { inventory, level } = useGamification();
+  const { inventory, tier } = useGamification();
+
+  // Chỉ tính id dạng chuỗi trong túi (Equipment là object, không phải cosmetic).
+  const ownedIds = new Set(
+    inventory.filter((i): i is string => typeof i === 'string')
+  );
+
+  // Mùa hiện tại (dẫn xuất tất định từ giờ client — chỉ để lọc HIỂN THỊ, danh vọng
+  // thật do server cấp qua ownership ở B1b/B2). Món gắn mùa CŨ ẩn đi cho gọn; món
+  // mùa hiện tại + vĩnh viễn (không mùa) đều hiện.
+  const currentSeason = seasonKey(new Date().toISOString());
+  const visible = COSMETIC_CATALOG.filter((c) => !c.season || c.season === currentSeason);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20">
@@ -15,23 +38,31 @@ export default function CollectionPage() {
           </div>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-        {[
-          { name: "Cúp Vô Địch Toán", icon: "🏆", locked: level < 2 },
-          { name: "Sách Cổ Ngữ", icon: "📖", locked: level < 4 },
-          { name: "Kiếm Ánh Sáng", icon: "⚔️", locked: level < 7 },
-          { name: "Vương Miện Trí Tuệ", icon: "👑", locked: !inventory.includes('title_gold') },
-          { name: "Khiên Rồng", icon: "🐉", locked: !inventory.includes('shield_1') },
-          { name: "Nhẫn Càn Khôn", icon: "💍", locked: level < 11 },
-          { name: "Đá Vô Cực", icon: "🔮", locked: level < 15 },
-          { name: "Áo Choàng Bóng Tối", icon: "🦇", locked: !inventory.includes('theme_fire') }
-        ].map((item, idx) => (
-          <div key={idx} className={`bg-[#1b2533] p-6 rounded-xl border flex flex-col items-center justify-center text-center ${item.locked ? 'border-[#334155] opacity-50 grayscale' : 'border-[#c084fc] shadow-[0_0_15px_rgba(192,132,252,0.2)]'}`}>
-            <div className="text-5xl mb-4">{item.locked ? '🔒' : item.icon}</div>
-            <h3 className="text-white font-bold text-sm">{item.locked ? 'Chưa mở khóa' : item.name}</h3>
-          </div>
-        ))}
+        {visible.map((item) => {
+          const owned = ownedIds.has(item.id);
+          const tierOk = TIER_RANK[tier] >= TIER_RANK[item.requiredTier];
+          // Khóa nếu chưa sở hữu HOẶC chưa đạt gói (dù đã sở hữu vẫn cần đủ tier để
+          // dùng — cosmetic là quyền lợi gói). Mở khi vừa đủ tier vừa sở hữu.
+          const locked = !owned || !tierOk;
+          const tierLabel = item.requiredTier === 'ultimate' ? 'Ultimate' : 'Premium';
+          return (
+            <div
+              key={item.id}
+              className={`bg-[#1b2533] p-6 rounded-xl border flex flex-col items-center justify-center text-center ${locked ? 'border-[#334155] opacity-50 grayscale' : `border-[#c084fc] shadow-[0_0_15px_rgba(192,132,252,0.2)] ${item.cssClass || ''}`}`}
+            >
+              <div className="text-5xl mb-4">{locked ? '🔒' : item.icon}</div>
+              <h3 className="text-white font-bold text-sm">{locked ? 'Chưa mở khóa' : item.name}</h3>
+              <span className="mt-2 text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                {KIND_LABEL[item.kind]} · {tierLabel}
+              </span>
+              {locked && !tierOk && (
+                <span className="mt-1 text-[10px] text-[#94a3b8]">Cần gói {tierLabel}</span>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

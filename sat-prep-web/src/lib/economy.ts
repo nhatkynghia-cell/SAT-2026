@@ -195,11 +195,86 @@ export interface SpendResult {
   error?: string;
 }
 
-/** Trừ xu (mua hàng). Server kiểm tra số dư — client không tự trừ. */
-export function applySpend(state: EconomyState, amount: number, itemId?: string): SpendResult {
+/** Gói dùng cho gate spend (free < premium < ultimate). */
+export type SpendTier = 'free' | 'premium' | 'ultimate';
+
+/** Thông tin catalog của 1 item MUA được (server tra để gate). */
+export interface SpendItemInfo {
+  /** Giá NIÊM YẾT ở server — client amount PHẢI khớp (chống gửi amount rẻ). */
+  price: number;
+  /** Gói tối thiểu để mua (nếu có). Vắng = ai cũng mua được. */
+  requiredTier?: 'premium' | 'ultimate';
+}
+
+/**
+ * MIRROR SERVER-SIDE giá + gate tier của item MUA ĐƯỢC trong ITEM_CATALOG
+ * (GamificationContext.tsx — file 'use client', KHÔNG import được vào route server).
+ * 🔴 CHỐT BẢO MẬT: client gửi {action:'spend', amount, itemId}; server tra bảng này
+ * (+ COSMETIC_CATALOG cho cosmetic mua được) để kiểm giá + tier — KHÔNG tin amount
+ * client gửi. Cùng triết lý rewards.ts (bản sao server của reward item). ⚠️ NẾU đổi
+ * price/requiredTier trong ITEM_CATALOG, PHẢI đồng bộ ở đây (drift = giá lệch/gate hở).
+ * KHÔNG chứa reward (rw_*) — quà thật đi qua /api/redeem (tạo phiếu), không qua spend.
+ */
+export const SPENDABLE_ITEMS: Record<string, SpendItemInfo> = {
+  skin_1: { price: 1500 },
+  skin_2: { price: 1800 },
+  skin_3: { price: 3000, requiredTier: 'ultimate' },
+  title_gold: { price: 3500, requiredTier: 'ultimate' },
+  theme_fire: { price: 4000, requiredTier: 'ultimate' },
+  eq_epic_1: { price: 800 },
+  eq_epic_2: { price: 850 },
+  eq_leg_1: { price: 5000 },
+  eq_leg_2: { price: 6000 },
+  shield_1: { price: 50 },
+  mana_1: { price: 30 },
+  exp_1: { price: 200 },
+  sinh_menh_dan: { price: 100 },
+  ve_skip_cau: { price: 150 },
+};
+
+function spendTierRank(t: SpendTier | undefined): number {
+  if (t === 'ultimate') return 2;
+  if (t === 'premium') return 1;
+  return 0;
+}
+
+/**
+ * Trừ xu (mua hàng). Server kiểm tra số dư — client không tự trừ.
+ *
+ * 🔴 GATE BẢO MẬT (khi caller truyền `opts` — route economy PHẢI truyền để gate có
+ * hiệu lực): với itemId có mặt, kiểm (a) item có trong catalog, (b) amount KHỚP giá
+ * niêm yết, (c) đủ tier nếu item.requiredTier. Caller CŨ/test KHÔNG truyền opts →
+ * giữ hành vi legacy (chỉ trừ xu + thêm túi) để 0 regression.
+ */
+export function applySpend(
+  state: EconomyState,
+  amount: number,
+  itemId?: string,
+  opts?: { userTier?: SpendTier; item?: SpendItemInfo | null; itemKnown?: boolean }
+): SpendResult {
   if (!Number.isInteger(amount) || amount <= 0) {
     return { ok: false, state, error: 'Số xu không hợp lệ' };
   }
+
+  // Cổng item CHỈ chạy khi caller cung cấp opts (route economy). Bỏ qua nếu không có
+  // itemId (spend chung: rèn/skip câu... trừ xu thuần) hoặc caller legacy không gate.
+  if (opts && itemId) {
+    if (!opts.itemKnown || !opts.item) {
+      return { ok: false, state, error: 'Vật phẩm không tồn tại trong cửa hàng.' };
+    }
+    if (opts.item.price !== amount) {
+      return { ok: false, state, error: 'Số xu không khớp giá niêm yết của vật phẩm.' };
+    }
+    if (opts.item.requiredTier && spendTierRank(opts.userTier) < spendTierRank(opts.item.requiredTier)) {
+      const label = opts.item.requiredTier === 'ultimate' ? 'Ultimate' : 'Premium';
+      return {
+        ok: false,
+        state,
+        error: `Vật phẩm này chỉ dành cho gói ${label}. Hãy nâng cấp gói để mở khóa.`,
+      };
+    }
+  }
+
   if (state.coins < amount) {
     return { ok: false, state, error: 'Không đủ xu' };
   }
