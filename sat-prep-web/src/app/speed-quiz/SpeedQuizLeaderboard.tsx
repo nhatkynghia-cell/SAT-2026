@@ -4,8 +4,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/context/ToastContext';
 import { LoadingState } from '@/components/LoadingState';
 import { EmptyState } from '@/components/EmptyState';
+import { cosmeticById } from '@/lib/cosmetics';
 
 type Cycle = 'day' | 'week' | 'month' | 'year';
+
+/** Chế độ bảng: chung (mọi tier) hoặc giải đấu độc quyền (chỉ user ultimate góp mặt). */
+type Bracket = 'global' | 'ultimate';
 
 const CYCLE_TABS: { key: Cycle; label: string }[] = [
   { key: 'day', label: 'Ngày' },
@@ -13,6 +17,11 @@ const CYCLE_TABS: { key: Cycle; label: string }[] = [
   { key: 'month', label: 'Tháng' },
   { key: 'year', label: 'Năm' },
 ];
+
+// Cosmetic THƯỞNG cho quán quân giải đấu mùa (LIVE-derived: top hạng hiện tại được
+// KHOE khung + danh hiệu, KHÔNG đổi thứ hạng — comparator vẫn theo số câu đúng).
+const CHAMPION_FRAME = cosmeticById('cframe_champion');
+const CHAMPION_TITLE = cosmeticById('ctitle_champion');
 
 interface Entry {
   rank: number;
@@ -57,17 +66,21 @@ function formatMsLeft(ms: number): string {
 export function SpeedQuizLeaderboard() {
   const { showToast } = useToast();
   const [cycle, setCycle] = useState<Cycle>('day');
+  const [bracket, setBracket] = useState<Bracket>('global');
   const [board, setBoard] = useState<BoardData | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [nickInput, setNickInput] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const loadBoard = useCallback(async (c: Cycle) => {
+  const loadBoard = useCallback(async (c: Cycle, b: Bracket) => {
     setLoading(true);
     try {
+      const lbUrl = b === 'ultimate'
+        ? `/api/speed-quiz/leaderboard?cycle=${c}&bracket=ultimate`
+        : `/api/speed-quiz/leaderboard?cycle=${c}`;
       const [bRes, pRes] = await Promise.all([
-        fetch(`/api/speed-quiz/leaderboard?cycle=${c}`),
+        fetch(lbUrl),
         fetch('/api/profile'),
       ]);
       if (bRes.ok) setBoard(await bRes.json());
@@ -83,10 +96,10 @@ export function SpeedQuizLeaderboard() {
     }
   }, []);
 
-  // Tải bảng khi đổi cycle (data-fetch-on-dependency-change hợp lệ). loadBoard set
+  // Tải bảng khi đổi cycle/bracket (data-fetch-on-dependency-change hợp lệ). loadBoard set
   // loading=true đồng bộ để đổi tab thấy trạng thái tải ngay — không phải cascading render.
   // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { loadBoard(cycle); }, [cycle, loadBoard]);
+  useEffect(() => { loadBoard(cycle, bracket); }, [cycle, bracket, loadBoard]);
 
   const saveNickname = async () => {
     if (saving) return;
@@ -100,7 +113,7 @@ export function SpeedQuizLeaderboard() {
       const data = await res.json();
       if (res.ok) {
         showToast('✅ Đã lưu bí danh!', 'success');
-        await loadBoard(cycle);
+        await loadBoard(cycle, bracket);
       } else {
         showToast(`❌ ${data.error ?? 'Không lưu được bí danh.'}`, 'error');
       }
@@ -123,7 +136,7 @@ export function SpeedQuizLeaderboard() {
       const data = await res.json();
       if (res.ok) {
         showToast(next ? '🏆 Bạn đã tham gia bảng xếp hạng!' : 'Đã ẩn khỏi bảng xếp hạng.', 'success');
-        await loadBoard(cycle);
+        await loadBoard(cycle, bracket);
       } else {
         showToast(`❌ ${data.error ?? 'Không đổi được.'}`, 'error');
       }
@@ -134,8 +147,34 @@ export function SpeedQuizLeaderboard() {
     }
   };
 
+  const isTournament = bracket === 'ultimate';
+
   return (
     <div className="space-y-6">
+      {/* Chuyển bảng: Bảng chung ↔ Giải đấu Ultimate */}
+      <div className="flex gap-2 flex-wrap">
+        <button
+          onClick={() => setBracket('global')}
+          className={`px-5 py-2 rounded-lg font-bold text-sm transition-colors ${!isTournament ? 'bg-sky-600 text-white' : 'bg-[#1b2533] text-gray-300 hover:bg-[#26344a]'}`}
+        >
+          🌐 Bảng chung
+        </button>
+        <button
+          onClick={() => setBracket('ultimate')}
+          className={`px-5 py-2 rounded-lg font-bold text-sm transition-colors ${isTournament ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-[#78350f]' : 'bg-[#1b2533] text-gray-300 hover:bg-[#26344a]'}`}
+        >
+          👑 Giải đấu Ultimate
+        </button>
+      </div>
+
+      {/* Chú thích giải đấu: thưởng danh vọng, không xu, không đổi thứ hạng */}
+      {isTournament && (
+        <div className="bg-gradient-to-br from-[#1a1206] to-[#2a1e0a] border border-amber-500/40 rounded-xl px-6 py-4 text-sm text-amber-200">
+          <p className="font-bold text-amber-300 mb-1">👑 Giải đấu độc quyền Ultimate</p>
+          <p>Chỉ học viên gói Ultimate góp mặt. Xếp theo số câu đúng server chấm (như bảng chung). Thưởng: <span className="font-bold">khung + danh hiệu mùa</span> cho top hạng — danh vọng, KHÔNG phải xu, KHÔNG đổi thứ hạng.</p>
+        </div>
+      )}
+
       {/* Tabs chu kỳ */}
       <div className="flex gap-2 flex-wrap">
         {CYCLE_TABS.map((t) => (
@@ -206,25 +245,36 @@ export function SpeedQuizLeaderboard() {
 
           {/* Danh sách xếp hạng */}
           {board.top.length === 0 ? (
-            <EmptyState message="Chưa có ai trên bảng kỳ này. Hãy là người đầu tiên!" />
+            <EmptyState message={isTournament ? 'Chưa có học viên Ultimate nào trên bảng kỳ này. Tranh ngôi quán quân mùa!' : 'Chưa có ai trên bảng kỳ này. Hãy là người đầu tiên!'} />
           ) : (
             <div className="bg-[#1b2533] border border-[#262730] rounded-xl overflow-hidden">
-              {board.top.map((e) => (
-                <div
-                  key={e.rank}
-                  className={`flex items-center justify-between px-6 py-3 border-b border-[#0f172a] last:border-0 ${e.isMe ? 'bg-[rgba(251,191,36,0.12)]' : ''}`}
-                >
-                  <div className="flex items-center gap-4 min-w-0">
-                    <span className={`text-lg font-black w-10 text-center ${e.rank <= 3 ? 'text-[#fbbf24]' : 'text-gray-500'}`}>
-                      {e.rank === 1 ? '🥇' : e.rank === 2 ? '🥈' : e.rank === 3 ? '🥉' : `#${e.rank}`}
-                    </span>
-                    <span className={`font-bold truncate ${e.isMe ? 'text-[#fbbf24]' : 'text-white'}`}>
-                      {e.nickname} {e.isMe && <span className="text-xs text-amber-400">(Bạn)</span>}
-                    </span>
+              {board.top.map((e) => {
+                // Giải đấu: top 1-3 KHOE khung + danh hiệu mùa (danh vọng LIVE-derived
+                // theo hạng hiện tại). THUẦN THẨM MỸ — KHÔNG đổi thứ hạng (comparator
+                // vẫn theo số câu đúng). Frame ring bọc số hạng; title gắn cạnh bí danh.
+                const showChampion = isTournament && e.rank <= 3;
+                return (
+                  <div
+                    key={e.rank}
+                    className={`flex items-center justify-between px-6 py-3 border-b border-[#0f172a] last:border-0 ${e.isMe ? 'bg-[rgba(251,191,36,0.12)]' : ''}`}
+                  >
+                    <div className="flex items-center gap-4 min-w-0">
+                      <span className={`text-lg font-black w-10 text-center rounded-lg ${e.rank <= 3 ? 'text-[#fbbf24]' : 'text-gray-500'} ${showChampion && CHAMPION_FRAME?.cssClass ? CHAMPION_FRAME.cssClass : ''}`}>
+                        {e.rank === 1 ? '🥇' : e.rank === 2 ? '🥈' : e.rank === 3 ? '🥉' : `#${e.rank}`}
+                      </span>
+                      <span className={`font-bold truncate flex items-center gap-2 ${e.isMe ? 'text-[#fbbf24]' : 'text-white'}`}>
+                        {e.nickname} {e.isMe && <span className="text-xs text-amber-400">(Bạn)</span>}
+                        {showChampion && CHAMPION_TITLE && (
+                          <span className={`text-xs px-2 py-0.5 rounded-full bg-black/30 shrink-0 ${CHAMPION_TITLE.cssClass ?? ''}`} title="Danh hiệu quán quân mùa (danh vọng, không xu)">
+                            {CHAMPION_TITLE.icon} {CHAMPION_TITLE.name}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    <span className="text-sm font-mono text-[#38bdf8] shrink-0">⚡ {e.basePower} câu</span>
                   </div>
-                  <span className="text-sm font-mono text-[#38bdf8] shrink-0">⚡ {e.basePower} câu</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { rankEntries, type RankRow, type RankedResult } from './leaderboard';
 import { getCycleKey, getCycleLabel, msLeftInCycle, type SeasonCycle } from './season';
+import { getUsersTierMap } from './subscription-store';
 
 /**
  * ============================================================================
@@ -43,19 +44,25 @@ export interface SpeedQuizLeaderboardView {
 }
 
 interface CacheEntry { at: number; rows: RankRow[]; cycleKey: string }
-const _cache = new Map<SeasonCycle, CacheEntry>();
+const _cache = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 60_000;
 
 /**
  * Dựng bảng xếp hạng Speed Quiz cho một cycle. now được TIÊM (test/route truyền
  * thời gian xác định). `basePower` trong RankRow ở đây MANG NGHĨA số câu đúng
  * của lượt tốt nhất (tái dùng rankEntries thuần — sort giảm dần đúng ý).
+ *
+ * `bracket='ultimate'` → GIẢI ĐẤU ĐỘC QUYỀN: sau khi gom user có lượt, lọc CHỈ
+ * giữ user gói ultimate (getUsersTierMap) TRƯỚC khi rank. KHÔNG đổi metric (vẫn
+ * MAX(correct_count) server-chấm). Không ai đủ điều kiện → bảng rỗng. Cache tách
+ * riêng theo bracket để không trộn bảng chung với bảng giải đấu.
  */
 export async function buildSpeedQuizLeaderboard(
   myUserId: string,
   cycle: SeasonCycle,
   topN: number,
-  now: Date = new Date()
+  now: Date = new Date(),
+  bracket?: 'ultimate'
 ): Promise<SpeedQuizLeaderboardView> {
   const cycleKey = getCycleKey(now, cycle);
   const base = {
@@ -67,8 +74,11 @@ export async function buildSpeedQuizLeaderboard(
 
   const admin = createAdminClient();
 
+  // Khoá cache tách bracket (bảng chung vs giải đấu ultimate không trộn nhau).
+  const cacheKey = bracket ? `${cycle}:${bracket}` : cycle;
+
   // Cache hit (cùng cycleKey, còn hạn) → chỉ tính lại rank cho myUserId.
-  const cached = _cache.get(cycle);
+  const cached = _cache.get(cacheKey);
   if (cached && cached.cycleKey === cycleKey && now.getTime() - cached.at < CACHE_TTL_MS) {
     const { top, me } = rankEntries(cached.rows, myUserId, topN);
     return { ...base, top, me, available: true };
@@ -99,7 +109,7 @@ export async function buildSpeedQuizLeaderboard(
   }
 
   if (bestByUser.size === 0) {
-    _cache.set(cycle, { at: now.getTime(), rows: [], cycleKey });
+    _cache.set(cacheKey, { at: now.getTime(), rows: [], cycleKey });
     return { ...base, top: [], me: null, available: true };
   }
 
@@ -117,14 +127,25 @@ export async function buildSpeedQuizLeaderboard(
     return { ...base, top: [], me: null, available: false };
   }
 
-  // 3) Chỉ giữ user opt-in + có nickname; score = lượt tốt nhất.
+  // 2b) GIẢI ĐẤU ULTIMATE: lọc chỉ giữ user gói ultimate TRƯỚC khi rank. Metric
+  // KHÔNG đổi (vẫn correct_count). getUsersTierMap: user không có gói vắng khỏi
+  // map → coi 'free' → loại; lỗi/pre-migration → {} → mọi user bị loại → bảng rỗng.
+  let allowedUltimate: Set<string> | null = null;
+  if (bracket === 'ultimate') {
+    const tierMap = await getUsersTierMap(ids);
+    allowedUltimate = new Set(ids.filter((id) => tierMap[id] === 'ultimate'));
+  }
+
+  // 3) Chỉ giữ user opt-in + có nickname; score = lượt tốt nhất. Bracket ultimate
+  // loại thêm user không thuộc allowedUltimate.
   const rows: RankRow[] = [];
   for (const p of (profiles ?? []) as Array<{ user_id: string; nickname: string | null }>) {
     if (typeof p.user_id !== 'string' || !p.nickname) continue;
+    if (allowedUltimate && !allowedUltimate.has(p.user_id)) continue;
     rows.push({ userId: p.user_id, nickname: p.nickname, basePower: bestByUser.get(p.user_id) ?? 0 });
   }
 
-  _cache.set(cycle, { at: now.getTime(), rows, cycleKey });
+  _cache.set(cacheKey, { at: now.getTime(), rows, cycleKey });
   const { top, me } = rankEntries(rows, myUserId, topN);
   return { ...base, top, me, available: true };
 }
