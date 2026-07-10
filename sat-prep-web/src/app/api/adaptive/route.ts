@@ -23,8 +23,8 @@ export async function GET(request: Request) {
   const user = await getCurrentUser();
   const tier = await getUserTier(user.id);
 
-  // Free → khóa đề xuất cá nhân hóa (không tính, không lộ). UI hiện upsell.
-  if (tier === 'free') {
+  // Free & Premium bị khóa; chỉ Ultimate xem đề xuất adaptive (không tính, không lộ). UI hiện upsell.
+  if (tier !== 'ultimate') {
     return NextResponse.json({ recommendation: null, locked: true });
   }
 

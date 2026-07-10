@@ -53,9 +53,9 @@ export async function POST(req: Request) {
         loadGates(user.id),
       ]);
 
-      if (tier === 'free') {
+      if (tier !== 'ultimate') {
         return NextResponse.json(
-          { error: 'Thi Thật QAS là quyền lợi gói Premium. Nâng cấp để mở khóa.', reason: 'tier' },
+          { error: 'Thi Thật QAS là quyền lợi gói Ultimate. Nâng cấp để mở khóa.', reason: 'tier' },
           { status: 403 }
         );
       }
