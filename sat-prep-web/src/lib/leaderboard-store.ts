@@ -4,6 +4,8 @@ import { summarizeMastery, type SkillMastery } from './mastery';
 import { computeStats } from './stats';
 import { rankEntries, type RankRow, type RankedResult } from './leaderboard';
 import { getCurrentSeasonKey, getSeasonLabel, daysLeftInSeason } from './season';
+import { getUsersTierMap } from './subscription-store';
+import { bestFrameFor, bestTitleFor, COSMETIC_CATALOG } from './cosmetics';
 
 /**
  * ============================================================================
@@ -174,6 +176,24 @@ export async function buildLeaderboard(
     const { basePower } = computeStats(summary, 0); // equipmentBonus=0 (chỉ năng lực học)
     return { userId: p.user_id, nickname: p.nickname, basePower };
   });
+
+  // 4) DANH VỌNG (thuần trang trí): gán khung viền + danh hiệu theo TIER.
+  //    🛡️ CHỐNG P2W: frame/title CHỈ để render, KHÔNG đụng basePower/comparator
+  //    (rankEntries vẫn xếp theo basePower). getUsersTierMap tự fail-safe → map
+  //    rỗng khi lỗi/pre-migration ⇒ mọi user coi 'free' ⇒ bestFrameFor trả null
+  //    (không tier free nào có frame/title) ⇒ dòng thường, không crash.
+  //    Bản này chưa lấy ownedIds thật ⇒ coi mọi cosmetic là "được cấp theo tier":
+  //    truyền cả catalog vào ownedIds, để bestFrameFor/bestTitleFor lọc bằng tier.
+  const nowISO = now.toISOString();
+  const allCosmeticIds = COSMETIC_CATALOG.map((c) => c.id);
+  const tierMap = await getUsersTierMap(ids); // fail-safe: {} → mọi user 'free'
+  for (const row of rows) {
+    const tier = tierMap[row.userId] ?? 'free';
+    const frame = bestFrameFor(tier, allCosmeticIds, nowISO);
+    if (frame) row.frame = { icon: frame.icon, cssClass: frame.cssClass, label: frame.name };
+    const title = bestTitleFor(tier, allCosmeticIds, nowISO);
+    if (title) row.title = title.name;
+  }
 
   _cache = { at: now.getTime(), rows, seasonKey };
   const { top, me } = rankEntries(rows, myUserId, topN);

@@ -12,11 +12,22 @@
  * ============================================================================
  */
 
+/** Khung viền danh vọng (THUẦN TRANG TRÍ — KHÔNG đổi thứ hạng). */
+export interface FrameCosmetic {
+  icon?: string;
+  cssClass?: string;
+  label?: string;
+}
+
 export interface RankRow {
   /** Nội bộ — để đánh dấu isMe, KHÔNG lộ ra client. */
   userId: string;
   nickname: string;
   basePower: number;
+  /** Khung viền danh vọng (theo tier) — trang trí, KHÔNG dùng để sắp xếp. */
+  frame?: FrameCosmetic;
+  /** Danh hiệu danh vọng (theo tier) — trang trí, KHÔNG dùng để sắp xếp. */
+  title?: string;
 }
 
 export interface LeaderboardEntry {
@@ -24,6 +35,10 @@ export interface LeaderboardEntry {
   nickname: string;
   basePower: number;
   isMe: boolean;
+  /** Khung viền danh vọng — CHỈ render, KHÔNG ảnh hưởng rank/basePower. */
+  frame?: FrameCosmetic;
+  /** Danh hiệu danh vọng — CHỈ render cạnh nickname, KHÔNG ảnh hưởng rank. */
+  title?: string;
 }
 
 export interface RankedResult {
@@ -49,6 +64,10 @@ export function rankEntries(rows: RankRow[], myUserId: string, topN: number): Ra
     nickname: r.nickname,
     basePower: r.basePower,
     isMe: r.userId === myUserId,
+    // frame/title chỉ đi theo để RENDER — KHÔNG tham gia sort (comparator ở trên
+    // chỉ dùng basePower + nickname). Chống pay-to-win: danh vọng không đổi hạng.
+    frame: r.frame,
+    title: r.title,
   }));
 
   const limit = Number.isInteger(topN) && topN > 0 ? topN : 0;
@@ -57,7 +76,14 @@ export function rankEntries(rows: RankRow[], myUserId: string, topN: number): Ra
 
   const mineFull = ranked.find((e) => e.userId === myUserId);
   const me: LeaderboardEntry | null = mineFull
-    ? { rank: mineFull.rank, nickname: mineFull.nickname, basePower: mineFull.basePower, isMe: true }
+    ? {
+        rank: mineFull.rank,
+        nickname: mineFull.nickname,
+        basePower: mineFull.basePower,
+        isMe: true,
+        frame: mineFull.frame,
+        title: mineFull.title,
+      }
     : null;
 
   return { top, me };

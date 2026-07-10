@@ -5,11 +5,21 @@ import { useToast } from '@/context/ToastContext';
 import { LoadingState } from '@/components/LoadingState';
 import { EmptyState } from '@/components/EmptyState';
 
+interface FrameCosmetic {
+  icon?: string;
+  cssClass?: string;
+  label?: string;
+}
+
 interface Entry {
   rank: number;
   nickname: string;
   basePower: number;
   isMe: boolean;
+  /** Khung viền danh vọng — CHỈ trang trí, KHÔNG đổi thứ hạng. */
+  frame?: FrameCosmetic;
+  /** Danh hiệu danh vọng — badge cạnh bí danh, KHÔNG đổi thứ hạng. */
+  title?: string;
 }
 
 interface LeaderboardData {
@@ -182,7 +192,7 @@ export default function LeaderboardPage() {
               {board.top.map((e) => (
                 <div
                   key={e.rank}
-                  className={`flex items-center justify-between px-6 py-3 border-b border-[#0f172a] last:border-0 ${e.isMe ? 'bg-[rgba(251,191,36,0.12)]' : ''}`}
+                  className={`flex items-center justify-between px-6 py-3 border-b border-[#0f172a] last:border-0 ${e.isMe ? 'bg-[rgba(251,191,36,0.12)]' : ''} ${e.frame?.cssClass ?? ''}`}
                 >
                   <div className="flex items-center gap-4 min-w-0">
                     <span className={`text-lg font-black w-10 text-center ${e.rank <= 3 ? 'text-[#fbbf24]' : 'text-gray-500'}`}>
@@ -191,6 +201,15 @@ export default function LeaderboardPage() {
                     <span className={`font-bold truncate ${e.isMe ? 'text-[#fbbf24]' : 'text-white'}`}>
                       {e.nickname} {e.isMe && <span className="text-xs text-amber-400">(Bạn)</span>}
                     </span>
+                    {/* Danh hiệu danh vọng — CHỈ khoe, KHÔNG đổi thứ hạng. */}
+                    {e.title && (
+                      <span
+                        className="text-xs font-bold text-amber-300 bg-[rgba(251,191,36,0.15)] border border-[rgba(251,191,36,0.3)] rounded px-2 py-0.5 shrink-0"
+                        title={e.title}
+                      >
+                        {e.frame?.icon ?? '🎖️'} {e.title}
+                      </span>
+                    )}
                   </div>
                   <span className="text-sm font-mono text-[#60a5fa] shrink-0">⚔️ {e.basePower}</span>
                 </div>
@@ -200,10 +219,19 @@ export default function LeaderboardPage() {
 
           {/* Vị trí của mình nếu ngoài top hiển thị */}
           {board.me && !board.top.some((e) => e.isMe) && (
-            <div className="bg-[rgba(251,191,36,0.12)] border border-[rgba(251,191,36,0.3)] rounded-xl px-6 py-3 flex items-center justify-between">
+            <div className={`bg-[rgba(251,191,36,0.12)] border border-[rgba(251,191,36,0.3)] rounded-xl px-6 py-3 flex items-center justify-between ${board.me.frame?.cssClass ?? ''}`}>
               <div className="flex items-center gap-4">
                 <span className="text-lg font-black w-10 text-center text-[#fbbf24]">#{board.me.rank}</span>
                 <span className="font-bold text-[#fbbf24]">{board.me.nickname} <span className="text-xs text-amber-400">(Bạn)</span></span>
+                {/* Danh hiệu danh vọng — CHỈ khoe, KHÔNG đổi thứ hạng. */}
+                {board.me.title && (
+                  <span
+                    className="text-xs font-bold text-amber-300 bg-[rgba(251,191,36,0.15)] border border-[rgba(251,191,36,0.3)] rounded px-2 py-0.5 shrink-0"
+                    title={board.me.title}
+                  >
+                    {board.me.frame?.icon ?? '🎖️'} {board.me.title}
+                  </span>
+                )}
               </div>
               <span className="text-sm font-mono text-[#60a5fa]">⚔️ {board.me.basePower}</span>
             </div>
