@@ -14,11 +14,14 @@ import { loadUsage, saveUsage, incrementUsageAtomic, type UsageRecord } from './
 
 export type AiTier = 'free' | 'premium' | 'ultimate';
 
-/** Hạn mức lượt gọi AI mỗi ngày theo gói. -1 = không giới hạn. */
-export const DAILY_LIMITS: Record<AiTier, number> = {
-  free: 5,
-  premium: -1,
-  ultimate: -1,
+/** Loại lượt gọi AI: sinh câu (gen) vs gia sư chat (chat) — 2 bucket quota riêng. */
+export type AiKind = 'gen' | 'chat';
+
+/** Hạn mức lượt gọi AI mỗi ngày theo gói + loại. -1 = không giới hạn. */
+export const DAILY_LIMITS: Record<AiTier, Record<AiKind, number>> = {
+  free:     { gen: 3, chat: 3 },
+  premium:  { gen: -1, chat: -1 },
+  ultimate: { gen: -1, chat: -1 },
 };
 
 function today(): string {
@@ -29,7 +32,7 @@ function today(): string {
 async function loadToday(userId: string): Promise<UsageRecord> {
   const rec = await loadUsage(userId);
   if (rec.date !== today()) {
-    return { date: today(), count: 0, tokensIn: 0, tokensOut: 0 };
+    return { date: today(), count: 0, genCount: 0, chatCount: 0, tokensIn: 0, tokensOut: 0 };
   }
   return rec;
 }
@@ -41,32 +44,34 @@ export interface QuotaCheck {
   remaining: number;   // Infinity khi unlimited
 }
 
-/** Kiểm tra user còn lượt gọi AI hôm nay không (chưa tính thêm). */
-export async function checkQuota(userId: string, tier: AiTier = 'free'): Promise<QuotaCheck> {
-  const limit = DAILY_LIMITS[tier];
+/** Kiểm tra user còn lượt gọi AI hôm nay không (chưa tính thêm), theo loại. */
+export async function checkQuota(userId: string, tier: AiTier = 'free', kind: AiKind): Promise<QuotaCheck> {
+  const limit = DAILY_LIMITS[tier][kind];
   const rec = await loadToday(userId);
+  const used = kind === 'gen' ? rec.genCount : rec.chatCount;
 
   if (limit < 0) {
-    return { allowed: true, used: rec.count, limit, remaining: Infinity };
+    return { allowed: true, used, limit, remaining: Infinity };
   }
   return {
-    allowed: rec.count < limit,
-    used: rec.count,
+    allowed: used < limit,
+    used,
     limit,
-    remaining: Math.max(0, limit - rec.count),
+    remaining: Math.max(0, limit - used),
   };
 }
 
-/** Ghi nhận 1 lượt gọi AI đã hoàn tất (tăng count + cộng dồn token). */
-export async function recordUsage(userId: string, tokensIn = 0, tokensOut = 0): Promise<void> {
-  // Đường ATOMIC (audit 2026-07-03, ROOT C): tăng count qua RPC (upsert x=x+1 +
-  // reset ngày mới ở DB) → 2 request đồng thời không ghi đè → quota/ngày chính
+/** Ghi nhận 1 lượt gọi AI đã hoàn tất (tăng đúng bucket + cộng dồn token). */
+export async function recordUsage(userId: string, kind: AiKind, tokensIn = 0, tokensOut = 0): Promise<void> {
+  // Đường ATOMIC (audit 2026-07-03, ROOT C): tăng đúng bucket qua RPC (upsert x=x+1
+  // + reset ngày mới ở DB) → 2 request đồng thời không ghi đè → quota/ngày chính
   // xác. FAIL-SAFE: RPC chưa có (pre-migration) → false → fallback load-modify-save.
-  if (await incrementUsageAtomic(userId, today(), tokensIn, tokensOut)) return;
+  if (await incrementUsageAtomic(userId, kind, today(), tokensIn, tokensOut)) return;
 
   // ── Fallback đọc-sửa-ghi (pre-migration hoặc RPC lỗi) ──
   const rec = await loadToday(userId);
-  rec.count += 1;
+  if (kind === 'gen') rec.genCount += 1;
+  else rec.chatCount += 1;
   rec.tokensIn += tokensIn;
   rec.tokensOut += tokensOut;
   await saveUsage(userId, rec);

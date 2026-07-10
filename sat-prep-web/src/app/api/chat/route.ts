@@ -100,7 +100,7 @@ export async function POST(request: Request) {
       const cached = await getCachedReply(cacheHash);
       if (cached) {
         bumpHitCount(cacheHash, cached.hitCount).catch((e) => console.error('bumpHitCount:', e));
-        const q = await checkQuota(user.id, tier);
+        const q = await checkQuota(user.id, tier, 'chat');
         return NextResponse.json({
           reply: cached.reply,
           cached: true,
@@ -110,7 +110,7 @@ export async function POST(request: Request) {
     }
 
     // 1) Enforce quota TRƯỚC khi tốn tiền gọi OpenAI (chỉ khi cache MISS).
-    const quota = await checkQuota(user.id, tier);
+    const quota = await checkQuota(user.id, tier, 'chat');
     if (!quota.allowed) {
       return NextResponse.json(
         {
@@ -191,7 +191,7 @@ export async function POST(request: Request) {
     // 5) Ghi nhận usage (tăng quota count + cộng dồn token cho task #5).
     const tokIn = data.usage?.prompt_tokens ?? 0;
     const tokOut = data.usage?.completion_tokens ?? 0;
-    await recordUsage(user.id, tokIn, tokOut);
+    await recordUsage(user.id, 'chat', tokIn, tokOut);
     // Cộng chi phí vào sổ cái toàn hệ thống (kill-switch ngày — §9.5). AWAIT
     // (audit 2026-07-03, ROOT D): fire-and-forget trên serverless có thể bị
     // kill trước khi ghi → thất thoát trần ngân sách. .catch giữ để lỗi ghi
@@ -203,7 +203,7 @@ export async function POST(request: Request) {
       saveCachedReply(cacheHash, userMessage, reply).catch((e) => console.error('saveCachedReply:', e));
     }
 
-    const after = await checkQuota(user.id, tier);
+    const after = await checkQuota(user.id, tier, 'chat');
     return NextResponse.json({
       reply,
       quota: { used: after.used, limit: after.limit, remaining: after.remaining },

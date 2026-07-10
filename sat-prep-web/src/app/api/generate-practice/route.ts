@@ -155,7 +155,7 @@ export async function POST(req: Request) {
     // KHÔNG tốn token nên đã return sớm, không chạm tới đây.
     // Phase 2: tier THẬT từ subscription (fail-safe → 'free' khi lỗi/không có gói).
     const tier = await getUserTier(user.id);
-    const quota = await checkQuota(user.id, tier);
+    const quota = await checkQuota(user.id, tier, 'gen');
     if (!quota.allowed) {
       return NextResponse.json(
         {
@@ -346,6 +346,7 @@ BẮT BUỘC thêm trường "choice_analysis": MẢNG, mỗi phần tử ứng 
       ).catch((e) => console.error('recordGlobalCost:', e)),
       recordUsage(
         user.id,
+        'gen',
         responseData.usage?.prompt_tokens ?? 0,
         responseData.usage?.completion_tokens ?? 0
       ).catch((e) => console.error('recordUsage:', e)),

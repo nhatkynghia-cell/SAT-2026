@@ -12,7 +12,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 export interface UsageRecord {
   date: string;
-  count: number;
+  count: number;       // vestigial (counter chung cũ) — giữ để không phá chỗ khác
+  genCount: number;    // lượt SINH CÂU (generate-practice) trong ngày
+  chatCount: number;   // lượt GIA SƯ CHAT (chat) trong ngày
   tokensIn: number;
   tokensOut: number;
 }
@@ -21,14 +23,16 @@ export async function loadUsage(userId: string): Promise<UsageRecord> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('user_ai_usage')
-    .select('date, count, tokens_in, tokens_out')
+    .select('date, count, gen_count, chat_count, tokens_in, tokens_out')
     .eq('user_id', userId)
     .single();
 
-  if (error || !data) return { date: '', count: 0, tokensIn: 0, tokensOut: 0 };
+  if (error || !data) return { date: '', count: 0, genCount: 0, chatCount: 0, tokensIn: 0, tokensOut: 0 };
   return {
     date: data.date ?? '',
     count: data.count ?? 0,
+    genCount: data.gen_count ?? 0,
+    chatCount: data.chat_count ?? 0,
     tokensIn: data.tokens_in ?? 0,
     tokensOut: data.tokens_out ?? 0,
   };
@@ -44,10 +48,11 @@ export async function loadUsage(userId: string): Promise<UsageRecord> {
  * (pre-migration: 42883/PGRST202) hoặc lỗi → caller FALLBACK về load-modify-save
  * cũ = 0 regression. Hàm SQL commit atomic nên lỗi = KHÔNG ghi gì → không double.
  */
-export async function incrementUsageAtomic(userId: string, date: string, tokensIn: number, tokensOut: number): Promise<boolean> {
+export async function incrementUsageAtomic(userId: string, kind: 'gen' | 'chat', date: string, tokensIn: number, tokensOut: number): Promise<boolean> {
   const admin = createAdminClient();
   const { error } = await admin.rpc('increment_ai_usage', {
     p_user_id: userId,
+    p_kind: kind,
     p_date: date,
     p_tokens_in: tokensIn,
     p_tokens_out: tokensOut,
@@ -71,6 +76,8 @@ export async function saveUsage(userId: string, rec: UsageRecord): Promise<void>
         user_id: userId,
         date: rec.date,
         count: rec.count,
+        gen_count: rec.genCount,
+        chat_count: rec.chatCount,
         tokens_in: rec.tokensIn,
         tokens_out: rec.tokensOut,
         updated_at: new Date().toISOString(),
