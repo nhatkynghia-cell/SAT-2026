@@ -19,11 +19,17 @@ function sub(overrides: Partial<SubscriptionRecord> = {}): SubscriptionRecord {
   };
 }
 
-test('PLANS: có đủ 4 tổ hợp tier×period, giá > 0, duration đúng', () => {
-  assert.equal(PLANS.length, 4);
+test('PLANS: có đủ 8 tổ hợp tier×period, giá > 0, duration đúng', () => {
+  assert.equal(PLANS.length, 8);
+  const EXPECTED_DAYS: Record<string, number> = {
+    monthly: 30,
+    quarterly: 90,
+    semiannual: 180,
+    yearly: 365,
+  };
   for (const p of PLANS) {
     assert.ok(p.priceVnd > 0, `${p.tier}/${p.period} giá phải > 0`);
-    assert.equal(p.durationDays, p.period === 'yearly' ? 365 : 30);
+    assert.equal(p.durationDays, EXPECTED_DAYS[p.period], `${p.tier}/${p.period} durationDays sai`);
   }
 });
 

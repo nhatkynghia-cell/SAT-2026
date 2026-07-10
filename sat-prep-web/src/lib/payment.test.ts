@@ -25,8 +25,10 @@ test('isValidTier: chỉ premium/ultimate (không free, không rác)', () => {
   assert.equal(isValidTier(null), false);
 });
 
-test('isValidPeriod: chỉ monthly/yearly', () => {
+test('isValidPeriod: chỉ monthly/quarterly/semiannual/yearly', () => {
   assert.equal(isValidPeriod('monthly'), true);
+  assert.equal(isValidPeriod('quarterly'), true);
+  assert.equal(isValidPeriod('semiannual'), true);
   assert.equal(isValidPeriod('yearly'), true);
   assert.equal(isValidPeriod('daily'), false);
   assert.equal(isValidPeriod(''), false);
@@ -47,4 +49,6 @@ test('buildOrderInfo: ASCII không dấu, chứa tier + period', () => {
   // Không dấu tiếng Việt (VNPay yêu cầu) — chỉ ASCII in được.
   assert.match(info, /^[\x20-\x7E]*$/, 'phải là ASCII in được');
   assert.match(buildOrderInfo('premium', 'monthly'), /Premium.*thang/);
+  assert.match(buildOrderInfo('premium', 'quarterly'), /Premium.*3thang/);
+  assert.match(buildOrderInfo('ultimate', 'semiannual'), /Ultimate.*6thang/);
 });

@@ -51,7 +51,7 @@ export const TIER_COIN_MULTIPLIER: Record<AiTier, number> = {
 };
 
 /** Chu kỳ thanh toán. */
-export type BillingPeriod = 'monthly' | 'yearly';
+export type BillingPeriod = 'monthly' | 'quarterly' | 'semiannual' | 'yearly';
 
 export interface Plan {
   tier: PaidTier;
@@ -69,8 +69,12 @@ export interface Plan {
  */
 export const PLANS: Plan[] = [
   { tier: 'premium', period: 'monthly', priceVnd: 499_000, durationDays: 30 },
+  { tier: 'premium', period: 'quarterly', priceVnd: 1_350_000, durationDays: 90 },
+  { tier: 'premium', period: 'semiannual', priceVnd: 2_400_000, durationDays: 180 },
   { tier: 'premium', period: 'yearly', priceVnd: 3_990_000, durationDays: 365 },
   { tier: 'ultimate', period: 'monthly', priceVnd: 990_000, durationDays: 30 },
+  { tier: 'ultimate', period: 'quarterly', priceVnd: 2_670_000, durationDays: 90 },
+  { tier: 'ultimate', period: 'semiannual', priceVnd: 4_740_000, durationDays: 180 },
   { tier: 'ultimate', period: 'yearly', priceVnd: 7_990_000, durationDays: 365 },
 ];
 

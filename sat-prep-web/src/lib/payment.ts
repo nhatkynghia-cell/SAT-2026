@@ -35,7 +35,7 @@ export interface PaymentTxn {
 
 const VALID_GATEWAYS: readonly PaymentGateway[] = ['vnpay', 'momo'];
 const VALID_TIERS: readonly PaidTier[] = ['premium', 'ultimate'];
-const VALID_PERIODS: readonly BillingPeriod[] = ['monthly', 'yearly'];
+const VALID_PERIODS: readonly BillingPeriod[] = ['monthly', 'quarterly', 'semiannual', 'yearly'];
 
 export function isValidGateway(g: unknown): g is PaymentGateway {
   return typeof g === 'string' && VALID_GATEWAYS.includes(g as PaymentGateway);
@@ -62,6 +62,12 @@ export function generateOrderId(): string {
  */
 export function buildOrderInfo(tier: PaidTier, period: BillingPeriod): string {
   const tierLabel = tier === 'ultimate' ? 'Ultimate' : 'Premium';
-  const periodLabel = period === 'yearly' ? 'nam' : 'thang';
+  const PERIOD_LABELS: Record<BillingPeriod, string> = {
+    monthly: 'thang',
+    quarterly: '3thang',
+    semiannual: '6thang',
+    yearly: 'nam',
+  };
+  const periodLabel = PERIOD_LABELS[period];
   return `Nang cap goi ${tierLabel} ${periodLabel} - Gia su AI SAT`;
 }
