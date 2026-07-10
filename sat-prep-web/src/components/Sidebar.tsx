@@ -35,6 +35,7 @@ const MENU_GROUPS = [
       { name: '📚 Làm Chủ Từ Vựng', path: '/vocab' },
       { name: '🧮 Bí Kíp Hack Desmos', path: '/desmos' },
       { name: '📜 Giải Mã Văn Học Cổ', path: '/literature' },
+      { name: '🔥 Khổ Luyện Chuyên Sâu', path: '/grind' },
     ]
   },
   {
