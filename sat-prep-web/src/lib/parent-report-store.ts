@@ -43,6 +43,14 @@ export interface ParentReport {
   studentTier: AiTier;
   /** Số ngày cửa sổ xu hướng đã dùng (7/30/90 theo tier). */
   trendWindowDays: number;
+  /**
+   * "Tốc độ cải thiện" THUẦN (không AI): chênh điểm dự đoán + mastery tổng giữa
+   * snapshot ĐẦU và CUỐI trong cửa sổ. null khi < 2 snapshot (chưa đủ để so).
+   *  • deltaOverall  — chênh mastery tổng 0..100.
+   *  • deltaPredicted — chênh điểm SAT dự đoán (tổng 400..1600).
+   *  • windowDays    — số ngày cửa sổ (7/30/90 theo tier).
+   */
+  improvement: { deltaOverall: number; deltaPredicted: number; windowDays: number } | null;
 }
 
 export async function buildParentReport(studentId: string): Promise<ParentReport> {
@@ -107,6 +115,18 @@ export async function buildParentReport(studentId: string): Promise<ParentReport
     score: v.scores.length ? Math.round(v.scores.reduce((a, b) => a + b, 0) / v.scores.length) : 0,
   }));
 
+  // "Tốc độ cải thiện" THUẦN — chênh giữa snapshot ĐẦU và CUỐI trong cửa sổ.
+  // snapshots đã sort tăng dần theo ngày (loadSnapshots order ascending). Chỉ
+  // tính khi có >= 2 snapshot; total_score là điểm SAT dự đoán tổng (400..1600).
+  const improvement =
+    snapshots.length >= 2
+      ? {
+          deltaOverall: snapshots[snapshots.length - 1].overall - snapshots[0].overall,
+          deltaPredicted: snapshots[snapshots.length - 1].total_score - snapshots[0].total_score,
+          windowDays: trendWindowDays,
+        }
+      : null;
+
   return {
     prediction,
     mastery: { overall: summary.overall, bySubject: summary.bySubject, domains },
@@ -115,5 +135,6 @@ export async function buildParentReport(studentId: string): Promise<ParentReport
     recentTests,
     studentTier,
     trendWindowDays,
+    improvement,
   };
 }

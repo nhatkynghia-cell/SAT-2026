@@ -6,6 +6,7 @@
  * Nhận data từ /api/parent/report (không cần login).
  */
 
+import { useState, useEffect } from 'react';
 import { WeeklyTrendPanel, type WeeklyTrend } from './WeeklyTrendPanel';
 
 export interface ParentReportData {
@@ -31,6 +32,8 @@ export interface ParentReportData {
   studentTier?: 'free' | 'premium' | 'ultimate';
   /** Optional — số ngày cửa sổ xu hướng (7/30/90). */
   trendWindowDays?: number;
+  /** Optional — "tốc độ cải thiện" thuần (mọi tier có >=2 snapshot). */
+  improvement?: { deltaOverall: number; deltaPredicted: number; windowDays: number } | null;
 }
 
 const RADAR_AXES: { domainId: string; label: string; color: string; angle: number }[] = [
@@ -54,6 +57,7 @@ export function ParentReport({ data }: { data: ParentReportData }) {
   const studentTier = data.studentTier ?? 'free';
   const trendWindowDays = data.trendWindowDays ?? 7;
   const isFreeStudent = studentTier === 'free';
+  const improvement = data.improvement ?? null;
 
   // Radar geometry (giống dashboard học sinh).
   const size = 200;
@@ -94,6 +98,31 @@ export function ParentReport({ data }: { data: ParentReportData }) {
           label={`Điểm thay đổi ${trendWindowDays} ngày`}
         />
       </div>
+
+      {/* Tốc độ cải thiện (thuần — mọi tier có >=2 snapshot trong cửa sổ) */}
+      {improvement && (
+        <div className="bg-[#1b2533] p-6 rounded-xl border border-[#262730]">
+          <h3 className="text-lg font-bold text-white mb-3">🚀 Tốc độ cải thiện ({improvement.windowDays} ngày)</h3>
+          <div className="flex gap-8 flex-wrap">
+            <div>
+              <div className={`text-2xl font-bold ${improvement.deltaPredicted >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {improvement.deltaPredicted >= 0 ? '+' : ''}{improvement.deltaPredicted}
+              </div>
+              <div className="text-xs text-gray-400">Điểm SAT dự đoán</div>
+            </div>
+            <div>
+              <div className={`text-2xl font-bold ${improvement.deltaOverall >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {improvement.deltaOverall >= 0 ? '+' : ''}{improvement.deltaOverall}
+              </div>
+              <div className="text-xs text-gray-400">Năng lực tổng (0-100)</div>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mt-3">So sánh mốc đầu và cuối trong cửa sổ {improvement.windowDays} ngày — càng dương càng tiến bộ.</p>
+        </div>
+      )}
+
+      {/* 🧠 Nhận xét từ Mentor AI — CHỈ gói Ultimate; tự ẩn nếu chưa có nhận xét. */}
+      {studentTier === 'ultimate' && <MentorAiPanel />}
 
       {/* Chi tiết điểm */}
       <div className="bg-[#1b2533] p-6 rounded-xl border border-[#262730]">
@@ -179,6 +208,61 @@ function StatCard({ icon, value, label }: { icon: string; value: string; label: 
       <div className="text-3xl mb-1">{icon}</div>
       <div className="text-2xl font-bold text-white">{value}</div>
       <div className="text-gray-400 text-xs">{label}</div>
+    </div>
+  );
+}
+
+/**
+ * Khối "Nhận xét từ Mentor AI" (chỉ render khi con dùng gói Ultimate).
+ * Đọc mã chia sẻ từ URL (?code=PH-...) — cùng nguồn với /parent — rồi fetch
+ * /api/mentor-comment. Nhận xét được server CACHE theo ngày (1 lần gọi OpenAI/
+ * học sinh/ngày). comment=null (fail-safe: OpenAI chặn VN / hết ngân sách / lỗi)
+ * → ẩn khối IM LẶNG, không làm vỡ phần số liệu của báo cáo.
+ */
+function MentorAiPanel() {
+  const [phase, setPhase] = useState<'loading' | 'hidden' | 'ready'>('loading');
+  const [comment, setComment] = useState('');
+
+  useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
+    const code = new URLSearchParams(window.location.search).get('code');
+    if (!code) {
+      setPhase('hidden');
+      return;
+    }
+    (async () => {
+      try {
+        const res = await fetch(`/api/mentor-comment?code=${encodeURIComponent(code)}`);
+        if (!res.ok) {
+          setPhase('hidden');
+          return;
+        }
+        const json = (await res.json()) as { comment?: string | null };
+        if (json.comment) {
+          setComment(json.comment);
+          setPhase('ready');
+        } else {
+          setPhase('hidden');
+        }
+      } catch {
+        setPhase('hidden');
+      }
+    })();
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
+
+  if (phase === 'hidden') return null;
+
+  return (
+    <div className="bg-gradient-to-br from-[#1e293b] to-[#312e81] p-6 rounded-xl border border-[#6366f1]">
+      <h3 className="text-lg font-bold text-white mb-3">🧠 Nhận xét từ Mentor AI</h3>
+      {phase === 'loading' ? (
+        <div className="flex items-center gap-2 text-indigo-200 text-sm">
+          <span className="animate-spin">⚙️</span> Đang tạo nhận xét cho con...
+        </div>
+      ) : (
+        <p className="text-sm text-indigo-100 whitespace-pre-line leading-relaxed">{comment}</p>
+      )}
     </div>
   );
 }
