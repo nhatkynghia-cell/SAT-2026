@@ -10,7 +10,6 @@ import {
 } from 'vnpay';
 import { verifyVnpayIpn } from '@/lib/payment-vnpay';
 import { confirmPaymentAtomic } from '@/lib/payment-store';
-import { grantSubscription } from '@/lib/subscription-store';
 
 /**
  * ============================================================================
@@ -20,7 +19,7 @@ import { grantSubscription } from '@/lib/subscription-store';
  *  để cấp gói (KHÔNG phải Return URL — browser giả mạo được).
  *
  *  Luồng: verify chữ ký HMAC-SHA512 (lib) → confirm_payment ATOMIC (chống double-
- *  grant + kiểm tiền) → grantSubscription CHỈ khi lật pending→paid lần đầu.
+ *  grant + kiểm tiền + CẤP GÓI nguyên tử trong cùng transaction — A2).
  *  Trả { RspCode, Message } đúng mã VNPay (tái dụng constants của lib).
  * ============================================================================
  */
@@ -59,11 +58,10 @@ export async function GET(req: Request) {
       return NextResponse.json(InpOrderAlreadyConfirmed);
     }
 
-    // 5) Lật pending→paid THÀNH CÔNG lần đầu (isSuccess đã đảm bảo ở bước 2) → cấp gói.
-    if (outcome.userId && outcome.tier && outcome.period) {
-      await grantSubscription(outcome.userId, outcome.tier, outcome.period);
-    }
-
+    // 5) Lật pending→paid THÀNH CÔNG lần đầu (isSuccess đã đảm bảo ở bước 2).
+    //    A2: GÓI ĐÃ ĐƯỢC CẤP NGUYÊN TỬ trong confirm_payment RPC (cùng transaction
+    //    với UPDATE status='paid') → KHÔNG còn gọi grantSubscription ở đây (vá lỗ
+    //    tiền: trước đây grant tách rời có thể fail sau khi đơn đã 'paid').
     return NextResponse.json(IpnSuccess);
   } catch (error) {
     console.error('Lỗi vnpay-ipn:', error);

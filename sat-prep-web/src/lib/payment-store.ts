@@ -26,6 +26,9 @@ export async function createTransaction(args: {
   tier: PaidTier;
   period: BillingPeriod;
   amountVnd: number;
+  /** Số ngày hiệu lực (tra PLANS.durationDays). RPC confirm_payment dùng để cấp
+   *  gói NGUYÊN TỬ (A2) — ghi ngay lúc tạo đơn để lật-paid + cấp-gói cùng transaction. */
+  durationDays: number;
 }): Promise<boolean> {
   const admin = createAdminClient();
   const { error } = await admin.from('payment_transactions').insert({
@@ -35,6 +38,7 @@ export async function createTransaction(args: {
     tier: args.tier,
     period: args.period,
     amount_vnd: args.amountVnd,
+    duration_days: args.durationDays,
     status: 'pending',
   });
 

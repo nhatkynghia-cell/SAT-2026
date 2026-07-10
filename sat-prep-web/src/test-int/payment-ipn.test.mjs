@@ -83,6 +83,10 @@ function seedPendingTxn(orderId, opts = {}) {
     user_id: opts.userId ?? 'pay-user', order_id: orderId, gateway: opts.gateway ?? 'momo',
     tier: opts.tier ?? 'premium', period: opts.period ?? 'yearly',
     amount_vnd: opts.amountVnd ?? 990000, status: 'pending',
+    // A2: đơn TỪ SAU migration luôn có duration_days (server tra PLANS lúc create) →
+    // confirm_payment cấp gói nguyên tử. Cho phép opts.durationDays=null để mô phỏng
+    // đơn CŨ pre-migration (RPC bỏ qua insert).
+    duration_days: opts.durationDays === undefined ? 365 : opts.durationDays,
     gateway_txn_id: null, created_at: '2026-07-01T00:00:00Z', paid_at: null,
   });
 }
@@ -256,4 +260,47 @@ test('vnpay-ipn: SAI SỐ TIỀN (amount lệch amount_vnd) → KHÔNG cấp gó
   assert.notEqual(body.RspCode, '00');
   assert.equal(getRows('user_subscriptions').length, 0, 'amount_mismatch → KHÔNG cấp');
   assert.equal(getRows('payment_transactions')[0].status, 'pending');
+});
+
+// ── A2 — CẤP GÓI NGUYÊN TỬ trong confirm_payment (vá lỗ tiền money-in) ──────────
+// Bất biến A2: lật pending→paid VÀ insert user_subscriptions cùng 1 transaction.
+// Grant KHÔNG còn ở route → không còn khe hở "đơn paid nhưng gói fail". expires_at
+// = started_at + duration_days. Retry → alreadyConfirmed → VẪN đúng 1 dòng.
+test('A2: confirm cấp gói nguyên tử — 1 dòng, expires_at ≈ now+duration; retry KHÔNG double-grant', async () => {
+  resetDb(); setMomoEnv(true);
+  seedPendingTxn('A2-ORD', {
+    userId: 'u-a2', tier: 'ultimate', period: 'monthly', amountVnd: 990000, durationDays: 30,
+  });
+
+  // IPN lần 1 → lật paid + cấp gói (cùng transaction).
+  const res1 = await momoIpn(momoReq(momoPayload('A2-ORD', { amount: 990000 })));
+  assert.equal(res1.status, 204);
+  assert.equal(getRows('payment_transactions')[0].status, 'paid', 'đơn đã paid');
+
+  let subs = getRows('user_subscriptions');
+  assert.equal(subs.length, 1, 'cấp đúng 1 gói ngay trong confirm (không qua grant tách rời)');
+  assert.equal(subs[0].user_id, 'u-a2');
+  assert.equal(subs[0].tier, 'ultimate');
+  assert.equal(subs[0].period, 'monthly');
+  // expires_at = started_at + 30 ngày (RPC dùng now() + duration_days days).
+  const startMs = new Date(subs[0].started_at).getTime();
+  const expMs = new Date(subs[0].expires_at).getTime();
+  assert.equal(expMs - startMs, 30 * 86400 * 1000, 'expires_at = started_at + 30 ngày');
+
+  // IPN lần 2 (retry cổng) → alreadyConfirmed → KHÔNG cấp lần 2.
+  const res2 = await momoIpn(momoReq(momoPayload('A2-ORD', { amount: 990000 })));
+  assert.equal(res2.status, 204);
+  subs = getRows('user_subscriptions');
+  assert.equal(subs.length, 1, 'retry idempotent → VẪN đúng 1 dòng (không double-grant)');
+});
+
+test('A2: đơn CŨ pre-migration (duration_days null) → lật paid nhưng KHÔNG cấp (tương thích)', async () => {
+  resetDb(); setMomoEnv(true);
+  // durationDays: null mô phỏng đơn tạo TRƯỚC migration (cột chưa ghi).
+  seedPendingTxn('A2-OLD', { amountVnd: 990000, durationDays: null });
+
+  const res = await momoIpn(momoReq(momoPayload('A2-OLD', { amount: 990000 })));
+  assert.equal(res.status, 204);
+  assert.equal(getRows('payment_transactions')[0].status, 'paid', 'vẫn lật paid');
+  assert.equal(getRows('user_subscriptions').length, 0, 'duration null → RPC bỏ qua insert');
 });

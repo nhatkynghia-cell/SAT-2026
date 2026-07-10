@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyMomoIpnSignature, isMomoSuccess, type MomoIpnPayload } from '@/lib/payment-momo';
 import { confirmPaymentAtomic } from '@/lib/payment-store';
-import { grantSubscription } from '@/lib/subscription-store';
 
 /**
  * ============================================================================
@@ -11,7 +10,7 @@ import { grantSubscription } from '@/lib/subscription-store';
  *  (KHÔNG phải redirectUrl — browser giả mạo được).
  *
  *  Luồng: verify chữ ký HMAC-SHA256 (accessKey + secretKey server-side) →
- *  resultCode===0 → confirm_payment ATOMIC → grantSubscription khi lật lần đầu.
+ *  resultCode===0 → confirm_payment ATOMIC (lật paid + CẤP GÓI nguyên tử — A2).
  *  MoMo mong HTTP 204 (No Content) khi đã nhận IPN thành công.
  *
  *  ⚠️ MUST-VERIFY khi có creds: thứ tự field rawSignature IPN (payment-momo.ts).
@@ -45,10 +44,9 @@ export async function POST(req: Request) {
     const amountVnd = Number(payload.amount ?? 0);
     const outcome = await confirmPaymentAtomic(orderId, gatewayTxnId, amountVnd);
 
-    // 4) Cấp gói CHỈ khi lật pending→paid lần đầu (không alreadyConfirmed).
-    if (outcome.ok && !outcome.alreadyConfirmed && outcome.userId && outcome.tier && outcome.period) {
-      await grantSubscription(outcome.userId, outcome.tier, outcome.period);
-    }
+    // 4) A2: GÓI ĐÃ ĐƯỢC CẤP NGUYÊN TỬ trong confirm_payment RPC (cùng transaction
+    //    với UPDATE status='paid') → KHÔNG còn gọi grantSubscription ở đây. Vá lỗ
+    //    tiền: trước đây grant tách rời có thể fail sau khi đơn đã 'paid' (mất tiền).
 
     // MoMo: 204 = đã nhận IPN (kể cả idempotent/đã xử lý). Lỗi confirm → 500 để retry.
     if (!outcome.ok && outcome.reason !== 'amount_mismatch' && outcome.reason !== 'not_found') {

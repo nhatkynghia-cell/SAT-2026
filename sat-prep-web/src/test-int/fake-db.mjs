@@ -285,7 +285,7 @@ const RPCS = {
     if (p_amount > 0 && p_amount !== txn.amount_vnd) {
       return { ok: false, reason: 'amount_mismatch', ...meta };
     }
-    // Đã 'paid' → idempotent, KHÔNG cấp lại.
+    // Đã 'paid' → idempotent, KHÔNG cấp lại (return TRƯỚC insert → chống double-grant).
     if (txn.status === 'paid') {
       return { ok: true, alreadyConfirmed: true, ...meta };
     }
@@ -296,6 +296,26 @@ const RPCS = {
     txn.status = 'paid';
     txn.gateway_txn_id = p_gateway_txn_id || null;
     txn.paid_at = new Date(state.idCounter * 1000).toISOString();
+    // 🔴 A2: CẤP GÓI NGUYÊN TỬ — mô phỏng INSERT user_subscriptions CÙNG transaction
+    // với UPDATE status='paid' (SQL thật dùng now() + duration_days days). CHỈ chạy
+    // trên nhánh lật pending→paid (nhánh alreadyConfirmed đã return ở trên) → đúng
+    // 1 dòng/order dù IPN gọi nhiều lần. Đơn cũ thiếu duration_days (null) → BỎ QUA
+    // insert (giữ tương thích), khớp nhánh `if v_duration is not null` của RPC.
+    if (txn.duration_days != null && txn.duration_days > 0) {
+      const startedAt = new Date(state.idCounter * 1000).toISOString();
+      const expiresAt = new Date(
+        state.idCounter * 1000 + txn.duration_days * 86400 * 1000
+      ).toISOString();
+      table('user_subscriptions').push({
+        id: nextId('user_subscriptions'),
+        user_id: txn.user_id,
+        tier: txn.tier,
+        period: txn.period,
+        started_at: startedAt,
+        expires_at: expiresAt,
+        created_at: startedAt,
+      });
+    }
     return { ok: true, alreadyConfirmed: false, ...meta };
   },
 

@@ -86,6 +86,8 @@ export async function POST(req: Request) {
       tier,
       period,
       amountVnd: plan.priceVnd,
+      // A2: ghi luôn số ngày để confirm_payment cấp gói NGUYÊN TỬ (server tra PLANS).
+      durationDays: plan.durationDays,
     });
     if (!created) {
       return NextResponse.json({ success: false, error: 'Không thể khởi tạo giao dịch. Thử lại sau.' }, { status: 500 });
