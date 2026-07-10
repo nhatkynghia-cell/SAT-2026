@@ -14,13 +14,12 @@ const TIER_META: Record<PaidTier, { label: string; icon: string; tagline: string
     accent: 'from-blue-500 to-indigo-600',
     tagline: 'Full lộ trình học + full game loop',
     perks: [
-      '🤖 Gia sư AI không giới hạn lượt/ngày',
+      '🤖 Gia sư AI + sinh câu không giới hạn lượt/ngày',
       '📚 Mở toàn bộ Cây Kỹ Năng + Cổng Khảo Thí',
-      '🎯 Luyện tập thích ứng cá nhân hóa theo điểm yếu',
-      '📝 Chế độ Thi Thật (mock + real exam)',
       '📈 Điểm dự đoán chi tiết theo môn + kỹ năng cần cải thiện',
-      '⚔️ Hệ số xu RPG ×1.5 — lên đồ, mở pet, vượt tháp nhanh hơn',
-      '👨‍👩‍👧 Báo cáo phụ huynh đầy đủ + xu hướng 30 ngày',
+      '📝 Thi thử (mock) không giới hạn',
+      '⚔️ Hệ số xu RPG ×1.5 — tích lũy nhanh hơn',
+      '👨‍👩‍👧 Báo cáo phụ huynh + xu hướng 30 ngày',
     ],
   },
   ultimate: {
@@ -30,16 +29,23 @@ const TIER_META: Record<PaidTier, { label: string; icon: string; tagline: string
     tagline: 'Cá nhân hóa cấp mentor — cho mục tiêu 1500+',
     perks: [
       '✨ Tất cả quyền lợi Premium',
-      '🧠 Gia sư AI dùng model cao cấp hơn — giải thích sâu hơn',
-      '🗺️ Đề luyện độc quyền + lộ trình chinh phục mục tiêu điểm',
-      '⚔️ Hệ số xu RPG ×2 + trang bị & skin độc quyền',
-      '🎁 Thưởng xu độc quyền hằng tháng',
+      '🎯 Luyện thích ứng cá nhân hóa (adaptive) theo điểm yếu',
+      '📝 Chế độ Thi Thật QAS full-length — bộ đề mô phỏng sát đề thi thật',
+      '🧠 Gia sư AI model cao cấp hơn — giải thích sâu hơn',
+      '⚔️ Hệ số xu RPG ×2 — tích lũy nhanh gấp đôi',
       '👨‍👩‍👧 Báo cáo phụ huynh chuyên sâu + xu hướng 90 ngày',
     ],
   },
 };
 
-const PERIOD_LABEL: Record<BillingPeriod, string> = { monthly: '/tháng', yearly: '/năm' };
+const PERIOD_LABEL: Record<BillingPeriod, string> =
+  { monthly: '/tháng', quarterly: '/3 tháng', semiannual: '/6 tháng', yearly: '/năm' };
+
+const PERIOD_TAG: Record<BillingPeriod, string> =
+  { monthly: '(tháng)', quarterly: '(3 tháng)', semiannual: '(6 tháng)', yearly: '(năm)' };
+
+const PERIOD_SAVE: Record<BillingPeriod, string | null> =
+  { monthly: null, quarterly: 'Tiết kiệm ~10%', semiannual: 'Tiết kiệm ~20%', yearly: 'Tiết kiệm ~33%' };
 
 function formatVnd(n: number): string {
   return n.toLocaleString('vi-VN') + '₫';
@@ -133,7 +139,7 @@ function UpgradeContent() {
                 <div>
                   <h3 className="text-xl font-black text-white flex items-center gap-2">
                     <span className="text-2xl">{meta.icon}</span> {meta.label}
-                    <span className="text-xs font-normal text-[#94a3b8]">{plan.period === 'yearly' ? '(năm)' : '(tháng)'}</span>
+                    <span className="text-xs font-normal text-[#94a3b8]">{PERIOD_TAG[plan.period]}</span>
                   </h3>
                   <p className="text-xs text-[#94a3b8] mt-1">{meta.tagline}</p>
                 </div>
@@ -141,8 +147,8 @@ function UpgradeContent() {
               <div className="mb-4">
                 <span className="text-3xl font-black text-[#fbbf24]">{formatVnd(plan.priceVnd)}</span>
                 <span className="text-[#94a3b8] text-sm">{PERIOD_LABEL[plan.period]}</span>
-                {plan.period === 'yearly' && (
-                  <span className="ml-2 text-xs text-emerald-400 font-bold">Tiết kiệm ~4 tháng</span>
+                {PERIOD_SAVE[plan.period] && (
+                  <span className="ml-2 text-xs text-emerald-400 font-bold">{PERIOD_SAVE[plan.period]}</span>
                 )}
               </div>
               <ul className="space-y-2 mb-6">
