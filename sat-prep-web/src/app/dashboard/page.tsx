@@ -53,26 +53,43 @@ export default function DashboardPage() {
   const [score, setScore] = useState<ScorePrediction | null>(null);
   const [trend, setTrend] = useState<WeeklyTrend | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // Nút "Thử lại" — event handler nên setState đồng bộ ở đây hợp lệ; bump reloadKey
+  // để effect chạy lại (loader inline chỉ setState sau await, không cascading render).
+  const retry = () => {
+    setLoading(true);
+    setError(false);
+    setReloadKey((k) => k + 1);
+  };
 
   useEffect(() => {
-    async function load() {
+    async function loadData() {
       try {
         const [mRes, sRes, tRes] = await Promise.all([
           fetch('/api/mastery'),
           fetch('/api/score'),
           fetch('/api/progress/weekly'),
         ]);
-        if (mRes.ok) setMastery(await mRes.json());
-        if (sRes.ok) setScore(await sRes.json());
+        // Điểm dự đoán + mastery là dữ liệu CỐT LÕI; 2 endpoint này hỏng = lỗi tải
+        // (phân biệt với "user mới chưa có dữ liệu"). Xu hướng tuần là phụ.
+        if (!mRes.ok || !sRes.ok) {
+          setError(true);
+          return;
+        }
+        setMastery(await mRes.json());
+        setScore(await sRes.json());
         if (tRes.ok) setTrend(await tRes.json());
       } catch (e) {
         console.error('Lỗi tải dữ liệu dashboard', e);
+        setError(true);
       } finally {
         setLoading(false);
       }
     }
-    load();
-  }, []);
+    loadData();
+  }, [reloadKey]);
 
   // Mastery trung bình theo từng domain (0..100) — thật, từ câu đã trả lời.
   const domainScore = (domainId: string): number => {
@@ -113,6 +130,22 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {error && !loading ? (
+        /* Lỗi tải dữ liệu (mạng/server) — KHÔNG nhầm với "user mới chưa có dữ liệu". */
+        <div className="bg-[#1b2533] p-8 rounded-xl border border-red-500/40 shadow-lg flex flex-col items-center text-center">
+          <div className="text-5xl mb-3">⚠️</div>
+          <h3 className="text-lg font-bold text-white mb-1">Không tải được dữ liệu</h3>
+          <p className="text-gray-400 text-sm mb-4">Có lỗi khi lấy thống kê từ máy chủ. Kiểm tra kết nối rồi thử lại.</p>
+          <button
+            onClick={retry}
+            className="text-sm font-bold bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-5 py-2 rounded-lg hover:opacity-90"
+          >
+            🔄 Thử lại
+          </button>
+        </div>
+      ) : (
+        <>
 
       {/* Hàng chỉ số: streak (gamification thật) + câu đã làm + điểm dự đoán thật */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -246,6 +279,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import type { MasterySummary } from './mastery';
-import type { GateProgress } from './gate-exam';
+import { RETRY_CORRECT_NEEDED, type GateProgress } from './gate-exam';
 import type { AiTier } from './ai-quota';
 
 /**
@@ -122,9 +122,9 @@ export function buildSkillTree(
     if (gate?.passed) return 'passed';
     if (!meetsThreshold.get(domainId)) return 'locked';
     if (!gate) return 'available';
-    // ⚠️ 10 = RETRY_CORRECT_NEEDED (gate-exam.ts). KHÔNG import được vì module
-    // này phải thuần để node:test chạy (import value chéo .ts gãy runner). Đổi 2 nơi.
-    if (gate.correctSinceFail >= 10) return 'available';
+    // Ngưỡng thi lại DÙNG CHUNG với gate-exam.ts (gate-exam thuần, không I/O →
+    // import value an toàn; gate-store.ts + mastery.ts đã import value cùng module).
+    if (gate.correctSinceFail >= RETRY_CORRECT_NEEDED) return 'available';
     return 'cooldown';
   }
 

@@ -38,6 +38,9 @@ export default function MathPage() {
   const [currentSkillId, setCurrentSkillId] = useState<string | null>(null);
   const [lessonData, setLessonData] = useState<MathLesson | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  // Sinh bài THẤT BẠI (mạng/server) → hiện panel lỗi + nút thử lại, thay vì để
+  // vùng bài trống trơn (chỉ có toast thoáng qua rồi mất).
+  const [loadError, setLoadError] = useState(false);
 
   // Boss / Gamification States
   const [isBossEncounter, setIsBossEncounter] = useState(false);
@@ -98,6 +101,7 @@ export default function MathPage() {
     const effectiveSkillId = skillId ?? currentSkillId ?? undefined;
     setIsLoading(true);
     setLessonData(null);
+    setLoadError(false);
     setIsSubmitted(false);
     setSelectedAnswer(null);
     setRevealedCorrectChoice(null);
@@ -125,6 +129,7 @@ export default function MathPage() {
     if (data) {
       setLessonData(data);
     } else {
+      setLoadError(true);
       showToast("Lỗi khi sinh bài giảng. Vui lòng thử lại.", 'error');
     }
     setIsLoading(false);
@@ -380,7 +385,22 @@ export default function MathPage() {
           {isLoading && (
             <LoadingState message="Gia sư AI đang biên soạn bài giảng riêng cho chiến binh..." />
           )}
-          
+
+          {loadError && !isLoading && !lessonData && (
+            /* Sinh bài lỗi → panel thử lại (thay vì vùng bài trống trơn). */
+            <div className="bg-[#1b2533] p-8 rounded-xl border border-red-500/40 flex flex-col items-center text-center">
+              <div className="text-5xl mb-3">⚠️</div>
+              <h3 className="text-lg font-bold text-white mb-1">Không sinh được bài giảng</h3>
+              <p className="text-gray-400 text-sm mb-4">Gia sư AI tạm thời chưa phản hồi. Kiểm tra kết nối rồi thử lại.</p>
+              <button
+                onClick={() => handleGenerateLesson(currentTopic!, currentSkillId ?? undefined)}
+                className="text-sm font-bold bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 py-2 rounded-lg hover:opacity-90"
+              >
+                🔄 Thử lại
+              </button>
+            </div>
+          )}
+
           {lessonData && (
             <div className="space-y-6">
               <h2 className="text-2xl font-bold text-white flex items-center gap-2">
