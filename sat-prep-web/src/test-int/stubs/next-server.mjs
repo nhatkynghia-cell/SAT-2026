@@ -13,3 +13,14 @@ export class NextResponse extends Response {
     });
   }
 }
+
+/**
+ * Stub NextRequest: route exam-session/submit import NextRequest (dùng làm kiểu
+ * tham số + đọc request.nextUrl.origin ở nhánh Module 1). Kế thừa Request chuẩn để
+ * .json()/.headers hoạt động; thêm getter nextUrl trả URL để .origin không vỡ.
+ */
+export class NextRequest extends Request {
+  get nextUrl() {
+    return new URL(this.url || 'http://localhost/');
+  }
+}

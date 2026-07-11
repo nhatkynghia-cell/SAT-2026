@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { gradeAnswer, issueQuestion } from '@/lib/issued-questions';
+import { gradeAnswer, getGradedResult, issueQuestion } from '@/lib/issued-questions';
 import { rateLimit } from '@/lib/rate-limit';
 import { loadEconomy, saveEconomy } from '@/lib/economy-store';
 import { applyExamRewardFromDifficulties, MAX_EXAM_QUESTIONS, type Difficulty } from '@/lib/economy';
@@ -79,20 +79,32 @@ export async function POST(request: NextRequest) {
       )
       .slice(0, MAX_EXAM_QUESTIONS);
 
-    // Chấm từng câu server-side (CAS). correct/độ khó lấy TỪ SERVER, không tin client.
+    // Chấm từng câu server-side. TÁCH scoring khỏi reward để NỘP LẠI idempotent:
+    //   • correct (điểm + adaptive path): đếm CẢ câu chấm-mới LẪN câu ĐÃ chấm trước
+    //     (đọc was_correct đã lưu) → retry sau khi response mất vẫn ra ĐÚNG số câu
+    //     đúng, KHÔNG mất điểm + KHÔNG hạ nhầm nhánh adaptive về easy.
+    //   • correctDifficulties (thưởng xu): CHỈ câu chấm-mới (CAS thắng) → retry ra
+    //     0 câu mới → 0 xu → KHÔNG double-grant. Giữ ROOT A/ROOT C.
     const correctDifficulties: Difficulty[] = [];
     let correct = 0;
 
     for (const { questionId, answer } of answers) {
       const result = await gradeAnswer(questionId, user.id, answer);
-      if (!result) continue; // câu lạ / không sở hữu / đã trả lời → bỏ qua
-      if (result.correct) {
-        correct++;
-        const d: Difficulty = VALID_DIFFICULTY.includes(result.difficulty as Difficulty)
-          ? (result.difficulty as Difficulty)
-          : 'Medium';
-        correctDifficulties.push(d);
+      if (result) {
+        // Chấm MỚI (CAS thắng) → tính điểm + đủ điều kiện thưởng.
+        if (result.correct) {
+          correct++;
+          const d: Difficulty = VALID_DIFFICULTY.includes(result.difficulty as Difficulty)
+            ? (result.difficulty as Difficulty)
+            : 'Medium';
+          correctDifficulties.push(d);
+        }
+        continue;
       }
+      // gradeAnswer null: câu ĐÃ chấm trước (retry) / lạ / không sở hữu. Nếu là câu
+      // ĐÃ chấm của user này → lấy điểm ĐÃ LƯU để đếm (idempotent), KHÔNG thưởng lại.
+      const prior = await getGradedResult(questionId, user.id);
+      if (prior?.correct) correct++;
     }
 
     // Thưởng cho module này (từ độ khó các câu ĐÚNG server chấm). Hệ số gói nhân xu.

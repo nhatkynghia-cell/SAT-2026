@@ -133,6 +133,30 @@ export async function gradeAnswer(
 }
 
 /**
+ * Đọc KẾT QUẢ ĐÃ CHẤM của 1 câu đã trả lời (was_correct đã lưu lúc gradeAnswer
+ * lật answered). Dùng cho NỘP LẠI idempotent: khi client retry cùng bộ answers,
+ * gradeAnswer trả null (đã answered) → route lấy điểm đã lưu để đếm ĐÚNG số câu
+ * đúng (không mất điểm), NHƯNG không đưa vào đường thưởng (tránh double-grant).
+ * Trả null nếu câu không tồn tại / không sở hữu / CHƯA chấm.
+ */
+export async function getGradedResult(
+  questionId: string,
+  userId: string
+): Promise<{ correct: boolean } | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('issued_questions')
+    .select('user_id, answered, was_correct')
+    .eq('id', questionId)
+    .single();
+
+  if (error || !data) return null;
+  if (data.user_id !== userId) return null;
+  if (!data.answered) return null; // chưa chấm → không có điểm đã lưu
+  return { correct: !!data.was_correct };
+}
+
+/**
  * Lấy 1 GỢI Ý LOẠI TRỪ (hint cấp 2): trả về MỘT đáp án SAI + phân tích bẫy của
  * nó, KHÔNG lộ đáp án đúng. Verify quyền sở hữu; câu chưa nộp mới cho hint.
  * Không có choice_analysis (golden_hour / bank cũ) → null → client fallback text.
