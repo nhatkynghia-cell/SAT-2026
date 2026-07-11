@@ -51,6 +51,24 @@ export async function saveEconomy(userId: string, state: EconomyState): Promise<
 }
 
 /**
+ * Đảm bảo user_economy CÓ dòng cho user (INSERT ON CONFLICT DO NOTHING — KHÔNG ghi
+ * đè coins/xp sẵn có). Dùng TRƯỚC khi gọi claim_quest_reward RPC: RPC khóa dòng
+ * bằng SELECT ... FOR UPDATE, chỉ tuần tự hóa được khi dòng TỒN TẠI. Nếu user mới
+ * chưa có dòng → RPC trả no_row → phải rơi xuống đường non-atomic (không ghi claim
+ * → 2 POST đồng thời double-grant). Tạo dòng trước → RPC luôn claim-once đúng.
+ */
+export async function ensureEconomyRow(userId: string): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from('user_economy')
+    .upsert(
+      { user_id: userId, coins: 0, xp: 0, inventory: [] },
+      { onConflict: 'user_id', ignoreDuplicates: true }
+    );
+  if (error) console.error('ensureEconomyRow error:', error.message);
+}
+
+/**
  * ============================================================================
  *  QUEST CLAIMS — chống double-claim (ROOT B, audit 2026-07-03)
  * ============================================================================

@@ -127,6 +127,7 @@ function makeBuilder(tableName) {
       q.op = 'upsert';
       q.payload = payload;
       q.onConflict = opts?.onConflict ?? null;
+      q.ignoreDuplicates = opts?.ignoreDuplicates ?? false;
       return builder;
     },
     delete() {
@@ -236,8 +237,11 @@ function exec(q, mode) {
     for (const p of payloads) {
       let existing = null;
       if (conflict) existing = rows.find((r) => r[conflict] === p[conflict]);
-      if (existing) Object.assign(existing, clone(p));
-      else {
+      if (existing) {
+        // ignoreDuplicates → INSERT ON CONFLICT DO NOTHING (giữ NGUYÊN dòng cũ,
+        // KHÔNG ghi đè) — khớp Postgres. Mặc định (false) = merge (DO UPDATE).
+        if (!q.ignoreDuplicates) Object.assign(existing, clone(p));
+      } else {
         const row = clone(p);
         if (row.id === undefined) row.id = nextId(q.table);
         rows.push(row);
