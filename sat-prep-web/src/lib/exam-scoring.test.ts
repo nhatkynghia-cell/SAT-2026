@@ -52,14 +52,36 @@ test('rawToScaled: tổng điểm nằm trong 400..1600 cho mọi tổ hợp', (
   }
 });
 
-test('determineAdaptivePath: RW đạt cutoff → hard, dưới → easy', () => {
-  assert.equal(determineAdaptivePath(RW_M1_CUTOFF, 'rw'), 'hard');
-  assert.equal(determineAdaptivePath(RW_M1_CUTOFF - 1, 'rw'), 'easy');
+test('determineAdaptivePath: RW module đầy đủ giữ điểm gãy cũ (18/27 hard, 17/27 easy)', () => {
+  assert.equal(determineAdaptivePath(RW_M1_CUTOFF, 27, 'rw'), 'hard');
+  assert.equal(determineAdaptivePath(RW_M1_CUTOFF - 1, 27, 'rw'), 'easy');
 });
 
-test('determineAdaptivePath: Math đạt cutoff → hard, dưới → easy', () => {
-  assert.equal(determineAdaptivePath(MATH_M1_CUTOFF, 'math'), 'hard');
-  assert.equal(determineAdaptivePath(MATH_M1_CUTOFF - 1, 'math'), 'easy');
+test('determineAdaptivePath: Math module đầy đủ giữ điểm gãy cũ (15/22 hard, 14/22 easy)', () => {
+  assert.equal(determineAdaptivePath(MATH_M1_CUTOFF, 22, 'math'), 'hard');
+  assert.equal(determineAdaptivePath(MATH_M1_CUTOFF - 1, 22, 'math'), 'easy');
+});
+
+test('determineAdaptivePath: module SINH THIẾU câu vẫn route theo tỉ lệ (đúng gần hết → hard)', () => {
+  // Bug cũ: M1 chỉ sinh được 10 câu (OpenAI hiccup), đúng 9/10 = 90% → tuyệt đối
+  // 9 < 18 nên bị ép easy (trần 650) dù rõ ràng trình hard. Giờ 0.9 >= 0.667 → hard.
+  assert.equal(determineAdaptivePath(9, 10, 'rw'), 'hard');
+  assert.equal(determineAdaptivePath(8, 11, 'math'), 'hard'); // 0.727 >= 0.682
+});
+
+test('determineAdaptivePath: module thiếu câu nhưng tỉ lệ dưới ngưỡng → easy', () => {
+  assert.equal(determineAdaptivePath(5, 10, 'rw'), 'easy');   // 0.5 < 0.667
+  assert.equal(determineAdaptivePath(6, 10, 'math'), 'easy'); // 0.6 < 0.682
+});
+
+test('determineAdaptivePath: đúng ngưỡng chính xác (>=) → hard', () => {
+  assert.equal(determineAdaptivePath(2, 3, 'rw'), 'hard');   // 0.667 >= 0.667
+  assert.equal(determineAdaptivePath(15, 22, 'math'), 'hard');
+});
+
+test('determineAdaptivePath: totalCount 0 (không chấm được câu nào) → easy an toàn', () => {
+  assert.equal(determineAdaptivePath(0, 0, 'rw'), 'easy');
+  assert.equal(determineAdaptivePath(5, 0, 'math'), 'easy'); // mẫu số 0 dù correct>0
 });
 
 // computeExamScore chấm bằng so khớp chữ cái đầu (A/B/C/D) — dùng cho hiển thị.

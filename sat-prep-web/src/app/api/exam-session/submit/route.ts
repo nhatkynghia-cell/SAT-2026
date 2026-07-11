@@ -87,11 +87,17 @@ export async function POST(request: NextRequest) {
     //     0 câu mới → 0 xu → KHÔNG double-grant. Giữ ROOT A/ROOT C.
     const correctDifficulties: Difficulty[] = [];
     let correct = 0;
+    // Mẫu số cho adaptive ratio: SỐ CÂU M1 server THỰC SỰ chấm (owned + verified),
+    // KHÔNG phải answers.length client gửi. gradeAnswer non-null (chấm mới) HOẶC
+    // getGradedResult non-null (đã chấm, retry) đều là câu sở hữu hợp lệ → đếm.
+    // Câu ID lạ/không sở hữu → cả 2 null → KHÔNG đếm (client không thổi được mẫu số).
+    let gradedTotal = 0;
 
     for (const { questionId, answer } of answers) {
       const result = await gradeAnswer(questionId, user.id, answer);
       if (result) {
         // Chấm MỚI (CAS thắng) → tính điểm + đủ điều kiện thưởng.
+        gradedTotal++;
         if (result.correct) {
           correct++;
           const d: Difficulty = VALID_DIFFICULTY.includes(result.difficulty as Difficulty)
@@ -104,7 +110,10 @@ export async function POST(request: NextRequest) {
       // gradeAnswer null: câu ĐÃ chấm trước (retry) / lạ / không sở hữu. Nếu là câu
       // ĐÃ chấm của user này → lấy điểm ĐÃ LƯU để đếm (idempotent), KHÔNG thưởng lại.
       const prior = await getGradedResult(questionId, user.id);
-      if (prior?.correct) correct++;
+      if (prior) {
+        gradedTotal++;
+        if (prior.correct) correct++;
+      }
     }
 
     // Thưởng cho module này (từ độ khó các câu ĐÚNG server chấm). Hệ số gói nhân xu.
@@ -120,7 +129,7 @@ export async function POST(request: NextRequest) {
 
     // Module 1 → quyết adaptive path + sinh Module 2.
     if (moduleNum === 1) {
-      const adaptivePath = determineAdaptivePath(correct, section);
+      const adaptivePath = determineAdaptivePath(correct, gradedTotal, section);
       const origin = request.nextUrl.origin;
       const cookie = request.headers.get('cookie') ?? '';
 

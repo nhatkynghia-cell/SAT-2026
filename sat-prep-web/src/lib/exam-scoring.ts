@@ -88,11 +88,37 @@ function countCorrect(set: AnswerSet): number {
   return count;
 }
 
-/** Adaptive cutoff: Module 1 đạt ngưỡng → Module 2 Hard; else Easy. */
-export const RW_M1_CUTOFF = 18;   // 18/27 ≈ 67%
-export const MATH_M1_CUTOFF = 15; // 15/22 ≈ 68%
+/**
+ * Adaptive cutoff: Module 1 đạt NGƯỠNG TỈ LỆ → Module 2 Hard; else Easy.
+ *
+ * ⚠️ Trước đây dùng ngưỡng TUYỆT ĐỐI (18/27, 15/22). Khi Module 1 sinh THIẾU câu
+ * (OpenAI chặn/timeout → generateOneQuestion trả null → module ngắn hơn 27/22),
+ * học sinh đúng 100% vẫn không chạm số tuyệt đối → bị ép easy path (trần 650) dù
+ * rõ ràng ở trình hard. Đổi sang TỈ LỆ trên SỐ CÂU THỰC TẾ của module → route
+ * đúng bất kể module dài ngắn.
+ *
+ * Ngưỡng tỉ lệ GIỮ NGUYÊN điểm gãy cũ ở module đầy đủ: 18/27 ≈ 0.667 (RW),
+ * 15/22 ≈ 0.682 (Math) — module đầy đủ hành vi y hệt trước.
+ */
+export const RW_M1_CUTOFF = 18;   // tham chiếu: 18/27 ở module đầy đủ
+export const MATH_M1_CUTOFF = 15; // tham chiếu: 15/22 ở module đầy đủ
+export const RW_M1_CUTOFF_RATIO = 18 / 27;
+export const MATH_M1_CUTOFF_RATIO = 15 / 22;
 
-export function determineAdaptivePath(correctCount: number, section: 'rw' | 'math'): AdaptivePath {
-  const cutoff = section === 'rw' ? RW_M1_CUTOFF : MATH_M1_CUTOFF;
-  return correctCount >= cutoff ? 'hard' : 'easy';
+/**
+ * @param correctCount  số câu ĐÚNG (server-graded, tamper-proof).
+ * @param totalCount    TỔNG số câu M1 server thực sự chấm (đếm từ câu SỞ HỮU đã
+ *                       verify — KHÔNG lấy answers.length client gửi, tránh client
+ *                       bỏ bớt câu sai để thổi tỉ lệ ép hard path).
+ * totalCount <= 0 (không chấm được câu nào) → 'easy' (mặc định an toàn, trần thấp).
+ */
+export function determineAdaptivePath(
+  correctCount: number,
+  totalCount: number,
+  section: 'rw' | 'math'
+): AdaptivePath {
+  if (totalCount <= 0) return 'easy';
+  const ratio = correctCount / totalCount;
+  const cutoffRatio = section === 'rw' ? RW_M1_CUTOFF_RATIO : MATH_M1_CUTOFF_RATIO;
+  return ratio >= cutoffRatio ? 'hard' : 'easy';
 }
