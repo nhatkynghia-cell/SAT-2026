@@ -9,6 +9,8 @@ export default function LiteraturePage() {
   const [currentTopic, setCurrentTopic] = useState<string | null>(null);
   const [questionData, setQuestionData] = useState<PracticeQuestion | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  // Sinh câu THẤT BẠI → panel thử lại thay vì vùng bài trống (chỉ toast thoáng qua).
+  const [loadError, setLoadError] = useState(false);
   // Câu đã prefetch cho lượt kế (2.2) — giữ promise (có thể in-flight) + topic.
   const prefetchedRef = useRef<{ topic: string; promise: Promise<PracticeQuestion | null> } | null>(null);
 
@@ -45,6 +47,7 @@ export default function LiteraturePage() {
     setCurrentTopic(topic);
     setIsLoading(true);
     setQuestionData(null);
+    setLoadError(false);
 
     const prefetched = prefetchedRef.current;
     prefetchedRef.current = null;
@@ -55,6 +58,7 @@ export default function LiteraturePage() {
     if (data) {
       setQuestionData(data);
     } else {
+      setLoadError(true);
       showToast("Lỗi khi sinh câu hỏi. Vui lòng thử lại.", 'error');
     }
     setIsLoading(false);
@@ -114,6 +118,20 @@ export default function LiteraturePage() {
               onNext={() => handleGenerateQuestion(currentTopic)}
               onSubmitted={() => prefetchNext(currentTopic)}
             />
+          )}
+
+          {loadError && !isLoading && !questionData && (
+            <div className="bg-[#1b2533] p-8 rounded-xl border border-red-500/40 flex flex-col items-center text-center">
+              <div className="text-5xl mb-3">⚠️</div>
+              <h3 className="text-lg font-bold text-white mb-1">Không sinh được câu hỏi</h3>
+              <p className="text-gray-400 text-sm mb-4">Gia sư AI tạm thời chưa phản hồi. Kiểm tra kết nối rồi thử lại.</p>
+              <button
+                onClick={() => handleGenerateQuestion(currentTopic)}
+                className="text-sm font-bold bg-gradient-to-r from-amber-500 to-orange-600 text-white px-5 py-2 rounded-lg hover:opacity-90"
+              >
+                🔄 Thử lại
+              </button>
+            </div>
           )}
         </>
       )}
