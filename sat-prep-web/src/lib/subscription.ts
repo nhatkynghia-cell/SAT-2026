@@ -8,10 +8,10 @@ import type { AiTier } from './ai-quota';
  *  tier:'free' (TODO trong chat/generate-practice). Module này thay bằng tier
  *  THẬT tra từ bảng `user_subscriptions`.
  *
- *  Phạm vi phiên này (user chốt 2026-07-04): CHỈ nền tảng tier + gate AI quota
- *  (free=5 lượt/ngày, premium/ultimate=không giới hạn qua DAILY_LIMITS sẵn có).
- *  CHƯA nối cổng thanh toán (VNPay/MoMo) — webhook sẽ gọi grantSubscription khi
- *  làm ở bước sau. Billing: Monthly + Yearly.
+ *  Phạm vi ban đầu (user chốt 2026-07-04): nền tảng tier + gate AI quota. Cổng
+ *  thanh toán (VNPay/MoMo) nay đã nối: việc cấp/gia hạn gói do RPC `confirm_payment`
+ *  làm ATOMIC cùng lúc xác nhận đơn (migration_a2_atomic_grant.sql), KHÔNG qua hàm
+ *  grant riêng. Billing: Monthly/Quarterly/Semiannual/Yearly.
  *
  *  ⚠️ THUẦN (pure) — không I/O. "now" được TIÊM vào để unit-test xác định (theo
  *  mẫu economy.ts/gate-exam.ts). Tầng I/O + Supabase nằm ở subscription-store.ts.

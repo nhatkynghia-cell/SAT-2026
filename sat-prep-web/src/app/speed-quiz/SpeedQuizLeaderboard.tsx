@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/context/ToastContext';
 import { LoadingState } from '@/components/LoadingState';
 import { EmptyState } from '@/components/EmptyState';
-import { cosmeticById } from '@/lib/cosmetics';
 
 type Cycle = 'day' | 'week' | 'month' | 'year';
 
@@ -18,16 +17,23 @@ const CYCLE_TABS: { key: Cycle; label: string }[] = [
   { key: 'year', label: 'Năm' },
 ];
 
-// Cosmetic THƯỞNG cho quán quân giải đấu mùa (LIVE-derived: top hạng hiện tại được
-// KHOE khung + danh hiệu, KHÔNG đổi thứ hạng — comparator vẫn theo số câu đúng).
-const CHAMPION_FRAME = cosmeticById('cframe_champion');
-const CHAMPION_TITLE = cosmeticById('ctitle_champion');
+/** Khung viền danh vọng đi kèm entry (server gán theo OWNERSHIP THẬT — chỉ nhà vô
+ *  địch thật có). THUẦN TRANG TRÍ, KHÔNG đổi thứ hạng. */
+interface FrameCosmetic {
+  icon?: string;
+  cssClass?: string;
+  label?: string;
+}
 
 interface Entry {
   rank: number;
   nickname: string;
   basePower: number; // ở đây MANG NGHĨA số câu đúng của lượt tốt nhất
   isMe: boolean;
+  /** Khung + danh hiệu Nhà Vô Địch Mùa — CHỈ hiện cho người ĐÃ thắng giải (persist
+   *  user_cosmetics), server-authoritative. Vắng = chưa vô địch. */
+  frame?: FrameCosmetic;
+  title?: string;
 }
 
 interface BoardData {
@@ -171,7 +177,7 @@ export function SpeedQuizLeaderboard() {
       {isTournament && (
         <div className="bg-gradient-to-br from-[#1a1206] to-[#2a1e0a] border border-amber-500/40 rounded-xl px-6 py-4 text-sm text-amber-200">
           <p className="font-bold text-amber-300 mb-1">👑 Giải đấu độc quyền Ultimate</p>
-          <p>Chỉ học viên gói Ultimate góp mặt. Xếp theo số câu đúng server chấm (như bảng chung). Thưởng: <span className="font-bold">khung + danh hiệu mùa</span> cho top hạng — danh vọng, KHÔNG phải xu, KHÔNG đổi thứ hạng.</p>
+          <p>Chỉ học viên gói Ultimate góp mặt. Xếp theo số câu đúng server chấm (như bảng chung). Thưởng cuối THÁNG: <span className="font-bold">khung + danh hiệu Nhà Vô Địch Mùa</span> cho TOP 3 — trao VĨNH VIỄN, danh vọng, KHÔNG phải xu, KHÔNG đổi thứ hạng.</p>
         </div>
       )}
 
@@ -249,24 +255,24 @@ export function SpeedQuizLeaderboard() {
           ) : (
             <div className="bg-[#1b2533] border border-[#262730] rounded-xl overflow-hidden">
               {board.top.map((e) => {
-                // Giải đấu: top 1-3 KHOE khung + danh hiệu mùa (danh vọng LIVE-derived
-                // theo hạng hiện tại). THUẦN THẨM MỸ — KHÔNG đổi thứ hạng (comparator
-                // vẫn theo số câu đúng). Frame ring bọc số hạng; title gắn cạnh bí danh.
-                const showChampion = isTournament && e.rank <= 3;
+                // Khung + danh hiệu Nhà Vô Địch Mùa do SERVER gán theo OWNERSHIP THẬT
+                // (bảng user_cosmetics — CHỈ người ĐÃ thắng giải mới có, VĨNH VIỄN).
+                // KHÁC bản cũ (live rank≤3, đổi hạng là mất). THUẦN THẨM MỸ — KHÔNG đổi
+                // thứ hạng (comparator vẫn theo số câu đúng). Frame ring bọc số hạng.
                 return (
                   <div
                     key={e.rank}
                     className={`flex items-center justify-between px-6 py-3 border-b border-[#0f172a] last:border-0 ${e.isMe ? 'bg-[rgba(251,191,36,0.12)]' : ''}`}
                   >
                     <div className="flex items-center gap-4 min-w-0">
-                      <span className={`text-lg font-black w-10 text-center rounded-lg ${e.rank <= 3 ? 'text-[#fbbf24]' : 'text-gray-500'} ${showChampion && CHAMPION_FRAME?.cssClass ? CHAMPION_FRAME.cssClass : ''}`}>
+                      <span className={`text-lg font-black w-10 text-center rounded-lg ${e.rank <= 3 ? 'text-[#fbbf24]' : 'text-gray-500'} ${e.frame?.cssClass ?? ''}`}>
                         {e.rank === 1 ? '🥇' : e.rank === 2 ? '🥈' : e.rank === 3 ? '🥉' : `#${e.rank}`}
                       </span>
                       <span className={`font-bold truncate flex items-center gap-2 ${e.isMe ? 'text-[#fbbf24]' : 'text-white'}`}>
                         {e.nickname} {e.isMe && <span className="text-xs text-amber-400">(Bạn)</span>}
-                        {showChampion && CHAMPION_TITLE && (
-                          <span className={`text-xs px-2 py-0.5 rounded-full bg-black/30 shrink-0 ${CHAMPION_TITLE.cssClass ?? ''}`} title="Danh hiệu quán quân mùa (danh vọng, không xu)">
-                            {CHAMPION_TITLE.icon} {CHAMPION_TITLE.name}
+                        {e.title && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-black/30 shrink-0 text-yellow-200 font-black" title="Danh hiệu Nhà Vô Địch Mùa (đã thắng giải — danh vọng, không xu)">
+                            👑 {e.title}
                           </span>
                         )}
                       </span>

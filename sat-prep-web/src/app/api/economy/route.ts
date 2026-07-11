@@ -19,6 +19,7 @@ import {
 } from '@/lib/economy';
 import { cosmeticById } from '@/lib/cosmetics';
 import { getUserTier } from '@/lib/subscription-store';
+import { getEarnedCosmetics } from '@/lib/cosmetics-store';
 import { TIER_COIN_MULTIPLIER } from '@/lib/subscription';
 import { loadSnapshots, todayVN } from '@/lib/daily-snapshot-store';
 import { computeDayStreak, pendingStreakGrant, STREAK_CLAIM_KEY, STREAK_MILESTONE_REWARD, DAILY_LOGIN_KEY, DAILY_LOGIN_COINS } from '@/lib/day-streak';
@@ -50,8 +51,16 @@ export async function GET() {
   // Kèm `tier` để UI (shop/collection) gate HIỂN THỊ cosmetic theo gói. Đây chỉ là
   // gate hiển thị; chốt bảo mật spend ở POST (applySpend nhận userTier). FAIL-SAFE
   // getUserTier → 'free' khi lỗi. Đọc song song để không thêm độ trễ đáng kể.
-  const [economy, tier] = await Promise.all([loadEconomy(user.id), getUserTier(user.id)]);
-  return NextResponse.json({ ...economy, tier });
+  //
+  // `ownedCosmetics`: cosmetic THƯỞNG kiểu 'earned' (khung/danh hiệu Nhà Vô Địch Mùa)
+  // user THẬT SỰ đã thắng (bảng user_cosmetics, server-authoritative — KHÔNG lấy từ
+  // blob HMAC client). UI collection/leaderboard dùng để mở khóa đúng người đã vô địch.
+  const [economy, tier, ownedCosmetics] = await Promise.all([
+    loadEconomy(user.id),
+    getUserTier(user.id),
+    getEarnedCosmetics(user.id),
+  ]);
+  return NextResponse.json({ ...economy, tier, ownedCosmetics });
 }
 
 export async function POST(req: Request) {

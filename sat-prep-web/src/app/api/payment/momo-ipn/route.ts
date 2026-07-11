@@ -45,8 +45,8 @@ export async function POST(req: Request) {
     const outcome = await confirmPaymentAtomic(orderId, gatewayTxnId, amountVnd);
 
     // 4) A2: GÓI ĐÃ ĐƯỢC CẤP NGUYÊN TỬ trong confirm_payment RPC (cùng transaction
-    //    với UPDATE status='paid') → KHÔNG còn gọi grantSubscription ở đây. Vá lỗ
-    //    tiền: trước đây grant tách rời có thể fail sau khi đơn đã 'paid' (mất tiền).
+    //    với UPDATE status='paid') → KHÔNG cấp gói tách rời ở đây. Vá lỗ tiền: trước
+    //    đây grant rời (grantSubscription, nay đã gỡ) có thể fail sau khi đơn 'paid'.
 
     // MoMo: 204 = đã nhận IPN (kể cả idempotent/đã xử lý). Lỗi confirm → 500 để retry.
     if (!outcome.ok && outcome.reason !== 'amount_mismatch' && outcome.reason !== 'not_found') {

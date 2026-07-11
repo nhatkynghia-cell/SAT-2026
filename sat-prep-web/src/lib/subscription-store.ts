@@ -2,8 +2,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { AiTier } from './ai-quota';
 import {
-  computeExpiry,
-  getPlan,
   resolveTier,
   type BillingPeriod,
   type PaidTier,
@@ -16,9 +14,10 @@ import {
  * ============================================================================
  *  Đọc/ghi gói trả phí của user từ bảng `user_subscriptions`.
  *
- *  Theo mẫu ROOT E (2026-07-03): ĐỌC qua client per-request (RLS auth.uid()),
- *  GHI qua admin service-role (grantSubscription do webhook thanh toán gọi —
- *  server-authoritative, client KHÔNG tự cấp gói cho mình).
+ *  Theo mẫu ROOT E (2026-07-03): ĐỌC qua client per-request (RLS auth.uid()).
+ *  GHI (cấp/gia hạn gói) nay do RPC `confirm_payment` làm ATOMIC cùng lúc lật đơn
+ *  pending→paid (migration_a2_atomic_grant.sql) — server-authoritative, client
+ *  KHÔNG tự cấp gói. File này chỉ còn đường ĐỌC tier.
  *
  *  FAIL-SAFE: bảng chưa tồn tại / lỗi đọc → coi như KHÔNG có gói → tier 'free'.
  *  Đây là hướng AN TOÀN: lỗi hạ tầng KHÔNG vô tình mở khóa quyền lợi trả phí.
@@ -138,39 +137,9 @@ export async function getUsersTierMap(
   }
 }
 
-/**
- * Cấp/ gia hạn gói cho user (đường GHI, admin service-role). Được gọi bởi
- * webhook thanh toán SAU khi xác nhận giao dịch server-side (chưa nối phiên này).
- * Server tra PLANS để lấy durationDays + tính expiresAt — client KHÔNG gửi ngày
- * hết hạn hay số tiền. Trả về bản ghi đã ghi, hoặc null nếu gói không hợp lệ/lỗi.
+/*
+ * (Đã gỡ) grantSubscription() — trước đây là đường GHI cấp/gia hạn gói. Sau khi
+ * gộp việc cấp gói vào RPC `confirm_payment` cho ATOMIC (migration_a2_atomic_grant.sql,
+ * 2026-07-10), hàm này thành mồ côi (0 caller). Gỡ để tránh dùng nhầm → double-grant
+ * ngoài transaction xác nhận đơn. Cấp gói duy nhất qua confirm_payment.
  */
-export async function grantSubscription(
-  userId: string,
-  tier: PaidTier,
-  period: BillingPeriod
-): Promise<SubscriptionRecord | null> {
-  const plan = getPlan(tier, period);
-  if (!plan) {
-    console.error(`grantSubscription: gói không hợp lệ (${tier}/${period})`);
-    return null;
-  }
-
-  const startedAt = new Date().toISOString();
-  const expiresAt = computeExpiry(startedAt, plan.durationDays);
-
-  const admin = createAdminClient();
-  const { error } = await admin.from('user_subscriptions').insert({
-    user_id: userId,
-    tier,
-    period,
-    started_at: startedAt,
-    expires_at: expiresAt,
-  });
-
-  if (error) {
-    console.error('grantSubscription: ghi Supabase lỗi:', error.message);
-    return null;
-  }
-
-  return { tier, period, startedAt, expiresAt };
-}

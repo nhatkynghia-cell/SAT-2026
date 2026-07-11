@@ -60,8 +60,8 @@ export async function GET(req: Request) {
 
     // 5) Lật pending→paid THÀNH CÔNG lần đầu (isSuccess đã đảm bảo ở bước 2).
     //    A2: GÓI ĐÃ ĐƯỢC CẤP NGUYÊN TỬ trong confirm_payment RPC (cùng transaction
-    //    với UPDATE status='paid') → KHÔNG còn gọi grantSubscription ở đây (vá lỗ
-    //    tiền: trước đây grant tách rời có thể fail sau khi đơn đã 'paid').
+    //    với UPDATE status='paid') → KHÔNG cấp gói tách rời ở đây (vá lỗ tiền: trước
+    //    đây grant rời (grantSubscription, nay đã gỡ) có thể fail sau khi đơn 'paid').
     return NextResponse.json(IpnSuccess);
   } catch (error) {
     console.error('Lỗi vnpay-ipn:', error);

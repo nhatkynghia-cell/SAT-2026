@@ -1,6 +1,6 @@
 'use client';
 import { useGamification } from '@/context/GamificationContext';
-import { COSMETIC_CATALOG, seasonKey, type CosmeticItem } from '@/lib/cosmetics';
+import { COSMETIC_CATALOG, seasonKey, tierPerkCosmeticIds, type CosmeticItem } from '@/lib/cosmetics';
 
 // Thứ hạng gói để so điều kiện mở khóa (free < premium < ultimate).
 const TIER_RANK: Record<string, number> = { free: 0, premium: 1, ultimate: 2 };
@@ -14,12 +14,17 @@ const KIND_LABEL: Record<CosmeticItem['kind'], string> = {
 };
 
 export default function CollectionPage() {
-  const { inventory, tier } = useGamification();
+  const { inventory, tier, ownedCosmetics } = useGamification();
 
-  // Chỉ tính id dạng chuỗi trong túi (Equipment là object, không phải cosmetic).
-  const ownedIds = new Set(
-    inventory.filter((i): i is string => typeof i === 'string')
-  );
+  // Quyền-sở-hữu HỢP NHẤT 3 nguồn:
+  //  • inventory (id chuỗi): skin/theme ĐÃ MUA (Equipment là object → loại).
+  //  • tierPerkCosmeticIds(tier): frame/title QUYỀN LỢI GÓI (auto theo gói).
+  //  • ownedCosmetics: frame/title KIẾM ĐƯỢC (vô địch — server-authoritative).
+  const ownedIds = new Set<string>([
+    ...inventory.filter((i): i is string => typeof i === 'string'),
+    ...tierPerkCosmeticIds(tier),
+    ...ownedCosmetics,
+  ]);
 
   // Mùa hiện tại (dẫn xuất tất định từ giờ client — chỉ để lọc HIỂN THỊ, danh vọng
   // thật do server cấp qua ownership ở B1b/B2). Món gắn mùa CŨ ẩn đi cho gọn; món

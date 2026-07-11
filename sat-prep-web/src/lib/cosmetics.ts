@@ -41,6 +41,17 @@ export function seasonKey(nowISO: string): string {
 /** Loại cosmetic. skin/theme = MUA được; frame/title = thưởng danh vọng. */
 export type CosmeticKind = 'skin' | 'theme' | 'frame' | 'title';
 
+/**
+ * Cách một cosmetic THƯỞNG (frame/title, không có price) thuộc về user:
+ *  • 'tier'   — QUYỀN LỢI GÓI: tự-sở-hữu khi đủ requiredTier (không cần persist).
+ *               vd Khung/Danh hiệu Ultimate, Danh hiệu Premium.
+ *  • 'earned' — KIẾM ĐƯỢC: chỉ có qua GRANT persist ở bảng user_cosmetics (server-
+ *               authoritative, ROOT A). vd Khung/Danh hiệu Nhà Vô Địch Mùa (top-3
+ *               giải đấu Ultimate). KHÔNG tier nào tự có — phải thắng giải mới được.
+ * skin/theme (có price) là hàng MUA → KHÔNG gắn grant (đã persist qua inventory).
+ */
+export type CosmeticGrant = 'tier' | 'earned';
+
 export interface CosmeticItem {
   id: string;
   name: string;
@@ -48,6 +59,11 @@ export interface CosmeticItem {
   kind: CosmeticKind;
   /** Gói tối thiểu để dùng/mua món này (chống mở khoá thẩm mỹ cho free). */
   requiredTier: 'premium' | 'ultimate';
+  /**
+   * CHỈ áp cho frame/title (hàng thưởng). Quyết định cách xác lập ownership:
+   * 'tier' = auto theo gói; 'earned' = phải grant persist. Xem CosmeticGrant.
+   */
+  grant?: CosmeticGrant;
   /** Nếu set: món gắn với một mùa cụ thể (danh vọng theo mùa). Vắng = vĩnh viễn. */
   season?: string;
   /** Class Tailwind cho hiệu ứng hiển thị (mẫu effectClass trong ITEM_CATALOG). */
@@ -111,13 +127,15 @@ export const COSMETIC_CATALOG: CosmeticItem[] = [
     cssClass: 'bg-gradient-to-br from-[#020617] via-[#1e293b] to-[#422006]',
   },
 
-  // ── FRAME (thưởng danh vọng — KHÔNG price, KHÔNG bán; B1b/B2 cấp qua ownership) ─
+  // ── FRAME (thưởng danh vọng — KHÔNG price, KHÔNG bán) ───────────────────────
+  // grant:'tier' = tự có khi đủ gói; grant:'earned' = phải grant persist (thắng giải).
   {
     id: 'cframe_ultimate',
     name: 'Khung Học Giả Ultimate',
     icon: '🖼️',
     kind: 'frame',
     requiredTier: 'ultimate',
+    grant: 'tier', // QUYỀN LỢI GÓI: mọi user Ultimate tự có.
     cssClass: 'ring-2 ring-amber-400 shadow-[0_0_20px_#fbbf24]',
   },
   {
@@ -126,8 +144,11 @@ export const COSMETIC_CATALOG: CosmeticItem[] = [
     icon: '🏆',
     kind: 'frame',
     requiredTier: 'ultimate',
-    // Gắn mùa: khung dành cho quán quân giải đấu mùa (B2 cấp cho top hạng mỗi mùa).
-    season: seasonKey(new Date().toISOString()),
+    // KIẾM ĐƯỢC: chỉ top-3 giải đấu Ultimate mỗi tháng mới được cấp (cron settle
+    // → grantCosmetics → bảng user_cosmetics). KHÔNG gắn `season` ở đây (đó là bug
+    // đông cứng lúc load-module + `new Date()` cấm trong file thuần) — món VĨNH VIỄN,
+    // mùa thắng lưu ở CỘT season_key của dòng ownership. Xem [[sat-prep-adaptive]].
+    grant: 'earned',
     cssClass: 'ring-2 ring-yellow-300 shadow-[0_0_28px_#fde047] animate-pulse',
   },
 
@@ -138,6 +159,7 @@ export const COSMETIC_CATALOG: CosmeticItem[] = [
     icon: '🎓',
     kind: 'title',
     requiredTier: 'ultimate',
+    grant: 'tier', // QUYỀN LỢI GÓI.
     cssClass: 'text-amber-300 font-black',
   },
   {
@@ -146,7 +168,7 @@ export const COSMETIC_CATALOG: CosmeticItem[] = [
     icon: '👑',
     kind: 'title',
     requiredTier: 'ultimate',
-    season: seasonKey(new Date().toISOString()),
+    grant: 'earned', // KIẾM ĐƯỢC (top-3 giải đấu tháng). VĨNH VIỄN, không gắn season.
     cssClass: 'text-yellow-200 font-black drop-shadow-[0_0_8px_#fde047]',
   },
   {
@@ -155,6 +177,7 @@ export const COSMETIC_CATALOG: CosmeticItem[] = [
     icon: '⭐',
     kind: 'title',
     requiredTier: 'premium',
+    grant: 'tier', // QUYỀN LỢI GÓI.
     cssClass: 'text-sky-300 font-bold',
   },
 ];
@@ -174,16 +197,19 @@ function tierRank(tier: AiTier | 'premium' | 'ultimate'): number {
 }
 
 /**
- * Điểm ưu tiên chọn cosmetic "tốt nhất": Ultimate hơn Premium; món đúng MÙA HIỆN
- * TẠI (danh vọng tươi) được cộng điểm cao nhất; món mùa cũ (đã sở hữu) vẫn tính
- * nhưng thấp hơn; món vĩnh viễn (không mùa) ở giữa. Tất định theo nowISO.
+ * Điểm ưu tiên chọn cosmetic "tốt nhất": Ultimate hơn Premium; món KIẾM ĐƯỢC
+ * (grant:'earned' — danh hiệu vô địch) đè lên mọi món tier-perk (danh vọng đỉnh,
+ * phải thắng giải mới có); món đúng MÙA HIỆN TẠI (danh vọng tươi) cộng cao; món mùa
+ * cũ (đã sở hữu) thấp hơn; món vĩnh viễn (không mùa) ở giữa. Tất định theo nowISO.
  */
 function prestigeScore(item: CosmeticItem, currentSeason: string): number {
   let score = tierRank(item.requiredTier) * 100;
-  if (item.season) {
+  if (item.grant === 'earned') {
+    score += 1000; // KIẾM ĐƯỢC (vô địch) — nổi hơn mọi quyền lợi gói.
+  } else if (item.season) {
     score += item.season === currentSeason ? 1000 : 10; // mùa hiện tại >> mùa cũ
   } else {
-    score += 100; // vĩnh viễn: hơn mùa cũ, kém mùa hiện tại
+    score += 100; // vĩnh viễn: hơn mùa cũ, kém mùa hiện tại/earned
   }
   return score;
 }
@@ -227,4 +253,25 @@ export function bestFrameFor(tier: AiTier, ownedIds: string[], nowISO: string): 
 /** Danh hiệu TỐT NHẤT user được dùng (theo tier + đang sở hữu). null nếu không có. */
 export function bestTitleFor(tier: AiTier, ownedIds: string[], nowISO: string): CosmeticItem | null {
   return bestOfKind('title', tier, ownedIds, nowISO);
+}
+
+/**
+ * Id các cosmetic THƯỞNG kiểu 'earned' (chỉ có qua grant persist — vd khung/danh
+ * hiệu vô địch). Dùng để cron biết cấp món nào cho top-3 giải đấu, và để tách khỏi
+ * tier-perk khi dựng ownedIds thật. Hằng dẫn xuất từ catalog (nguồn chân lý duy nhất).
+ */
+export const EARNED_COSMETIC_IDS: string[] = COSMETIC_CATALOG.filter(
+  (c) => c.grant === 'earned'
+).map((c) => c.id);
+
+/**
+ * Id cosmetic THƯỞNG kiểu 'tier' mà `tier` này ĐỦ điều kiện tự-sở-hữu (quyền lợi
+ * gói — không cần persist). Dùng dựng `ownedIds` thật: hợp với id 'earned' đã persist.
+ * free → []. Chỉ trả frame/title tier-perk; skin/theme (mua) KHÔNG ở đây.
+ */
+export function tierPerkCosmeticIds(tier: AiTier): string[] {
+  const uTier = tierRank(tier);
+  return COSMETIC_CATALOG.filter(
+    (c) => c.grant === 'tier' && uTier >= tierRank(c.requiredTier)
+  ).map((c) => c.id);
 }

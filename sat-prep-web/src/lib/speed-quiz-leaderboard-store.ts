@@ -2,6 +2,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { rankEntries, type RankRow, type RankedResult } from './leaderboard';
 import { getCycleKey, getCycleLabel, msLeftInCycle, type SeasonCycle } from './season';
 import { getUsersTierMap } from './subscription-store';
+import { getUsersCosmeticsMap } from './cosmetics-store';
+import { bestFrameFor, bestTitleFor } from './cosmetics';
 
 /**
  * ============================================================================
@@ -145,6 +147,35 @@ export async function buildSpeedQuizLeaderboard(
     rows.push({ userId: p.user_id, nickname: p.nickname, basePower: bestByUser.get(p.user_id) ?? 0 });
   }
 
+  // 3b) DANH VỌNG: gán khung + danh hiệu Nhà Vô Địch Mùa theo OWNERSHIP THẬT (chỉ
+  // truyền id 'earned' đã persist → CHỈ nhà vô địch THẬT có badge, KHÔNG phủ tier-
+  // perk cho gọn). 🛡️ CHỐNG P2W: frame/title chỉ để render, KHÔNG đổi thứ hạng
+  // (rankEntries vẫn sort theo basePower=correct_count). Trước đây UI khoe badge cho
+  // live rank≤3 (đổi hạng là mất); nay badge = "đã vô địch thật", vĩnh viễn. Gán
+  // TRƯỚC khi cache để cache-hit cũng mang badge. tier: bracket ultimate → mọi row
+  // 'ultimate'; bảng chung → tra tierMap thật (champion tụt free/premium sẽ mất badge,
+  // nhất quán "cosmetic là quyền lợi gói"). Fail-safe: map rỗng → không badge.
+  const rowIds = rows.map((r) => r.userId);
+  if (rowIds.length > 0) {
+    const cosmeticsMap = await getUsersCosmeticsMap(rowIds);
+    let rowTierMap: Record<string, 'free' | 'premium' | 'ultimate'> = {};
+    if (bracket === 'ultimate') {
+      for (const id of rowIds) rowTierMap[id] = 'ultimate';
+    } else {
+      rowTierMap = await getUsersTierMap(rowIds);
+    }
+    const nowISO = now.toISOString();
+    for (const row of rows) {
+      const rTier = rowTierMap[row.userId] ?? 'free';
+      const earnedIds = cosmeticsMap[row.userId] ?? [];
+      if (earnedIds.length === 0) continue;
+      const frame = bestFrameFor(rTier, earnedIds, nowISO);
+      if (frame) row.frame = { icon: frame.icon, cssClass: frame.cssClass, label: frame.name };
+      const title = bestTitleFor(rTier, earnedIds, nowISO);
+      if (title) row.title = title.name;
+    }
+  }
+
   _cache.set(cacheKey, { at: now.getTime(), rows, cycleKey });
   const { top, me } = rankEntries(rows, myUserId, topN);
   return { ...base, top, me, available: true };
@@ -159,14 +190,19 @@ export interface RankedUser {
 
 /**
  * Xếp hạng theo một cycle key TƯỜNG MINH (kỳ đã đóng) — dùng cho cron chốt thưởng
- * cuối kỳ. KHÔNG cache, KHÔNG bỏ userId (cron cần userId để cộng xu). Trả top-N
- * user opt-in theo MAX(correct_count) trong kỳ đó, đã gán rank 1-based.
+ * cuối kỳ. KHÔNG cache, KHÔNG bỏ userId (cron cần userId để cộng xu / cấp cosmetic).
+ * Trả top-N user opt-in theo MAX(correct_count) trong kỳ đó, đã gán rank 1-based.
  * Trả null nếu pre-migration (bảng chưa có) → cron bỏ qua an toàn.
+ *
+ * `bracket='ultimate'` → GIẢI ĐẤU ĐỘC QUYỀN: lọc CHỈ giữ user gói ultimate
+ * (getUsersTierMap) TRƯỚC khi sort/cắt top-N — khớp buildSpeedQuizLeaderboard. Dùng
+ * cho cron trao khung/danh hiệu Nhà Vô Địch Mùa cho top-3 giải đấu. Metric KHÔNG đổi.
  */
 export async function rankUsersForCycleKey(
   cycle: SeasonCycle,
   cycleKey: string,
-  topN: number
+  topN: number,
+  bracket?: 'ultimate'
 ): Promise<RankedUser[] | null> {
   const admin = createAdminClient();
   const column = CYCLE_COLUMN[cycle];
@@ -204,8 +240,24 @@ export async function rankUsersForCycleKey(
     return null;
   }
 
+  // GIẢI ĐẤU ULTIMATE: lọc chỉ giữ user gói ultimate TRƯỚC khi rank (khớp
+  // buildSpeedQuizLeaderboard). getUsersTierMap: vắng → 'free' → loại; lỗi/pre-
+  // migration → {} → mọi user bị loại → không cấp nhầm cho ai (an toàn).
+  // ⚠️ INTENT: tư cách "ultimate" đánh giá tại THỜI ĐIỂM đọc/settle (getUsersTierMap
+  // dùng now) — CỐ Ý nhất quán với live tournament board (cũng lọc tier request-time):
+  // "phải là thành viên Ultimate HIỆN TẠI mới góp mặt/nhận thưởng". Cron settle chạy
+  // AT/SAU ranh giới kỳ nên champion đủ-hạn-trọn-kỳ (sub rolling durationDays, không
+  // calendar-aligned) vẫn 'ultimate' lúc chấm → không rớt. KHÔNG đổi sang cycle-end
+  // boundary vì sẽ tạo bất nhất với live board.
+  let allowedUltimate: Set<string> | null = null;
+  if (bracket === 'ultimate') {
+    const tierMap = await getUsersTierMap(ids);
+    allowedUltimate = new Set(ids.filter((id) => tierMap[id] === 'ultimate'));
+  }
+
   const rows = ((profiles ?? []) as Array<{ user_id: string; nickname: string | null }>)
     .filter((p) => typeof p.user_id === 'string' && p.nickname)
+    .filter((p) => !allowedUltimate || allowedUltimate.has(p.user_id))
     .map((p) => ({ userId: p.user_id, nickname: p.nickname as string, score: bestByUser.get(p.user_id) ?? 0 }));
 
   // Sort giảm dần theo score; tie-break nickname A→Z (khớp rankEntries, deterministic).

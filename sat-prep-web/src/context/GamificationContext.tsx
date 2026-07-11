@@ -123,6 +123,10 @@ type GamificationState = {
   bookmarkedQuestions: string[];
   /** Gói hiệu lực (server-authoritative, từ /api/economy) — gate HIỂN THỊ cosmetic. */
   tier: UserTier;
+  /** Cosmetic THƯỞNG kiểu 'earned' (khung/danh hiệu vô địch) user THẬT SỰ đã thắng
+   *  (server-authoritative, từ /api/economy — bảng user_cosmetics). KHÁC inventory
+   *  (skin/theme mua). Dùng mở khóa collection đúng người đã vô địch. */
+  ownedCosmetics: string[];
 
   // Actions
   // 🔴 Economy server-authoritative (§9.1): coins/xp do SERVER quyết. Các hàm
@@ -213,6 +217,10 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
   // Gói hiệu lực (server-authoritative, từ /api/economy). Mặc định 'free' để KHÔNG
   // vô tình mở khóa cosmetic trước khi biết chắc tier (hướng an toàn, khớp fail-safe server).
   const [tier, setTier] = useState<UserTier>('free');
+
+  // Cosmetic THƯỞNG 'earned' đã thắng (server-authoritative, từ /api/economy). Mặc
+  // định [] — chưa thắng gì cho tới khi server xác nhận (không mở khóa nhầm).
+  const [ownedCosmetics, setOwnedCosmetics] = useState<string[]>([]);
 
   const [inventory, setInventory] = useState<InventoryItem[]>([
     { instanceId: "eq_1", itemId: "kiem_go", name: "Kiếm Gỗ Tập Sự", tier: "Đồng", level: 1, icon: "🗡️", isBound: true },
@@ -308,6 +316,11 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
           }));
           if (eco.tier === 'free' || eco.tier === 'premium' || eco.tier === 'ultimate') {
             setTier(eco.tier);
+          }
+          // Cosmetic thưởng 'earned' đã thắng (server-authoritative). Chỉ nhận mảng
+          // chuỗi; vắng/sai kiểu → giữ [] (không mở khóa nhầm).
+          if (Array.isArray(eco.ownedCosmetics)) {
+            setOwnedCosmetics(eco.ownedCosmetics.filter((c: unknown): c is string => typeof c === 'string'));
           }
         }
 
@@ -777,6 +790,7 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
       activePet: userStats.activePet,
       bookmarkedQuestions: practiceQuestion.bookmarkedQuestions || [],
       tier,
+      ownedCosmetics,
 
       unlockedBadges,
 

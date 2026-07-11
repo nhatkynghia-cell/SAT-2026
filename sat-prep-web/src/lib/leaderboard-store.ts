@@ -5,7 +5,8 @@ import { computeStats } from './stats';
 import { rankEntries, type RankRow, type RankedResult } from './leaderboard';
 import { getCurrentSeasonKey, getSeasonLabel, daysLeftInSeason } from './season';
 import { getUsersTierMap } from './subscription-store';
-import { bestFrameFor, bestTitleFor, COSMETIC_CATALOG } from './cosmetics';
+import { getUsersCosmeticsMap } from './cosmetics-store';
+import { bestFrameFor, bestTitleFor, tierPerkCosmeticIds } from './cosmetics';
 
 /**
  * ============================================================================
@@ -177,21 +178,25 @@ export async function buildLeaderboard(
     return { userId: p.user_id, nickname: p.nickname, basePower };
   });
 
-  // 4) DANH VỌNG (thuần trang trí): gán khung viền + danh hiệu theo TIER.
+  // 4) DANH VỌNG (thuần trang trí): gán khung viền + danh hiệu theo OWNERSHIP THẬT.
   //    🛡️ CHỐNG P2W: frame/title CHỈ để render, KHÔNG đụng basePower/comparator
-  //    (rankEntries vẫn xếp theo basePower). getUsersTierMap tự fail-safe → map
-  //    rỗng khi lỗi/pre-migration ⇒ mọi user coi 'free' ⇒ bestFrameFor trả null
-  //    (không tier free nào có frame/title) ⇒ dòng thường, không crash.
-  //    Bản này chưa lấy ownedIds thật ⇒ coi mọi cosmetic là "được cấp theo tier":
-  //    truyền cả catalog vào ownedIds, để bestFrameFor/bestTitleFor lọc bằng tier.
+  //    (rankEntries vẫn xếp theo basePower).
+  //    ownedIds thật = [tier-perk mà gói user đủ] ∪ [cosmetic 'earned' đã persist].
+  //    Trước đây "hack" truyền CẢ catalog ⇒ mọi user Ultimate khoe khung vô địch dù
+  //    chưa thắng giải (danh vọng giả). Nay khung/danh hiệu Nhà Vô Địch Mùa CHỈ hiện
+  //    cho người ĐÃ được cron cấp (user_cosmetics). getUsersTierMap/CosmeticsMap tự
+  //    fail-safe → rỗng khi lỗi/pre-migration ⇒ bestFrameFor trả null ⇒ dòng thường.
   const nowISO = now.toISOString();
-  const allCosmeticIds = COSMETIC_CATALOG.map((c) => c.id);
-  const tierMap = await getUsersTierMap(ids); // fail-safe: {} → mọi user 'free'
+  const [tierMap, cosmeticsMap] = await Promise.all([
+    getUsersTierMap(ids), // fail-safe: {} → mọi user 'free'
+    getUsersCosmeticsMap(ids), // fail-safe: {} → chưa ai thắng cosmetic
+  ]);
   for (const row of rows) {
     const tier = tierMap[row.userId] ?? 'free';
-    const frame = bestFrameFor(tier, allCosmeticIds, nowISO);
+    const ownedIds = [...tierPerkCosmeticIds(tier), ...(cosmeticsMap[row.userId] ?? [])];
+    const frame = bestFrameFor(tier, ownedIds, nowISO);
     if (frame) row.frame = { icon: frame.icon, cssClass: frame.cssClass, label: frame.name };
-    const title = bestTitleFor(tier, allCosmeticIds, nowISO);
+    const title = bestTitleFor(tier, ownedIds, nowISO);
     if (title) row.title = title.name;
   }
 
