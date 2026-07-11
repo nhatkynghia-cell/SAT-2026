@@ -48,6 +48,55 @@ function entryId(moduleType: string, data: unknown): string {
   return crypto.createHash('sha256').update(core, 'utf-8').digest('hex').slice(0, 16);
 }
 
+/** 1 dòng chuẩn hóa để upsert vào bảng `questions`. */
+export interface BankRow {
+  id: string;
+  module_type: string;
+  topic: string;
+  difficulty: string | null;
+  skill_id: string | null;
+  data: unknown;
+  usage_count: number;
+}
+
+/**
+ * Dựng 1 dòng bank CHUẨN HÓA từ câu AI mới sinh — PURE (không I/O), test được.
+ *
+ * Chuẩn hóa schema (Bước 0 — nền cho curation kho đề):
+ *  • skillId nhúng THẲNG vào `data.skillId` (giữ trong payload jsonb) VÀ tách ra
+ *    cột `skill_id` (để index + đếm phân bố theo skill lúc lọc/tuyển). Không ghi
+ *    đè nếu skillId không xác định (giữ giá trị sẵn trong data nếu có).
+ *  • difficulty đọc từ data (Easy/Medium/Hard), null nếu thiếu.
+ *  • id = hash nội dung (dedup qua PK).
+ */
+export function buildBankRow(
+  moduleType: string,
+  topic: string,
+  data: unknown,
+  skillId?: string
+): BankRow {
+  const d = (data ?? {}) as Record<string, unknown>;
+  // Ưu tiên skillId truyền vào (đã qua taxonomy ở route); nếu không có thì giữ
+  // giá trị đã nhúng sẵn trong data (nếu có) — không xoá dữ liệu đang có.
+  const effectiveSkillId =
+    (typeof skillId === 'string' && skillId) ||
+    (typeof d.skillId === 'string' && d.skillId) ||
+    null;
+  const difficulty = typeof d.difficulty === 'string' ? d.difficulty : null;
+  // data mang luôn skillId để câu tái dùng từ bank có sẵn skillId trong payload
+  // (client cần để POST /api/mastery, y hợp đồng câu sinh mới).
+  const normalizedData = effectiveSkillId ? { ...d, skillId: effectiveSkillId } : d;
+  return {
+    id: entryId(moduleType, data),
+    module_type: moduleType,
+    topic,
+    difficulty,
+    skill_id: effectiveSkillId,
+    data: normalizedData,
+    usage_count: 0,
+  };
+}
+
 /**
  * Số câu hiện có cho 1 moduleType (dùng để quyết định reuse hay sinh mới).
  * FAIL-SAFE: bảng chưa có / lỗi → 0 → route sinh câu qua AI.
@@ -104,27 +153,23 @@ export async function getFromBank(
 
 /**
  * Lưu 1 câu AI mới sinh vào bank (dedup theo hash nội dung = PK).
+ * `skillId` (tùy chọn): skillId taxonomy đã tính ở route → persist vào cột
+ * `skill_id` + nhúng `data.skillId` (chuẩn hóa schema cho curation, Bước 0).
  * Trả về true nếu ghi không lỗi, false nếu lỗi (bảng chưa có → false, KHÔNG vỡ).
  * Route gọi fire-and-forget nên giá trị trả về chỉ mang tính thông báo.
  */
-export async function saveToBank(moduleType: string, topic: string, data: unknown): Promise<boolean> {
+export async function saveToBank(
+  moduleType: string,
+  topic: string,
+  data: unknown,
+  skillId?: string
+): Promise<boolean> {
   try {
-    const id = entryId(moduleType, data);
-    const difficulty = (data as Record<string, unknown>)?.difficulty ?? null;
+    const row = buildBankRow(moduleType, topic, data, skillId);
     const supabase = await createClient();
     const { error } = await supabase
       .from('questions')
-      .upsert(
-        {
-          id,
-          module_type: moduleType,
-          topic,
-          difficulty,
-          data,
-          usage_count: 0,
-        },
-        { onConflict: 'id', ignoreDuplicates: true }
-      );
+      .upsert(row, { onConflict: 'id', ignoreDuplicates: true });
     if (error) {
       console.error('Lỗi lưu vào question bank:', error);
       return false;

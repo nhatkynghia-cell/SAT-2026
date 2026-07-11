@@ -375,8 +375,9 @@ BẮT BUỘC thêm trường "choice_analysis": MẢNG, mỗi phần tử ứng 
     }
 
     // Lưu câu mới vào Question Bank để tái sử dụng (§9.4). Không chặn response
-    // nếu lưu lỗi — chỉ là tối ưu chi phí, không phải đường tới hạn.
-    saveToBank(moduleType, topic ?? '', data).catch((e) =>
+    // nếu lưu lỗi — chỉ là tối ưu chi phí, không phải đường tới hạn. skillId
+    // persist kèm (cột skill_id + data.skillId) để curation nhóm theo skill (Bước 0).
+    saveToBank(moduleType, topic ?? '', data, skillId).catch((e) =>
       console.error('Không lưu được vào question bank:', e)
     );
 
