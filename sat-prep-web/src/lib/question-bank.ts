@@ -127,6 +127,10 @@ export async function poolSize(moduleType: string): Promise<number> {
  * trong bộ nhớ — giữ NGUYÊN logic ưu-tiên-topic của bản file, KHÔNG cần thêm DB
  * function `order by random()` vào schema PRODUCTION.
  * FAIL-SAFE: bảng chưa có / lỗi / rỗng → null → route sinh câu qua AI.
+ *
+ * ĐO LƯỜNG: mỗi lần bốc trúng 1 câu → tăng usage_count qua RPC atomic
+ * (fire-and-forget, non-critical: lỗi/RPC chưa có → chỉ mất 1 nhịp đếm, KHÔNG
+ * ảnh hưởng câu trả về). Tín hiệu tái-dùng phục vụ curation (Bước 0).
  */
 export async function getFromBank(
   moduleType: string,
@@ -135,7 +139,7 @@ export async function getFromBank(
 ): Promise<unknown | null> {
   try {
     const supabase = await createClient();
-    let query = supabase.from('questions').select('topic, data').eq('module_type', moduleType);
+    let query = supabase.from('questions').select('id, topic, data').eq('module_type', moduleType);
     if (difficulty) query = query.eq('difficulty', difficulty);
     const { data: rows, error } = await query;
     if (error || !rows || rows.length === 0) return null;
@@ -144,6 +148,15 @@ export async function getFromBank(
     const pool = matchTopic.length > 0 ? matchTopic : rows;
 
     const pick = pool[Math.floor(Math.random() * pool.length)];
+    // Đếm tái dùng (fire-and-forget, atomic qua RPC). Không await → không chặn
+    // đường trả câu; nuốt lỗi để RPC-chưa-migrate / lỗi DB không vỡ luồng.
+    if (pick.id) {
+      supabase
+        .rpc('increment_question_usage', { p_id: pick.id })
+        .then(({ error: rpcErr }) => {
+          if (rpcErr) console.error('increment_question_usage:', rpcErr.message);
+        });
+    }
     return pick.data;
   } catch (e) {
     console.error('Lỗi đọc question bank:', e);
