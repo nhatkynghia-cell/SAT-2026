@@ -257,6 +257,24 @@ function exec(q, mode) {
 
 // ── RPC models (atomic mutations) ────────────────────────────────────────────
 const RPCS = {
+  // Mô phỏng claim_quest_reward (quest_claim_atomic.sql): khóa dòng + kiểm
+  // (p_today=bucketKey, p_quest_id=itemId) đã có trong quest_claims chưa →
+  // đã có: already_claimed (KHÔNG cộng); chưa: cộng coins/xp + ghi. Trả TỔNG mới.
+  // Dùng chung cho quest, dailyLogin, streak, vocab reward (qua tryClaimOnceAtomic).
+  claim_quest_reward({ p_user_id, p_quest_id, p_today, p_coins, p_xp }) {
+    const econ = table('user_economy').find((r) => r.user_id === p_user_id);
+    if (!econ) return { ok: false, reason: 'no_row', coins: 0, xp: 0 };
+    const claims = econ.quest_claims && typeof econ.quest_claims === 'object' ? econ.quest_claims : {};
+    const bucket = Array.isArray(claims[p_today]) ? claims[p_today] : [];
+    if (bucket.includes(p_quest_id)) {
+      return { ok: false, reason: 'already_claimed', coins: econ.coins, xp: econ.xp };
+    }
+    econ.coins += Math.max(0, p_coins ?? 0);
+    econ.xp += Math.max(0, p_xp ?? 0);
+    econ.quest_claims = { ...claims, [p_today]: [...bucket, p_quest_id] };
+    return { ok: true, reason: 'ok', coins: econ.coins, xp: econ.xp };
+  },
+
   redeem_reward({ p_user_id, p_reward_id, p_reward_name, p_cost }) {
     if (typeof p_cost !== 'number' || p_cost <= 0) return { ok: false, reason: 'bad_cost' };
     const econ = table('user_economy').find((r) => r.user_id === p_user_id);

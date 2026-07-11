@@ -6,7 +6,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resetDb, setCurrentUser, seed, getRows, postJson, readRes } from './harness.mjs';
+import { resetDb, setCurrentUser, seed, getRows, postJson, readRes, disableRpc } from './harness.mjs';
 import { POST } from '@/app/api/vocab/route';
 
 function seedUser(id, coins = 100) {
@@ -77,4 +77,41 @@ test('vocab: farm chặn cũng KHÔNG ghi mastery (không due → không recordA
   await readRes(await POST(postJson({ wordId: 'w1', isRemembered: true }))); // không due → KHÔNG ghi
   const mrow = getRows('user_mastery').find((r) => r.user_id === 'v-nofarm');
   assert.equal(mrow.skills['rw.vocab'].attempts, 1, 'chỉ ghi lần due, spam không thổi mastery');
+});
+
+// ROOT C: thưởng ôn từ ATOMIC + idempotent theo due-instance (chống 2 POST cùng
+// wordId cộng đôi). Đường atomic qua RPC claim_quest_reward (fake-db mock).
+test('vocab: idempotent — cùng due-instance grant đúng 1 lần (ghi quest_claims bucket vocab)', async () => {
+  resetDb(); setCurrentUser({ id: 'v-atomic' }); seedUser('v-atomic');
+  seedVocab('v-atomic', [{ id: 'w1', box: 1, next_review: '2020-01-01' }]);
+
+  const r1 = await readRes(await POST(postJson({ wordId: 'w1', isRemembered: true })));
+  assert.deepEqual(r1.body.granted, { coins: 5, xp: 20 });
+  assert.equal(getRows('user_economy')[0].coins, 105);
+  // quest_claims có bucket vocab với itemId = w1:<next_review gốc>.
+  const econ = getRows('user_economy')[0];
+  const bucket = econ.quest_claims?.['__vocab_reward__'];
+  assert.ok(Array.isArray(bucket) && bucket.some((k) => k.startsWith('w1:')), 'ghi khóa idempotent vocab');
+});
+
+test('vocab: due-instance MỚI (next_review khác) VẪN thưởng được (không khóa vĩnh viễn)', async () => {
+  resetDb(); setCurrentUser({ id: 'v-next' }); seedUser('v-next');
+  // 2 từ khác nhau, cả hai đều due → mỗi từ 1 due-instance riêng → cả hai thưởng.
+  seedVocab('v-next', [
+    { id: 'w1', box: 1, next_review: '2020-01-01' },
+    { id: 'w2', box: 1, next_review: '2020-01-02' },
+  ]);
+  await readRes(await POST(postJson({ wordId: 'w1', isRemembered: true })));
+  await readRes(await POST(postJson({ wordId: 'w2', isRemembered: true })));
+  assert.equal(getRows('user_economy')[0].coins, 110, '2 từ due khác nhau → +5 +5');
+});
+
+test('vocab: đường FALLBACK (RPC chưa migrate) vẫn thưởng đúng 1 lần', async () => {
+  resetDb(); setCurrentUser({ id: 'v-fb' }); seedUser('v-fb');
+  disableRpc('claim_quest_reward'); // ép PGRST202 → route fallback non-atomic
+  seedVocab('v-fb', [{ id: 'w1', box: 1, next_review: '2020-01-01' }]);
+
+  const r = await readRes(await POST(postJson({ wordId: 'w1', isRemembered: true })));
+  assert.deepEqual(r.body.granted, { coins: 5, xp: 20 }, 'fallback vẫn cấp đúng');
+  assert.equal(getRows('user_economy')[0].coins, 105);
 });
