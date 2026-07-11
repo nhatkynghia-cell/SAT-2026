@@ -177,7 +177,10 @@ test('economy pvp: THUA → giữ rank, KHÔNG cộng xu, vẫn tiêu 1 suất t
 
 test('economy pvp CAP: đã đấu đủ 10 trận hôm nay → chặn, KHÔNG cộng xu (anti-faucet)', async () => {
   resetDb(); setCurrentUser({ id: 'e-pvp-cap' });
-  const today = new Date().toISOString().split('T')[0];
+  // Route economy đếm lượt PvP theo NGÀY VN (todayVN, UTC+7) — seed phải khớp giờ
+  // VN, KHÔNG dùng UTC date. Trong cửa sổ 00:00–07:00 VN, UTC date là "hôm qua" →
+  // route reset lượt → cap không chặn → test flaky (fail đúng khoảng giờ đó).
+  const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0];
   seedUser('e-pvp-cap', { coins: 100, pvp_rank: 11, pvp_fights_today: 10, pvp_last_fight_date: today });
   seedStrongMastery('e-pvp-cap');
 
