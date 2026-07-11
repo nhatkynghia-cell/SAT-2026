@@ -73,6 +73,25 @@ test('chương phụ thuộc VẪN KHÓA khi Đại số đạt ngưỡng nhưng
   assert.equal(view.nodes.find((x) => x.id === 'advanced.quadratic')?.state, 'locked');
 });
 
+test('gate ĐÃ PASS thì chương sau KHÔNG bị re-lock khi mastery Đại số tụt dưới ngưỡng', () => {
+  // Kịch bản decay: học sinh qua cổng algebra (gate passed vĩnh viễn) rồi chuyển
+  // sang luyện advanced_math, ngừng ôn algebra → EWMA algebra tụt < ngưỡng.
+  // Qua cổng LÀ bằng chứng bền → advanced_math phải GIỮ mở khóa, không tụt tiến trình.
+  const gates = { algebra: { passed: true, lastAttempt: '2026-01-01', score: 5, correctSinceFail: 0 } };
+  const view = buildSkillTree(fakeSummary({
+    'algebra.linear_eq': { score: 10, attempts: 8 }, // đã decay < DOMAIN_UNLOCK_THRESHOLD
+    'advanced.quadratic': { score: 30, attempts: 6 },
+  }), gates);
+  const alg = view.domains.find((d) => d.id === 'algebra');
+  assert.ok(alg && alg.avgScore < DOMAIN_UNLOCK_THRESHOLD, 'tiền đề: algebra đã tụt dưới ngưỡng');
+  assert.equal(alg?.satisfied, true, 'gate passed → satisfied giữ true dù mastery tụt');
+  assert.notEqual(
+    view.nodes.find((x) => x.id === 'advanced.quadratic')?.state,
+    'locked',
+    'advanced_math KHÔNG được re-lock khi gate đã pass'
+  );
+});
+
 test('avg chương tính trên TẤT CẢ skill của chương (kể cả skill chưa làm = 0)', () => {
   // 1 skill algebra = 80, skill algebra khác = 0 → avg = 40.
   const view = buildSkillTree(fakeSummary({

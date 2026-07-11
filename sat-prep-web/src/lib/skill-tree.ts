@@ -128,11 +128,18 @@ export function buildSkillTree(
     return 'cooldown';
   }
 
-  // "satisfied" = avg đạt ngưỡng VÀ gate passed (hoặc domain không cần gate).
+  // "satisfied" (đạt tiên quyết cho chương SAU):
+  //   • gate 'passed' → satisfied VĨNH VIỄN. Qua cổng LÀ bằng chứng bền; mastery
+  //     decay (EWMA tụt < ngưỡng) KHÔNG được khóa lại chương đã mở — tránh tụt
+  //     tiến trình khi học sinh chuyển sang luyện chương sau, ngừng ôn chương gốc.
+  //   • 'not_required' (không chương nào phụ thuộc) → theo ngưỡng hiện tại.
+  //   • còn lại (available/locked/cooldown — chưa qua cổng) → chưa satisfied.
   const satisfied = new Map<string, boolean>();
   for (const [id] of avgs) {
     const gs = getGateStatus(id);
-    satisfied.set(id, meetsThreshold.get(id)! && (gs === 'passed' || gs === 'not_required'));
+    if (gs === 'passed') satisfied.set(id, true);
+    else if (gs === 'not_required') satisfied.set(id, meetsThreshold.get(id)!);
+    else satisfied.set(id, false);
   }
 
   // Chương nào đang MỞ KHÓA (mọi tiên quyết đã satisfied).
