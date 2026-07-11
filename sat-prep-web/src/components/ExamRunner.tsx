@@ -25,7 +25,35 @@ interface ModuleData {
   questions: ExamQuestion[];
 }
 
-type Phase = 'lobby' | 'loading' | 'in-module' | 'between-modules' | 'break' | 'finished';
+type Phase = 'lobby' | 'loading' | 'in-module' | 'between-modules' | 'break' | 'finished' | 'submit-error';
+
+// Nộp module có RETRY lỗi tạm thời (blip mạng / 429 / 5xx) — hút phần lớn lỗi
+// thoáng qua thay vì rớt thẳng vào màn lỗi. AN TOÀN double-grant: server chấm CAS
+// (mỗi câu 1 lần) nên nếu request TRƯỚC đã tới server + chấm rồi thì lần retry ra
+// 0 câu đúng → KHÔNG cộng xu lần 2. 4xx (trừ 429) = lỗi cứng → không retry.
+async function postSubmitWithRetry(payload: unknown, maxRetries = 2): Promise<Response> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch('/api/exam-session/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.status === 429 || res.status >= 500) {
+        lastErr = new Error(`HTTP ${res.status}`);
+      } else {
+        return res; // 2xx hoặc 4xx cứng → trả luôn (caller xử lý !ok)
+      }
+    } catch (e) {
+      lastErr = e; // network throw → thử lại
+    }
+    if (attempt < maxRetries) {
+      await new Promise((r) => setTimeout(r, 800 * Math.pow(2, attempt)));
+    }
+  }
+  throw lastErr ?? new Error('Nộp module thất bại');
+}
 
 interface SectionAcc {
   raw: number;
@@ -219,11 +247,7 @@ export default function ExamRunner({
     }, 2000);
 
     try {
-      const res = await fetch('/api/exam-session/submit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ section, moduleNum, mode, answers: submitted }),
-      });
+      const res = await postSubmitWithRetry({ section, moduleNum, mode, answers: submitted });
       clearInterval(progressInterval);
 
       if (!res.ok) throw new Error('Không thể nộp module');
@@ -265,16 +289,12 @@ export default function ExamRunner({
     } catch (error) {
       clearInterval(progressInterval);
       console.error('Submit module error:', error);
-      // Không sinh được M2 / lỗi mạng: nếu đang ở RW thì vẫn cho qua break, else chấm luôn.
-      if (moduleNum === 1 && section === 'rw') {
-        setPhase('break');
-      } else if (moduleNum === 1 && section === 'math') {
-        finishExam();
-      } else if (section === 'rw') {
-        setPhase('break');
-      } else {
-        finishExam();
-      }
+      // Lỗi mạng/server DAI DẲNG (đã retry). KHÔNG advance âm thầm (mất điểm module +
+      // bỏ các module sau). Hiện màn lỗi tường minh + nút nộp lại: answers &
+      // currentModule còn NGUYÊN trong state → nộp lại an toàn (server chấm CAS →
+      // không double-grant). Người dùng chủ động, không mất tiến trình lặng lẽ.
+      setErrorMsg('Không nộp được module (mạng chập chờn). Bài làm của bạn vẫn được giữ — hãy thử nộp lại.');
+      setPhase('submit-error');
     }
   }, [currentModule, buildSubmittedAnswers, mode, syncServerEconomy, finishExam]);
 
@@ -395,6 +415,31 @@ export default function ExamRunner({
               style={{ background: accentColor }}
             >
               VÀO PHẦN MATH →
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'submit-error') {
+    // Nộp module lỗi dai dẳng — bài làm CÒN NGUYÊN (answers + currentModule trong
+    // state). Nút nộp lại gọi lại submitModule: server chấm CAS → nộp lại an toàn,
+    // không double-grant. Thay cho việc advance âm thầm (mất điểm + bỏ module sau).
+    return (
+      <div className="space-y-8 animate-in fade-in duration-700 pb-20">
+        {header}
+        <div className="max-w-lg mx-auto text-center">
+          <div className="bg-[#1b2533] border border-red-500/40 rounded-xl p-12 shadow-lg">
+            <div className="text-5xl mb-6">⚠️</div>
+            <h2 className="text-2xl font-bold text-white mb-4">Chưa nộp được module</h2>
+            <p className="text-gray-400 mb-6">{errorMsg}</p>
+            <button
+              onClick={() => void submitModule()}
+              className="px-8 py-3 font-bold text-white rounded-lg transition-all hover:scale-105 shadow-lg"
+              style={{ background: accentColor }}
+            >
+              🔄 Thử nộp lại
             </button>
           </div>
         </div>
