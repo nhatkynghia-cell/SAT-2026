@@ -28,25 +28,34 @@ interface ModuleData {
 type Phase = 'lobby' | 'loading' | 'in-module' | 'between-modules' | 'break' | 'finished' | 'submit-error';
 
 // Nộp module có RETRY lỗi tạm thời (blip mạng / 429 / 5xx) — hút phần lớn lỗi
-// thoáng qua thay vì rớt thẳng vào màn lỗi. AN TOÀN double-grant: server chấm CAS
-// (mỗi câu 1 lần) nên nếu request TRƯỚC đã tới server + chấm rồi thì lần retry ra
-// 0 câu đúng → KHÔNG cộng xu lần 2. 4xx (trừ 429) = lỗi cứng → không retry.
-async function postSubmitWithRetry(payload: unknown, maxRetries = 2): Promise<Response> {
+// thoáng qua thay vì rớt thẳng vào màn lỗi. AN TOÀN: server chấm idempotent —
+// getGradedResult đọc was_correct đã lưu nên retry sau khi đã chấm VẪN trả đúng số
+// câu đúng (không mất điểm) NHƯNG chỉ câu chấm-mới mới được thưởng (retry → 0 xu,
+// no double-grant). 4xx (trừ 429) = lỗi cứng → không retry.
+// TIMEOUT mỗi lần thử (AbortController): fetch treo (server nhận rồi đứng / proxy
+// chết) KHÔNG bao giờ reject → nếu không timeout thì kẹt màn loading vĩnh viễn,
+// bỏ qua cả nhánh retry/catch. Timeout → abort → coi như lỗi tạm → thử lại/nổi lỗi.
+async function postSubmitWithRetry(payload: unknown, maxRetries = 2, timeoutMs = 20_000): Promise<Response> {
   let lastErr: unknown;
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
       const res = await fetch('/api/exam-session/submit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: ctrl.signal,
       });
+      clearTimeout(timer);
       if (res.status === 429 || res.status >= 500) {
         lastErr = new Error(`HTTP ${res.status}`);
       } else {
         return res; // 2xx hoặc 4xx cứng → trả luôn (caller xử lý !ok)
       }
     } catch (e) {
-      lastErr = e; // network throw → thử lại
+      clearTimeout(timer);
+      lastErr = e; // network throw / abort (timeout) → thử lại
     }
     if (attempt < maxRetries) {
       await new Promise((r) => setTimeout(r, 800 * Math.pow(2, attempt)));
@@ -170,12 +179,20 @@ export default function ExamRunner({
       setLoadingProgress(prev => Math.min(prev + 5, 90));
     }, 2000);
 
+    // Timeout: fetch sinh đề treo (proxy chết / server đứng) sẽ KHÔNG reject → kẹt
+    // màn loading vĩnh viễn. Abort sau 60s (start sinh đề qua OpenAI nên nới rộng) →
+    // catch bên dưới đưa về lobby (có nút bắt đầu lại).
+    const ctrl = new AbortController();
+    const startTimer = setTimeout(() => ctrl.abort(), 60_000);
+
     try {
       const res = await fetch('/api/exam-session/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ section, mode }),
+        signal: ctrl.signal,
       });
+      clearTimeout(startTimer);
       clearInterval(progressInterval);
 
       if (!res.ok) {
@@ -197,6 +214,7 @@ export default function ExamRunner({
       setTimeLeft(data.module.timeMinutes * 60);
       setPhase('in-module');
     } catch (error) {
+      clearTimeout(startTimer);
       clearInterval(progressInterval);
       console.error('Start section error:', error);
       setErrorMsg((error as Error)?.message || 'Không thể sinh đề thi. Vui lòng thử lại.');
