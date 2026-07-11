@@ -160,9 +160,13 @@ export default function ExamRunner({
   const buildSubmittedAnswers = useCallback(() => {
     if (!currentModule) return [];
     const out: { questionId: string; answer: string }[] = [];
+    // Gửi MỌI câu server đã phát — câu chưa trả lời gửi answer='' (server chấm
+    // rỗng=sai, xem matchesAnswer). Đúng chuẩn Digital SAT (bỏ trắng = sai) và làm
+    // mẫu số chấm (gradedTotal server) = TỔNG câu đã phát → điểm /1600 không bị
+    // thổi phồng do câu trắng lọt khỏi mẫu số. Rỗng không được thưởng (không đúng).
     for (const q of currentModule.questions) {
-      if (q.questionId && answers[q.questionId]) {
-        out.push({ questionId: q.questionId, answer: answers[q.questionId] });
+      if (q.questionId) {
+        out.push({ questionId: q.questionId, answer: answers[q.questionId] ?? '' });
       }
     }
     return out;

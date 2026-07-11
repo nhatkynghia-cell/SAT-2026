@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
         // module:null để client GHI điểm rồi kết thúc section êm. Endpoint không
         // idempotent (CAS) nên client KHÔNG được retry — đây là đường thoát an toàn.
         return NextResponse.json({
-          moduleResult: { correct, total: answers.length },
+          moduleResult: { correct, total: gradedTotal },
           adaptivePath,
           granted,
           economy: nextEconomy,
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
       );
 
       return NextResponse.json({
-        moduleResult: { correct, total: answers.length },
+        moduleResult: { correct, total: gradedTotal },
         adaptivePath,
         granted,
         economy: nextEconomy,
@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
 
     // Module 2 → section kết thúc.
     return NextResponse.json({
-      moduleResult: { correct, total: answers.length },
+      moduleResult: { correct, total: gradedTotal },
       granted,
       economy: nextEconomy,
     });

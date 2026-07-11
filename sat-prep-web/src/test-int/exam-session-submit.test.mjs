@@ -79,5 +79,29 @@ test('exam-submit: câu của user KHÁC trộn vào → bỏ qua', async () => 
     answers: [{ questionId: 'mine', answer: 'A' }, { questionId: 'victim', answer: 'B' }],
   })));
   assert.equal(body.moduleResult.correct, 1, 'chỉ tính câu sở hữu');
+  assert.equal(body.moduleResult.total, 1, 'mẫu số = câu SỞ HỮU server chấm (loại câu user khác)');
   assert.deepEqual(body.granted, { coins: 10, xp: 50 });
+});
+
+// #2: câu BỎ TRẮNG (answer='') tính vào MẪU SỐ (total) nhưng KHÔNG tính đúng.
+// Client gửi mọi câu phát (câu chưa trả lời → answer=''); server chấm rỗng=sai →
+// điểm /1600 (client rawToScaled(raw, total, path)) không bị thổi phồng do câu
+// trắng lọt khỏi mẫu số như trước (total cũ = answers.length client tự lọc).
+test('exam-submit: câu bỏ trắng đếm vào total (mẫu số) nhưng KHÔNG là câu đúng', async () => {
+  resetDb(); setCurrentUser({ id: 's-blank' }); seedUser('s-blank');
+  seedQ('b1', 's-blank', 'A', 'Medium'); // đúng
+  seedQ('b2', 's-blank', 'B', 'Hard');   // bỏ trắng → sai
+  seedQ('b3', 's-blank', 'C', 'Easy');   // bỏ trắng → sai
+
+  const { body } = await readRes(await POST(postJson({
+    section: 'math', moduleNum: 2, mode: 'mock',
+    answers: [
+      { questionId: 'b1', answer: 'A' },
+      { questionId: 'b2', answer: '' },
+      { questionId: 'b3', answer: '' },
+    ],
+  })));
+  assert.equal(body.moduleResult.correct, 1, 'chỉ 1 câu đúng');
+  assert.equal(body.moduleResult.total, 3, 'mẫu số = 3 (gồm 2 câu trắng), KHÔNG co lại còn 1');
+  assert.deepEqual(body.granted, { coins: 10, xp: 50 }, 'câu trắng không được thưởng');
 });
