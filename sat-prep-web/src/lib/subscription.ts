@@ -5,8 +5,9 @@ import type { AiTier } from './ai-quota';
  *  SUBSCRIPTION TIER (Phase 2 — nền tảng gói trả phí)
  * ============================================================================
  *  Nguồn sự thật về GÓI (tier) của user. Trước Phase 2, mọi route AI hardcode
- *  tier:'free' (TODO trong chat/generate-practice). Module này thay bằng tier
- *  THẬT tra từ bảng `user_subscriptions`.
+ *  tier:'free'. Nay chat/route.ts và generate-practice/route.ts đã tra tier THẬT
+ *  qua getUserTier() (fail-safe → 'free' khi lỗi/không có gói) — module này giữ
+ *  logic thuần tier + gate quota, đọc từ bảng `user_subscriptions`.
  *
  *  Phạm vi ban đầu (user chốt 2026-07-04): nền tảng tier + gate AI quota. Cổng
  *  thanh toán (VNPay/MoMo) nay đã nối: việc cấp/gia hạn gói do RPC `confirm_payment`

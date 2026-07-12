@@ -79,6 +79,19 @@ export async function POST(request: NextRequest) {
       )
       .slice(0, MAX_EXAM_QUESTIONS);
 
+    // DEDUP theo questionId (giữ lần XUẤT HIỆN ĐẦU). Client có thể gửi cùng 1
+    // questionId nhiều lần: câu chấm-mới thì CAS chặn thưởng đôi, nhưng câu ĐÃ chấm
+    // (getGradedResult) KHÔNG có CAS → mỗi lần lặp lại +1 correct + +1 gradedTotal
+    // → nhân đôi câu đúng, ép sai nhánh adaptive (dễ chạm HARD) + lệch điểm /1600.
+    // Dedup TRƯỚC vòng chấm → mỗi câu tính đúng 1 lần. (Không rò xu vì thưởng chỉ
+    // theo correctDifficulties của câu chấm-mới, nhưng vẫn phải đóng để đúng điểm.)
+    const seen = new Set<string>();
+    const uniqueAnswers = answers.filter((a) => {
+      if (seen.has(a.questionId)) return false;
+      seen.add(a.questionId);
+      return true;
+    });
+
     // Chấm từng câu server-side. TÁCH scoring khỏi reward để NỘP LẠI idempotent:
     //   • correct (điểm + adaptive path): đếm CẢ câu chấm-mới LẪN câu ĐÃ chấm trước
     //     (đọc was_correct đã lưu) → retry sau khi response mất vẫn ra ĐÚNG số câu
@@ -93,7 +106,7 @@ export async function POST(request: NextRequest) {
     // Câu ID lạ/không sở hữu → cả 2 null → KHÔNG đếm (client không thổi được mẫu số).
     let gradedTotal = 0;
 
-    for (const { questionId, answer } of answers) {
+    for (const { questionId, answer } of uniqueAnswers) {
       const result = await gradeAnswer(questionId, user.id, answer);
       if (result) {
         // Chấm MỚI (CAS thắng) → tính điểm + đủ điều kiện thưởng.

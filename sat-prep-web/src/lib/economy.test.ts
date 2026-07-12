@@ -2,7 +2,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   applyAnswerReward,
-  applyExamReward,
   applyExamRewardFromDifficulties,
   applyQuestReward,
   applySpend,
@@ -55,36 +54,6 @@ test('applyAnswerReward: combo bậc thang áp dụng khi streak dài (10 → ×
   const r = applyAnswerReward(fresh(), true, 'Medium', 10);
   assert.equal(r.granted.coins, Math.floor(ANSWER_REWARD.Medium.coins * 1.5));
   assert.equal(r.granted.xp, Math.floor(ANSWER_REWARD.Medium.xp * 1.5));
-});
-
-test('applyExamReward: nhân số câu đúng với đơn giá cố định theo độ khó', () => {
-  const r = applyExamReward(fresh(), 10, 'Hard');
-  assert.equal(r.granted.coins, ANSWER_REWARD.Hard.coins * 10);
-  assert.equal(r.granted.xp, ANSWER_REWARD.Hard.xp * 10);
-  assert.equal(r.state.coins, DEFAULT_ECONOMY.coins + ANSWER_REWARD.Hard.coins * 10);
-});
-
-test('applyExamReward: 0 câu đúng (hoặc count không hợp lệ) → không thưởng', () => {
-  assert.deepEqual(applyExamReward(fresh(), 0, 'Medium').granted, { coins: 0, xp: 0 });
-  assert.deepEqual(applyExamReward(fresh(), -3, 'Medium').granted, { coins: 0, xp: 0 });
-  assert.deepEqual(applyExamReward(fresh(), 2.5, 'Medium').granted, { coins: 0, xp: 0 });
-});
-
-test('applyExamReward: KHÔNG áp combo (combo chỉ cho chuỗi trả lời đơn lẻ)', () => {
-  // Thưởng bài = đơn giá × số câu, tuyến tính, không nhân hệ số combo.
-  const r = applyExamReward(fresh(), 3, 'Easy');
-  assert.equal(r.granted.coins, ANSWER_REWARD.Easy.coins * 3);
-  assert.equal(r.granted.xp, ANSWER_REWARD.Easy.xp * 3);
-});
-
-test('applyExamReward: KẸP correctCount về trần (chống coin-mint phi lý — audit 2026-07-03)', () => {
-  // POST {correctCount: 1e9} trước đây → ~20 tỉ xu. Nay kẹp về MAX_EXAM_QUESTIONS.
-  const r = applyExamReward(fresh(), 1_000_000_000, 'Hard');
-  assert.equal(r.granted.coins, ANSWER_REWARD.Hard.coins * MAX_EXAM_QUESTIONS);
-  assert.equal(r.granted.xp, ANSWER_REWARD.Hard.xp * MAX_EXAM_QUESTIONS);
-  // Đúng trần thì KHÔNG bị kẹp (đề thật <= 200 câu vẫn thưởng đủ).
-  const exact = applyExamReward(fresh(), MAX_EXAM_QUESTIONS, 'Easy');
-  assert.equal(exact.granted.coins, ANSWER_REWARD.Easy.coins * MAX_EXAM_QUESTIONS);
 });
 
 test('applyExamRewardFromDifficulties: cộng đơn giá theo ĐỘ KHÓ THẬT từng câu đúng', () => {

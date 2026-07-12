@@ -55,6 +55,9 @@ export async function POST(req: Request) {
 
     // ── THƯỞNG (chốt TRƯỚC khi advance Leitner) ──
     let granted = { coins: 0, xp: 0 };
+    // claimedFresh = POST NÀY là lần ĐẦU chốt thưởng cho due-instance này (CAS thắng).
+    // Dùng để gate ghi mastery câu ĐÚNG → 2 POST đồng thời / resubmit KHÔNG bơm đôi.
+    let claimedFresh = false;
     if (wasDue && isRemembered) {
       const tier = await getUserTier(user.id);
       // Delta ĐỘC LẬP số dư (chỉ theo độ khó × hệ số tier) → dùng .granted, KHÔNG
@@ -79,19 +82,23 @@ export async function POST(req: Request) {
         if (atomic) {
           if (atomic.ok) {
             granted = delta;
+            claimedFresh = true;
           } else if (atomic.reason !== 'already_claimed') {
             // rpc_error / (no_row bất thường sau ensureRow) → fail-closed. CHƯA lưu
             // Leitner → retry vẫn thấy due → không mất thưởng vĩnh viễn.
             return NextResponse.json({ success: false, error: 'Không thể nhận thưởng lúc này.' }, { status: 500 });
           }
-          // already_claimed → granted giữ 0 (POST trùng), tiếp tục advance Leitner.
+          // already_claimed → granted giữ 0, claimedFresh giữ false (POST trùng),
+          // tiếp tục advance Leitner nhưng KHÔNG ghi lại mastery.
         } else {
           // atomic === null: RPC CHƯA migrate (pre-migration) → fallback non-atomic
-          // (hành vi cũ, race hở như trước tới khi migrate — 0 regression).
+          // (hành vi cũ, race hở như trước tới khi migrate — 0 regression). Coi như
+          // fresh (best-effort) để tín hiệu học vẫn được ghi khi chưa có RPC.
           const economy = await loadEconomy(user.id);
           const reward = applyExamRewardFromDifficulties(economy, ['Easy'], TIER_COIN_MULTIPLIER[tier]);
           await saveEconomy(user.id, reward.state);
           granted = reward.granted;
+          claimedFresh = true;
         }
       }
     }
@@ -102,10 +109,23 @@ export async function POST(req: Request) {
     data.words[wordIndex] = word;
     await saveVocab(user.id, data);
 
-    // Nuôi mastery rw.vocab: ôn từ vựng là tín hiệu học THẬT. Ghi CHỈ khi từ THẬT SỰ
-    // đến hạn (wasDue) — nhất quán gate chống-farm. "đã nhớ"→đúng, "quên"→sai.
+    // Nuôi mastery rw.vocab: ôn từ vựng là tín hiệu học THẬT.
+    //  • "đã nhớ" (đúng): CHỈ ghi khi claimedFresh — tức POST này là lần ĐẦU chốt
+    //    thưởng cho due-instance (CAS thắng / pre-migration). 2 POST đồng thời hay
+    //    resubmit (already_claimed) → KHÔNG ghi lại → chống spam BƠM mastery lên
+    //    (mở Skill Tree gate sớm + thổi basePower PvP).
+    //  • "quên" (sai): ghi khi wasDue — HẠ mastery, KHÔNG phải vector farm (không ai
+    //    spam để tự dìm điểm), nên giữ nguyên tín hiệu sư phạm.
+    // ⚖️ ĐÁNH ĐỔI CÓ CHỦ Ý (adversarial review 2026-07-12, low sev): nếu RPC ĐÃ
+    // commit xu nhưng response lỗi (timeout) / saveVocab throw sau đó → retry ra
+    // already_claimed → claimedFresh=false → BỎ ghi mastery lần này. KHÔNG "vá" bằng
+    // cách ghi trên already_claimed (sẽ mở lại đúng lỗ double-pump vừa đóng). Miss
+    // này an toàn (undercount → gate mở chậm hơn, không exploit), tối đa 1 nhịp, và
+    // TỰ SỬA vì spaced-repetition: từ sẽ quay lại lượt ôn kế. recordAnswer vốn
+    // best-effort (fire-and-forget) nên chưa từng bảo đảm exactly-once.
     // Fire-and-forget: try/catch nuốt lỗi để KHÔNG chặn phản hồi ôn từ.
-    if (wasDue) {
+    const shouldRecordMastery = isRemembered ? claimedFresh : wasDue;
+    if (shouldRecordMastery) {
       try {
         await recordAnswer(user.id, 'rw.vocab', !!isRemembered, 'Easy');
       } catch (e) {

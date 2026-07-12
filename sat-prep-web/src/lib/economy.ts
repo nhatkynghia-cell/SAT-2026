@@ -96,39 +96,11 @@ export function applyAnswerReward(
 
 /**
  * Trần số câu hợp lệ cho 1 bài thi. Đề SAT thật dài nhất ~98 câu (RW 54 + Math 44);
- * 200 rộng hơn mọi đề thật nhưng chặn bơm coin phi lý (audit 2026-07-03: client
- * có thể POST {action:'exam', correctCount:1e9} → ~20 tỉ xu/1 request). Server
- * KHÔNG kiểm được correctCount khớp bài thi thật (chấm-điểm-client là baseline
- * app hiện tại) nên đây là lưới chặn giá trị PHI LÝ, không phải grading thật.
+ * 200 rộng hơn mọi đề thật nhưng chặn bơm coin phi lý (audit 2026-07-03). Server
+ * chấm SERVER-SIDE (applyExamRewardFromDifficulties) nên đây chỉ là lưới KẸP độ dài
+ * danh sách độ khó (chống mảng phi lý), không còn tin correctCount client gửi.
  */
 export const MAX_EXAM_QUESTIONS = 200;
-
-/**
- * Phần thưởng cho 1 BÀI (thi thử / thi thật / lượt ôn từ vựng): server nhân
- * SỐ CÂU ĐÚNG với đơn giá CỐ ĐỊNH theo độ khó (lấy lại từ ANSWER_REWARD).
- * Client chỉ gửi SỐ ĐẾM + độ khó — KHÔNG gửi số xu/XP → không thể bơm tùy ý.
- * correctCount bị KẸP về [0, MAX_EXAM_QUESTIONS] để chặn coin-mint bằng số phi lý.
- */
-export function applyExamReward(
-  state: EconomyState,
-  correctCount: number,
-  difficulty: Difficulty
-): RewardResult {
-  const count =
-    Number.isInteger(correctCount) && correctCount > 0
-      ? Math.min(correctCount, MAX_EXAM_QUESTIONS)
-      : 0;
-  if (count === 0) return { state, granted: { coins: 0, xp: 0 } };
-
-  const rate = ANSWER_REWARD[difficulty];
-  const coins = rate.coins * count;
-  const xp = rate.xp * count;
-
-  return {
-    state: { ...state, coins: state.coins + coins, xp: state.xp + xp },
-    granted: { coins, xp },
-  };
-}
 
 /**
  * Phần thưởng cho 1 BÀI THI chấm SERVER-SIDE (ROOT A follow-up đường thi): thay
