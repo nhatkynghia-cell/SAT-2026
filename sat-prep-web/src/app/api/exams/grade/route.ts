@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { gradeAnswer } from '@/lib/issued-questions';
 import { rateLimit } from '@/lib/rate-limit';
-import { loadEconomy, saveEconomy } from '@/lib/economy-store';
-import { applyExamRewardFromDifficulties, MAX_EXAM_QUESTIONS, type Difficulty } from '@/lib/economy';
+import { loadEconomy, saveEconomy, ensureEconomyRow, tryIncrementEconomyAtomic } from '@/lib/economy-store';
+import { applyExamRewardFromDifficulties, MAX_EXAM_QUESTIONS, type Difficulty, type EconomyState } from '@/lib/economy';
 import { getUserTier } from '@/lib/subscription-store';
 import { TIER_COIN_MULTIPLIER } from '@/lib/subscription';
 
@@ -71,15 +71,30 @@ export async function POST(req: Request) {
     // Thưởng 1 lần cho cả bài (từ độ khó các câu ĐÚNG server chấm). Hệ số gói nhân xu.
     const [economy, tier] = await Promise.all([loadEconomy(user.id), getUserTier(user.id)]);
     const { state: nextEconomy, granted } = applyExamRewardFromDifficulties(economy, correctDifficulties, TIER_COIN_MULTIPLIER[tier]);
+
+    // Cộng thưởng ATOMIC (đóng lost-update ROOT C: 2 nộp ĐỒNG THỜI cùng đọc coins
+    // cũ → saveEconomy last-write-wins → under-grant). increment_economy khóa dòng +
+    // cộng delta. FALLBACK về saveEconomy khi atomic null (pre-migration) HOẶC
+    // ok=false: CAS (gradeAnswer) đã chạy TRƯỚC → delta tiêu once, fail-closed sẽ
+    // MẤT xu khi retry (correctDifficulties rỗng) → giữ grant qua saveEconomy. Xấu
+    // nhất under-grant (đúng bug đang sửa), KHÔNG faucet (CAS chặn double-grant).
+    let economyOut: EconomyState = nextEconomy;
     if (granted.coins > 0 || granted.xp > 0) {
-      await saveEconomy(user.id, nextEconomy);
+      await ensureEconomyRow(user.id);
+      const atomic = await tryIncrementEconomyAtomic(user.id, granted.coins, granted.xp);
+      if (atomic?.ok) {
+        economyOut = { ...economy, coins: atomic.coins, xp: atomic.xp };
+      } else {
+        await saveEconomy(user.id, nextEconomy);
+        economyOut = nextEconomy;
+      }
     }
 
     return NextResponse.json({
       correct,
       graded,
       granted,
-      economy: nextEconomy,
+      economy: economyOut,
     });
   } catch (error) {
     console.error('Exam grade error:', error);

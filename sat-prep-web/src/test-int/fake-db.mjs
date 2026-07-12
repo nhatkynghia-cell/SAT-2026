@@ -363,8 +363,18 @@ const RPCS = {
     return { ok: true, reason: 'ok', status: 'cancelled', coins: econ ? econ.coins : undefined };
   },
 
-  consume_pvp_fight({ p_user_id, p_target_rank, p_won, p_today, p_max_fights }) {
+  // Mô phỏng increment_economy (migration_exam_economy_atomic.sql): khóa dòng +
+  // cộng delta coins/xp (greatest(0,…) chặn âm). no_row nếu chưa có dòng (route
+  // gọi ensureEconomyRow trước). Trả TỔNG mới. Dùng cho thưởng thi atomic (2 route).
+  increment_economy({ p_user_id, p_coins, p_xp }) {
     const econ = table('user_economy').find((r) => r.user_id === p_user_id);
+    if (!econ) return { ok: false, reason: 'no_row', coins: 0, xp: 0 };
+    econ.coins += Math.max(0, p_coins ?? 0);
+    econ.xp += Math.max(0, p_xp ?? 0);
+    return { ok: true, reason: 'ok', coins: econ.coins, xp: econ.xp };
+  },
+
+  consume_pvp_fight({ p_user_id, p_target_rank, p_won, p_today, p_max_fights }) {    const econ = table('user_economy').find((r) => r.user_id === p_user_id);
     if (!econ) return { ok: false, reason: 'no_row', pvpRank: 0, fightsToday: 0 };
     // reset ngày mới
     if (econ.pvp_last_fight_date !== p_today) {

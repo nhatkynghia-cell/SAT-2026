@@ -7,7 +7,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resetDb, setCurrentUser, seed, getRows, postJson, readRes } from './harness.mjs';
+import { resetDb, setCurrentUser, seed, getRows, postJson, readRes, disableRpc } from './harness.mjs';
 import { POST } from '@/app/api/exam-session/submit/route';
 
 function seedUser(id, coins = 100) {
@@ -104,4 +104,54 @@ test('exam-submit: câu bỏ trắng đếm vào total (mẫu số) nhưng KHÔN
   assert.equal(body.moduleResult.correct, 1, 'chỉ 1 câu đúng');
   assert.equal(body.moduleResult.total, 3, 'mẫu số = 3 (gồm 2 câu trắng), KHÔNG co lại còn 1');
   assert.deepEqual(body.granted, { coins: 10, xp: 50 }, 'câu trắng không được thưởng');
+});
+
+// #5: thưởng thi cộng ATOMIC qua increment_economy (đóng lost-update ROOT C).
+// Đường atomic: coins TỔNG mới = coins cũ + delta, economy trả về khớp DB.
+test('exam-submit: thưởng cộng ATOMIC qua increment_economy (coins = cũ + delta)', async () => {
+  resetDb(); setCurrentUser({ id: 's-atomic' }); seedUser('s-atomic', 100);
+  seedQ('a1', 's-atomic', 'A', 'Hard');   // +20/+100
+  seedQ('a2', 's-atomic', 'B', 'Medium'); // +10/+50
+
+  const { body } = await readRes(await POST(postJson({
+    section: 'math', moduleNum: 2, mode: 'mock',
+    answers: [{ questionId: 'a1', answer: 'A' }, { questionId: 'a2', answer: 'B' }],
+  })));
+  assert.deepEqual(body.granted, { coins: 30, xp: 150 });
+  assert.equal(body.economy.coins, 130, 'coins = 100 + 30 (atomic increment)');
+  assert.equal(body.economy.xp, 150);
+  assert.equal(getRows('user_economy')[0].coins, 130, 'DB cộng đúng qua RPC khóa dòng');
+});
+
+// #5 FALLBACK: RPC increment_economy CHƯA migrate → route rơi về saveEconomy cũ
+// (0 regression, vẫn thưởng đúng — race lost-update hở như trước tới khi chạy SQL).
+test('exam-submit: increment_economy CHƯA migrate → fallback saveEconomy, vẫn thưởng đúng', async () => {
+  resetDb(); setCurrentUser({ id: 's-premig' }); seedUser('s-premig', 100);
+  disableRpc('increment_economy');
+  seedQ('p1', 's-premig', 'A', 'Hard'); // +20/+100
+
+  const { body } = await readRes(await POST(postJson({
+    section: 'math', moduleNum: 2, mode: 'mock',
+    answers: [{ questionId: 'p1', answer: 'A' }],
+  })));
+  assert.deepEqual(body.granted, { coins: 20, xp: 100 });
+  assert.equal(body.economy.coins, 120, 'fallback saveEconomy vẫn cộng đúng');
+  assert.equal(getRows('user_economy')[0].coins, 120, 'DB cộng qua saveEconomy (pre-migration)');
+});
+
+// #5 REGRESSION (review wf_296d4ade CONFIRMED): user MỚI chưa có row, thi là hành
+// động cộng-xu ĐẦU TIÊN. ensureEconomyRow seed DEFAULT_ECONOMY (100 welcome) — KHÔNG
+// phải 0 — nên nhánh atomic KHÔNG làm mất 100 xu chào mừng. coins = 100 + delta.
+test('exam-submit: user MỚI (chưa có row) thi lần đầu → GIỮ 100 xu welcome + thưởng', async () => {
+  resetDb(); setCurrentUser({ id: 's-newuser' });
+  // KHÔNG seedUser → chưa có row user_economy (loadEconomy trả DEFAULT coins:100).
+  seedQ('n1', 's-newuser', 'A', 'Hard'); // +20/+100
+
+  const { body } = await readRes(await POST(postJson({
+    section: 'math', moduleNum: 2, mode: 'mock',
+    answers: [{ questionId: 'n1', answer: 'A' }],
+  })));
+  assert.deepEqual(body.granted, { coins: 20, xp: 100 });
+  assert.equal(body.economy.coins, 120, 'user mới GIỮ 100 welcome + 20 thưởng (KHÔNG mất welcome)');
+  assert.equal(getRows('user_economy')[0].coins, 120, 'DB: 100 (ensureEconomyRow seed) + 20 (increment)');
 });

@@ -52,17 +52,29 @@ export async function saveEconomy(userId: string, state: EconomyState): Promise<
 
 /**
  * Đảm bảo user_economy CÓ dòng cho user (INSERT ON CONFLICT DO NOTHING — KHÔNG ghi
- * đè coins/xp sẵn có). Dùng TRƯỚC khi gọi claim_quest_reward RPC: RPC khóa dòng
- * bằng SELECT ... FOR UPDATE, chỉ tuần tự hóa được khi dòng TỒN TẠI. Nếu user mới
- * chưa có dòng → RPC trả no_row → phải rơi xuống đường non-atomic (không ghi claim
- * → 2 POST đồng thời double-grant). Tạo dòng trước → RPC luôn claim-once đúng.
+ * đè coins/xp sẵn có). Dùng TRƯỚC khi gọi claim_quest_reward / increment_economy
+ * RPC: RPC khóa dòng bằng SELECT ... FOR UPDATE, chỉ tuần tự hóa được khi dòng
+ * TỒN TẠI. Nếu user mới chưa có dòng → RPC trả no_row → phải rơi xuống đường
+ * non-atomic (không ghi claim → 2 POST đồng thời double-grant). Tạo dòng trước →
+ * RPC luôn claim-once đúng.
+ *
+ * 🔴 Seed = DEFAULT_ECONOMY (KHÔNG phải 0): loadEconomy trả DEFAULT_ECONOMY.coins
+ * (100 xu chào mừng) cho user CHƯA có dòng. Nếu seed 0 rồi RPC cộng delta → user
+ * mới mà hành động cộng-xu ĐẦU TIÊN là ôn từ/thi sẽ MẤT 100 xu chào mừng (row tạo
+ * ở 0 thay vì 100). Seed đúng DEFAULT_ECONOMY → nhất quán với loadEconomy. Row đã
+ * tồn tại KHÔNG bị đụng (ignoreDuplicates = ON CONFLICT DO NOTHING).
  */
 export async function ensureEconomyRow(userId: string): Promise<void> {
   const admin = createAdminClient();
   const { error } = await admin
     .from('user_economy')
     .upsert(
-      { user_id: userId, coins: 0, xp: 0, inventory: [] },
+      {
+        user_id: userId,
+        coins: DEFAULT_ECONOMY.coins,
+        xp: DEFAULT_ECONOMY.xp,
+        inventory: DEFAULT_ECONOMY.inventory,
+      },
       { onConflict: 'user_id', ignoreDuplicates: true }
     );
   if (error) console.error('ensureEconomyRow error:', error.message);
@@ -110,6 +122,71 @@ export async function saveQuestClaim(userId: string, today: string, questId: str
     .eq('user_id', userId);
 
   if (error) console.error('saveQuestClaim error:', error.message);
+}
+
+export interface IncrementResult {
+  ok: boolean;
+  reason: string;
+  coins: number;
+  xp: number;
+}
+
+/**
+ * ============================================================================
+ *  CỘNG THƯỞNG THI — ATOMIC INCREMENT (đóng outlier cuối ROOT C — exam economy)
+ * ============================================================================
+ *  Vấn đề cũ: /api/exams/grade + /api/exam-session/submit làm loadEconomy →
+ *  applyExamRewardFromDifficulties → saveEconomy (ghi ABSOLUTE) KHÔNG khóa dòng.
+ *  2 submit ĐỒNG THỜI (retry chồng / 2 module sát nhau) cùng đọc coins cũ → mỗi
+ *  cái ghi coins_cũ+delta_riêng → last-write-wins → UNDER-GRANT (mất xu đã kiếm).
+ *
+ *  KHÁC claim_quest_reward: KHÔNG phải claim-once — idempotency (mỗi câu thưởng 1
+ *  lần) đã do compare-and-swap trên issued_questions.answered lo (gradeAnswer lật
+ *  false→true; retry → null → delta 0). RPC increment_economy chỉ CỘNG DỒN delta
+ *  ATOMIC (coins = coins + delta, khóa dòng FOR UPDATE) → Postgres tuần tự hóa các
+ *  increment đồng thời → hết lost-update.
+ *
+ *  🔴 ROOT A: delta do ROUTE tính từ độ khó câu ĐÚNG (server chấm), client KHÔNG
+ *  gửi số. RPC greatest(0,…) chặn delta âm.
+ *
+ *  Yêu cầu dòng user_economy TỒN TẠI trước (route gọi ensureEconomyRow trước RPC —
+ *  y hệt đường vocab). RPC chỉ UPDATE (không đoán schema cột khác).
+ *
+ *  Trả:
+ *    • IncrementResult — RPC chạy được (ok=true đã cộng, coins/xp = TỔNG mới;
+ *      ok=false 'no_row' chưa có dòng / 'rpc_error').
+ *    • null — hàm CHƯA tồn tại (pre-migration 42883/PGRST202) → route FALLBACK về
+ *      loadEconomy+saveEconomy cũ (0 regression; race vẫn hở tới khi chạy
+ *      migration_exam_economy_atomic.sql).
+ * ============================================================================
+ */
+export async function tryIncrementEconomyAtomic(
+  userId: string,
+  coins: number,
+  xp: number
+): Promise<IncrementResult | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('increment_economy', {
+    p_user_id: userId,
+    p_coins: coins,
+    p_xp: xp,
+  });
+
+  if (error) {
+    if (error.code === '42883' || error.code === 'PGRST202') {
+      return null; // pre-migration: fallback to non-atomic path
+    }
+    console.error('increment_economy RPC lỗi (fail-closed, KHÔNG fallback):', error.message);
+    return { ok: false, reason: 'rpc_error', coins: 0, xp: 0 };
+  }
+
+  const r = (data ?? {}) as Partial<IncrementResult>;
+  return {
+    ok: !!r.ok,
+    reason: typeof r.reason === 'string' ? r.reason : 'unknown',
+    coins: typeof r.coins === 'number' ? r.coins : 0,
+    xp: typeof r.xp === 'number' ? r.xp : 0,
+  };
 }
 
 export interface QuestClaimResult {

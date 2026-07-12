@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { gradeAnswer, getGradedResult, issueQuestion } from '@/lib/issued-questions';
 import { rateLimit } from '@/lib/rate-limit';
-import { loadEconomy, saveEconomy } from '@/lib/economy-store';
-import { applyExamRewardFromDifficulties, MAX_EXAM_QUESTIONS, type Difficulty } from '@/lib/economy';
+import { loadEconomy, saveEconomy, ensureEconomyRow, tryIncrementEconomyAtomic } from '@/lib/economy-store';
+import { applyExamRewardFromDifficulties, MAX_EXAM_QUESTIONS, type Difficulty, type EconomyState } from '@/lib/economy';
 import { getUserTier } from '@/lib/subscription-store';
 import { TIER_COIN_MULTIPLIER } from '@/lib/subscription';
 import { generateModule } from '@/lib/exam-generator';
@@ -123,8 +123,24 @@ export async function POST(request: NextRequest) {
       correctDifficulties,
       TIER_COIN_MULTIPLIER[tier]
     );
+
+    // Cộng thưởng ATOMIC (đóng lost-update ROOT C: 2 submit ĐỒNG THỜI cùng đọc
+    // coins cũ → saveEconomy last-write-wins → under-grant). increment_economy khóa
+    // dòng + cộng delta. ⚠️ FALLBACK KHÁC vocab: ở đây CAS (gradeAnswer) đã chạy
+    // TRƯỚC khối này → delta đã "tiêu" once; nếu atomic lỗi mà fail-closed thì retry
+    // ra correctDifficulties rỗng = MẤT xu vĩnh viễn. Nên null (pre-migration) LẪN
+    // ok=false (rpc_error/no_row) đều rơi về saveEconomy để GIỮ grant — xấu nhất là
+    // under-grant (đúng bug đang sửa, KHÔNG faucet vì CAS chặn double-grant).
+    let economyOut: EconomyState = nextEconomy;
     if (granted.coins > 0 || granted.xp > 0) {
-      await saveEconomy(user.id, nextEconomy);
+      await ensureEconomyRow(user.id);
+      const atomic = await tryIncrementEconomyAtomic(user.id, granted.coins, granted.xp);
+      if (atomic?.ok) {
+        economyOut = { ...economy, coins: atomic.coins, xp: atomic.xp };
+      } else {
+        await saveEconomy(user.id, nextEconomy);
+        economyOut = nextEconomy;
+      }
     }
 
     // Module 1 → quyết adaptive path + sinh Module 2.
@@ -144,7 +160,7 @@ export async function POST(request: NextRequest) {
           moduleResult: { correct, total: gradedTotal },
           adaptivePath,
           granted,
-          economy: nextEconomy,
+          economy: economyOut,
           module: null,
           moduleGenerationFailed: true,
         });
@@ -162,7 +178,7 @@ export async function POST(request: NextRequest) {
         moduleResult: { correct, total: gradedTotal },
         adaptivePath,
         granted,
-        economy: nextEconomy,
+        economy: economyOut,
         module: {
           name: generated.name,
           timeMinutes: generated.timeMinutes,
@@ -177,7 +193,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       moduleResult: { correct, total: gradedTotal },
       granted,
-      economy: nextEconomy,
+      economy: economyOut,
     });
   } catch (error) {
     console.error('exam-session submit error:', error);
