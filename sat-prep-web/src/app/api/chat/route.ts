@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { checkQuota, recordUsage } from '@/lib/ai-quota';
+import { checkQuota, reserveQuota, finalizeUsage, releaseUsage } from '@/lib/ai-quota';
 import { getUserTier } from '@/lib/subscription-store';
 import { checkBudget, recordGlobalCost } from '@/lib/ai-cost';
 import {
@@ -109,20 +109,9 @@ export async function POST(request: Request) {
       }
     }
 
-    // 1) Enforce quota TRƯỚC khi tốn tiền gọi OpenAI (chỉ khi cache MISS).
-    const quota = await checkQuota(user.id, tier, 'chat');
-    if (!quota.allowed) {
-      return NextResponse.json(
-        {
-          error: `Bạn đã dùng hết ${quota.limit} lượt hỏi Gia sư AI hôm nay. Nâng cấp Premium để hỏi không giới hạn nhé!`,
-          quotaExceeded: true,
-          used: quota.used,
-          limit: quota.limit,
-        },
-        { status: 429 }
-      );
-    }
-
+    // 1) Quota freemium: enforce qua RESERVE-BEFORE-CALL (đóng C1 TOCTOU) — đặt
+    // NGAY TRƯỚC lời gọi OpenAI, SAU khi qua cổng apiKey + budget (để bail sớm
+    // KHÔNG chiếm slot). Xem khối reserve phía dưới.
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: "Chưa cấu hình OPENAI_API_KEY ở server" }, { status: 500 });
@@ -138,6 +127,22 @@ export async function POST(request: Request) {
           budgetExceeded: true,
         },
         { status: 503 }
+      );
+    }
+
+    // 2b) RESERVE 1 lượt NGUYÊN TỬ (increment có khóa dòng) TRƯỚC khi gọi OpenAI.
+    // N request đồng thời không cùng vượt cap (mỗi cái thấy count đã +1 của cái
+    // trước) → không burst đốt OpenAI vượt hạn mức. Lỗi RPC → fail-closed (từ chối).
+    const reservation = await reserveQuota(user.id, tier, 'chat');
+    if (!reservation.allowed) {
+      return NextResponse.json(
+        {
+          error: `Bạn đã dùng hết ${reservation.limit} lượt hỏi Gia sư AI hôm nay. Nâng cấp Premium để hỏi không giới hạn nhé!`,
+          quotaExceeded: true,
+          used: reservation.used,
+          limit: reservation.limit,
+        },
+        { status: 429 }
       );
     }
 
@@ -170,28 +175,40 @@ export async function POST(request: Request) {
       temperature: TEMPERATURE,
     };
 
-    const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(requestBody),
-    });
+    // Gọi OpenAI. Mọi đường LỖI (HTTP !ok, network throw, parse throw) → RELEASE
+    // slot đã reserve: lỗi hạ tầng KHÔNG được tính vào quota người dùng.
+    let data;
+    try {
+      const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(requestBody),
+      });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error("OpenAI API Error:", errorData);
-      return NextResponse.json({ error: "Lỗi gọi OpenAI API" }, { status: response.status });
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error("OpenAI API Error:", errorData);
+        await releaseUsage(user.id, 'chat', reservation.reserved, reservation.date);
+        return NextResponse.json({ error: "Lỗi gọi OpenAI API" }, { status: response.status });
+      }
+
+      data = await response.json();
+    } catch (e) {
+      await releaseUsage(user.id, 'chat', reservation.reserved, reservation.date);
+      throw e;
     }
 
-    const data = await response.json();
     const reply: string = data.choices?.[0]?.message?.content ?? '';
 
-    // 5) Ghi nhận usage (tăng quota count + cộng dồn token cho task #5).
+    // 5) Chốt usage: count đã reserve ở bước 2b, giờ chỉ cộng token (reserved:true).
+    // Pre-migration (reserved:false) → finalizeUsage gọi recordUsage cũ (tăng count
+    // + token) → giữ hành vi cũ 0 regression.
     const tokIn = data.usage?.prompt_tokens ?? 0;
     const tokOut = data.usage?.completion_tokens ?? 0;
-    await recordUsage(user.id, 'chat', tokIn, tokOut);
+    await finalizeUsage(user.id, 'chat', tokIn, tokOut, reservation.reserved, reservation.date);
     // Cộng chi phí vào sổ cái toàn hệ thống (kill-switch ngày — §9.5). AWAIT
     // (audit 2026-07-03, ROOT D): fire-and-forget trên serverless có thể bị
     // kill trước khi ghi → thất thoát trần ngân sách. .catch giữ để lỗi ghi

@@ -374,7 +374,8 @@ const RPCS = {
     return { ok: true, reason: 'ok', coins: econ.coins, xp: econ.xp };
   },
 
-  consume_pvp_fight({ p_user_id, p_target_rank, p_won, p_today, p_max_fights }) {    const econ = table('user_economy').find((r) => r.user_id === p_user_id);
+  consume_pvp_fight({ p_user_id, p_target_rank, p_won, p_today, p_max_fights }) {
+    const econ = table('user_economy').find((r) => r.user_id === p_user_id);
     if (!econ) return { ok: false, reason: 'no_row', pvpRank: 0, fightsToday: 0 };
     // reset ngày mới
     if (econ.pvp_last_fight_date !== p_today) {
@@ -391,6 +392,51 @@ const RPCS = {
     econ.pvp_fights_today += 1;
     if (p_won) econ.pvp_rank = p_target_rank;
     return { ok: true, reason: 'ok', pvpRank: econ.pvp_rank, fightsToday: econ.pvp_fights_today };
+  },
+
+  // ── RESERVE-BEFORE-CALL quota AI (migration_ai_quota_reserve.sql, backlog #8) ──
+  // reserve_ai_usage: kiểm limit + tăng đúng bucket NGUYÊN TỬ (single-thread test =
+  // tuần tự → mô phỏng SELECT..FOR UPDATE). Tự tạo dòng + reset ngày mới. Trả
+  // {allowed, used, limit}. Đóng TOCTOU: 2 reserve liên tiếp thấy count tăng dần.
+  reserve_ai_usage({ p_user_id, p_kind, p_date, p_limit }) {
+    let rec = table('user_ai_usage').find((r) => r.user_id === p_user_id);
+    if (!rec) {
+      rec = { user_id: p_user_id, date: p_date, gen_count: 0, chat_count: 0, tokens_in: 0, tokens_out: 0 };
+      table('user_ai_usage').push(rec);
+    }
+    if (rec.date !== p_date) {
+      rec.date = p_date; rec.gen_count = 0; rec.chat_count = 0; rec.tokens_in = 0; rec.tokens_out = 0;
+    }
+    let used = p_kind === 'gen' ? (rec.gen_count ?? 0) : (rec.chat_count ?? 0);
+    const allowed = p_limit < 0 || used < p_limit;
+    if (allowed) {
+      if (p_kind === 'gen') rec.gen_count = used + 1; else rec.chat_count = used + 1;
+      used += 1;
+    }
+    return { allowed, used, limit: p_limit };
+  },
+
+  // refund_ai_usage: giảm 1 slot (sàn 0), chỉ khi cùng ngày → hoàn khi OpenAI lỗi.
+  refund_ai_usage({ p_user_id, p_kind, p_date }) {
+    const rec = table('user_ai_usage').find((r) => r.user_id === p_user_id);
+    if (!rec || rec.date !== p_date) return null;
+    if (p_kind === 'gen') rec.gen_count = Math.max(0, (rec.gen_count ?? 0) - 1);
+    else rec.chat_count = Math.max(0, (rec.chat_count ?? 0) - 1);
+    return null;
+  },
+
+  // add_ai_tokens: cộng token sau khi gọi xong (count đã reserve). Reset nếu khác ngày.
+  add_ai_tokens({ p_user_id, p_date, p_tokens_in, p_tokens_out }) {
+    const rec = table('user_ai_usage').find((r) => r.user_id === p_user_id);
+    if (!rec) return null;
+    if (rec.date === p_date) {
+      rec.tokens_in = (rec.tokens_in ?? 0) + (p_tokens_in ?? 0);
+      rec.tokens_out = (rec.tokens_out ?? 0) + (p_tokens_out ?? 0);
+    } else {
+      rec.tokens_in = p_tokens_in ?? 0;
+      rec.tokens_out = p_tokens_out ?? 0;
+    }
+    return null;
   },
 };
 

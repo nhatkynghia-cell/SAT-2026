@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getFromBank, saveToBank, poolSize, MIN_POOL } from '@/lib/question-bank';
 import { checkBudget, recordGlobalCost } from '@/lib/ai-cost';
 import { getCurrentUser } from '@/lib/auth';
-import { checkQuota, recordUsage } from '@/lib/ai-quota';
+import { reserveQuota, finalizeUsage, releaseUsage } from '@/lib/ai-quota';
 import { getUserTier } from '@/lib/subscription-store';
 import { isValidSkill } from '@/lib/skill-taxonomy';
 import { resolveSkillId } from '@/lib/skill-resolver';
@@ -105,19 +105,21 @@ export async function POST(req: Request) {
       );
     }
 
-    // Enforce quota freemium TRƯỚC khi gọi OpenAI (cùng engine với /api/chat,
-    // task 5.2). Chỉ tính khi THỰC SỰ gọi AI — câu lấy từ Question Bank ở trên
-    // KHÔNG tốn token nên đã return sớm, không chạm tới đây.
+    // Enforce quota freemium TRƯỚC khi gọi OpenAI (cùng engine với /api/chat) qua
+    // RESERVE-BEFORE-CALL (đóng C1 TOCTOU): increment count NGUYÊN TỬ có khóa dòng
+    // NGAY ĐÂY → N request đồng thời không cùng vượt cap 3/ngày (Free) đốt OpenAI.
+    // Chỉ tính khi THỰC SỰ gọi AI — câu lấy từ Question Bank / degrade budget ở trên
+    // KHÔNG tốn token nên đã return sớm, không chạm reserve. Lỗi RPC → fail-closed.
     // Phase 2: tier THẬT từ subscription (fail-safe → 'free' khi lỗi/không có gói).
     const tier = await getUserTier(user.id);
-    const quota = await checkQuota(user.id, tier, 'gen');
-    if (!quota.allowed) {
+    const reservation = await reserveQuota(user.id, tier, 'gen');
+    if (!reservation.allowed) {
       return NextResponse.json(
         {
-          error: `Bạn đã dùng hết ${quota.limit} lượt sinh câu hỏi AI hôm nay. Nâng cấp Premium để luyện tập không giới hạn nhé!`,
+          error: `Bạn đã dùng hết ${reservation.limit} lượt sinh câu hỏi AI hôm nay. Nâng cấp Premium để luyện tập không giới hạn nhé!`,
           quotaExceeded: true,
-          used: quota.used,
-          limit: quota.limit,
+          used: reservation.used,
+          limit: reservation.limit,
         },
         { status: 429 }
       );
@@ -269,42 +271,61 @@ BẮT BUỘC thêm trường "choice_analysis": MẢNG, mỗi phần tử ứng 
       max_completion_tokens: 2000
     };
 
-    const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
-      },
-      body: JSON.stringify(requestBody)
-    });
+    // Gọi OpenAI. Mọi đường LỖI (HTTP !ok, network throw, response rỗng) → RELEASE
+    // slot đã reserve: lỗi hạ tầng KHÔNG tính vào quota người dùng. Sau khi có content
+    // hợp lệ (OpenAI đã tính tiền) → finalize; throw downstream (parse/issue) KHÔNG
+    // release nữa (câu đã sinh + billed, chỉ hạch toán/lưu bank lỗi).
+    let responseData;
+    try {
+      const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(requestBody)
+      });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error("OpenAI API Error:", errorData);
-      return NextResponse.json({ error: "Lỗi gọi OpenAI API" }, { status: response.status });
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error("OpenAI API Error:", errorData);
+        await releaseUsage(user.id, 'gen', reservation.reserved, reservation.date);
+        return NextResponse.json({ error: "Lỗi gọi OpenAI API" }, { status: response.status });
+      }
+
+      responseData = await response.json();
+    } catch (e) {
+      await releaseUsage(user.id, 'gen', reservation.reserved, reservation.date);
+      throw e;
     }
 
-    const responseData = await response.json();
-    const content = responseData.choices[0].message.content;
+    const content = responseData.choices?.[0]?.message?.content;
 
-    if (!content) throw new Error("No content generated");
+    if (!content) {
+      await releaseUsage(user.id, 'gen', reservation.reserved, reservation.date);
+      throw new Error("No content generated");
+    }
 
-    // Ghi kế toán cost + quota TRƯỚC khi trả response. AWAIT (audit 2026-07-03,
+    // Ghi kế toán cost + chốt quota TRƯỚC khi trả response. AWAIT (audit 2026-07-03,
     // ROOT D): fire-and-forget trên serverless có thể bị freeze/kill sau khi
     // response trả về → mất bản ghi → thất thoát trần ngân sách/quota. Vẫn giữ
     // .catch để lỗi DB KHÔNG làm hỏng câu trả lời AI đã sinh thành công.
+    // finalizeUsage: count đã reserve, chỉ cộng token (reserved:true); pre-migration
+    // (reserved:false) → recordUsage cũ (tăng count + token) → 0 regression.
     await Promise.allSettled([
       recordGlobalCost(
         responseData.usage?.prompt_tokens ?? 0,
         responseData.usage?.completion_tokens ?? 0,
         'gpt-4o-mini'
       ).catch((e) => console.error('recordGlobalCost:', e)),
-      recordUsage(
+      finalizeUsage(
         user.id,
         'gen',
         responseData.usage?.prompt_tokens ?? 0,
-        responseData.usage?.completion_tokens ?? 0
-      ).catch((e) => console.error('recordUsage:', e)),
+        responseData.usage?.completion_tokens ?? 0,
+        reservation.reserved,
+        reservation.date
+      ).catch((e) => console.error('finalizeUsage:', e)),
     ]);
 
     const data = JSON.parse(content);
