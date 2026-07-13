@@ -10,6 +10,7 @@ import { isE2E, E2E_COOKIE } from '@/lib/e2e'
  */
 const PUBLIC_PREFIXES = [
   '/login',
+  '/auth', // OAuth / email-confirm callback (đổi ?code= lấy session) — phải public để không bị chặn trước khi có session
   '/parent', // trang phụ huynh đọc ?code= (no-auth) — /parent-share (học sinh) KHÔNG khớp vì cần đúng prefix + '/'
   '/admin', // tự bảo vệ bằng ADMIN_SECRET, không dùng user-session
   '/api/auth',

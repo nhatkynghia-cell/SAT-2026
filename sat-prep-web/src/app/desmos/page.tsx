@@ -145,7 +145,7 @@ export default function DesmosPage() {
                   <p className="text-gray-400 text-sm mb-4">Gia sư AI tạm thời chưa phản hồi. Kiểm tra kết nối rồi thử lại.</p>
                   <button
                     onClick={() => handleGenerateQuestion(currentTopic, currentSkillId ?? undefined)}
-                    className="text-sm font-bold bg-gradient-to-r from-purple-500 to-fuchsia-600 text-white px-5 py-2 rounded-lg hover:opacity-90"
+                    className="text-sm font-bold bg-gradient-to-r from-yellow-300 to-amber-500 text-[#78350f] px-5 py-2 rounded-lg hover:from-yellow-200 hover:to-amber-400"
                   >
                     🔄 Thử lại
                   </button>

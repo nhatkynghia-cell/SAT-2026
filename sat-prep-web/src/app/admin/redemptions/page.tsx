@@ -105,13 +105,13 @@ export default function AdminRedemptionsPage() {
               onChange={(e) => setSecret(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && secret && loadQueue()}
               placeholder="Nhập ADMIN_SECRET"
-              className="w-full bg-[#0e1117] border border-[#334155] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+              className="w-full bg-[#0e1117] border border-[#334155] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-400"
             />
           </label>
           <button
             onClick={loadQueue}
             disabled={!secret || loading}
-            className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-5 py-2 rounded-lg text-sm transition"
+            className="bg-gradient-to-r from-yellow-300 to-amber-500 hover:from-yellow-200 hover:to-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-[#78350f] font-semibold px-5 py-2 rounded-lg text-sm transition"
           >
             {loading ? 'Đang tải…' : 'Tải hàng đợi'}
           </button>

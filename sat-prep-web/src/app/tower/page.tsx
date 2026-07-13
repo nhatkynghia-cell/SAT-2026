@@ -31,6 +31,7 @@ export default function TowerPage() {
       }
     } catch (e) {
       console.error(e);
+      showToast('Lỗi kết nối khi triệu hồi câu hỏi. Vui lòng thử lại.', 'error');
       setIsPlaying(false);
     }
     setIsLoading(false);

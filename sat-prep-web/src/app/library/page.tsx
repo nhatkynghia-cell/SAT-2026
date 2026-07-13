@@ -111,12 +111,14 @@ export default function LibraryPage() {
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
           placeholder="Tìm kiếm câu hỏi, từ khóa, nguồn đề..."
-          className="flex-1 bg-[#1b2533] border border-[#334155] rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#3b82f6]"
+          aria-label="Tìm kiếm câu hỏi"
+          className="flex-1 bg-[#1b2533] border border-[#334155] rounded-lg px-4 py-3 text-white focus:outline-none focus:border-amber-400"
         />
         <select
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
-          className="bg-[#1b2533] border border-[#334155] rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#3b82f6]"
+          aria-label="Lọc theo môn học"
+          className="bg-[#1b2533] border border-[#334155] rounded-lg px-4 py-3 text-white focus:outline-none focus:border-amber-400"
         >
           <option>Tất cả môn học</option>
           <option>Reading & Writing</option>
@@ -124,7 +126,7 @@ export default function LibraryPage() {
         </select>
         <button
           onClick={handleSearch}
-          className="bg-[#3b82f6] hover:bg-[#2563eb] text-white px-6 py-3 rounded-lg font-bold transition-colors"
+          className="bg-gradient-to-r from-yellow-300 to-amber-500 hover:from-yellow-200 hover:to-amber-400 text-[#78350f] px-6 py-3 rounded-lg font-bold transition-colors"
         >
           🔍 Tìm kiếm
         </button>
@@ -151,11 +153,11 @@ export default function LibraryPage() {
           </div>
         ) : (
           results.map((q) => (
-            <div key={q.id} className="bg-[#1b2533] border border-[#262730] rounded-xl p-5 hover:border-[#3b82f6] transition-colors flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div key={q.id} className="bg-[#1b2533] border border-[#262730] rounded-xl p-5 hover:border-amber-400 transition-colors flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <span className="bg-[#334155] text-white text-xs px-2 py-1 rounded font-mono">{q.subject}</span>
-                  <span className="text-[#3b82f6] text-xs font-bold bg-[#3b82f6]/10 px-2 py-1 rounded border border-[#3b82f6]/30">{q.tag}</span>
+                  <span className="text-amber-300 text-xs font-bold bg-amber-400/10 px-2 py-1 rounded border border-amber-400/30">{q.tag}</span>
                   <span className="text-gray-400 text-xs">Nguồn: {q.source}</span>
                   <span className="text-yellow-400 text-xs">🔥 {q.difficulty}</span>
                 </div>
@@ -164,7 +166,7 @@ export default function LibraryPage() {
               <button
                 onClick={() => handleStart(q.id)}
                 disabled={startingId !== null}
-                className="bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2 rounded font-bold text-sm whitespace-nowrap transition-all"
+                className="bg-gradient-to-r from-yellow-300 to-amber-500 hover:from-yellow-200 hover:to-amber-400 disabled:opacity-50 disabled:cursor-not-allowed text-[#78350f] px-5 py-2 rounded font-bold text-sm whitespace-nowrap transition-all"
               >
                 {startingId === q.id ? '⏳ Đang mở...' : '🚀 Làm bài'}
               </button>

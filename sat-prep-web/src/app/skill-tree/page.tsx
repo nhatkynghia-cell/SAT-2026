@@ -174,7 +174,7 @@ export default function SkillTreePage() {
             </div>
             <Link
               href={MODULE_ROUTE[rec.moduleType]}
-              className="bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 text-white font-bold px-6 py-3 rounded-xl transition-all text-center whitespace-nowrap shadow-lg"
+              className="bg-gradient-to-r from-yellow-300 to-amber-500 hover:from-yellow-200 hover:to-amber-400 text-[#78350f] font-bold px-6 py-3 rounded-xl transition-all text-center whitespace-nowrap shadow-lg"
             >
               ⚡ Luyện ngay
             </Link>
@@ -196,7 +196,7 @@ export default function SkillTreePage() {
             </div>
             <Link
               href="/upgrade"
-              className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-white font-bold px-6 py-3 rounded-xl transition-all text-center whitespace-nowrap shadow-lg"
+              className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-amber-950 font-bold px-6 py-3 rounded-xl transition-all text-center whitespace-nowrap shadow-lg"
             >
               💎 Mở khóa
             </Link>
@@ -236,7 +236,7 @@ export default function SkillTreePage() {
                     </p>
                     <Link
                       href="/upgrade"
-                      className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-white font-bold px-5 py-2.5 rounded-xl transition-all text-center whitespace-nowrap shadow-lg"
+                      className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-amber-950 font-bold px-5 py-2.5 rounded-xl transition-all text-center whitespace-nowrap shadow-lg"
                     >
                       💎 Mở khóa chương
                     </Link>

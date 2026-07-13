@@ -147,7 +147,7 @@ export default function GateExamPage() {
           <p className="text-gray-400 text-sm mb-6">
             Mastery trung bình chương: {domainAvg}/100 (cần ≥ 40)
           </p>
-          <Link href="/skill-tree" className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-3 rounded-xl inline-block">
+          <Link href="/skill-tree" className="bg-[#1b2533] border border-amber-400/40 hover:bg-[#26344a] text-amber-300 font-bold px-6 py-3 rounded-xl inline-block transition-colors">
             ← Quay lại Cây Năng Lực
           </Link>
         </div>

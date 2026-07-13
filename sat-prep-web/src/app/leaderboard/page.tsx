@@ -153,6 +153,7 @@ export default function LeaderboardPage() {
                 value={nickInput}
                 onChange={(e) => setNickInput(e.target.value)}
                 placeholder="Nhập bí danh (3-20 ký tự)"
+                aria-label="Bí danh hiển thị trên bảng xếp hạng"
                 maxLength={20}
                 className="flex-1 bg-[#0f172a] border border-[#334155] text-white rounded px-4 py-2 outline-none focus:border-[#fbbf24]"
               />

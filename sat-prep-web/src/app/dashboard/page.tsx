@@ -183,7 +183,7 @@ export default function DashboardPage() {
                 <div className="flex-1 min-w-[240px] bg-[#0f172a] border border-[#334155] rounded-lg p-3">
                   <p className="text-sm text-[#e2e8f0] font-medium">🔒 Điểm chi tiết từng môn đang bị khóa</p>
                   <p className="text-xs text-gray-400 mt-1">Nâng cấp Premium để xem điểm Toán / Đọc-Viết riêng và biết chính xác cần cải thiện phần nào.</p>
-                  <a href="/upgrade" className="inline-block mt-2 text-xs font-bold bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3 py-1.5 rounded-lg hover:opacity-90">💎 Mở khóa chi tiết</a>
+                  <a href="/upgrade" className="inline-block mt-2 text-xs font-bold bg-gradient-to-r from-yellow-300 to-amber-500 text-amber-950 px-3 py-1.5 rounded-lg hover:from-yellow-200 hover:to-amber-400">💎 Mở khóa chi tiết</a>
                 </div>
               </div>
             ) : (
@@ -256,7 +256,7 @@ export default function DashboardPage() {
                 <div className="text-4xl mb-2">🔒</div>
                 <p className="text-sm text-[#e2e8f0] font-medium">Gợi ý kỹ năng cần cải thiện đang bị khóa</p>
                 <p className="text-xs mt-1">Premium phân tích điểm yếu cụ thể và ưu tiên skill cần luyện để lên điểm nhanh nhất.</p>
-                <a href="/upgrade" className="inline-block mt-3 text-xs font-bold bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3 py-1.5 rounded-lg hover:opacity-90">💎 Mở khóa phân tích</a>
+                <a href="/upgrade" className="inline-block mt-3 text-xs font-bold bg-gradient-to-r from-yellow-300 to-amber-500 text-amber-950 px-3 py-1.5 rounded-lg hover:from-yellow-200 hover:to-amber-400">💎 Mở khóa phân tích</a>
               </div>
             ) : score && score.focusSkills.length > 0 ? (
               <ul className="space-y-4">

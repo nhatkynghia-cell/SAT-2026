@@ -17,7 +17,7 @@ export default function PvPPage() {
   useEffect(() => {
     fetch('/api/stats')
       .then(res => res.ok ? res.json() : null)
-      .then(data => { if (data) setBasePower(data.basePower ?? 0); })
+      .then(data => setBasePower(data?.basePower ?? 0))
       .catch(() => setBasePower(0));
   }, []);
 

@@ -114,13 +114,13 @@ export default function SpeedQuizPage() {
         <div className="flex gap-2">
           <button
             onClick={() => setTab('play')}
-            className={`px-5 py-2 rounded-lg font-bold text-sm transition-colors ${tab === 'play' ? 'bg-sky-600 text-white' : 'bg-[#1b2533] text-gray-300 hover:bg-[#26344a]'}`}
+            className={`px-5 py-2 rounded-lg font-bold text-sm transition-colors ${tab === 'play' ? 'bg-amber-500 text-[#78350f]' : 'bg-[#1b2533] text-gray-300 hover:bg-[#26344a]'}`}
           >
             ⚡ Chơi
           </button>
           <button
             onClick={() => setTab('ranking')}
-            className={`px-5 py-2 rounded-lg font-bold text-sm transition-colors ${tab === 'ranking' ? 'bg-sky-600 text-white' : 'bg-[#1b2533] text-gray-300 hover:bg-[#26344a]'}`}
+            className={`px-5 py-2 rounded-lg font-bold text-sm transition-colors ${tab === 'ranking' ? 'bg-amber-500 text-[#78350f]' : 'bg-[#1b2533] text-gray-300 hover:bg-[#26344a]'}`}
           >
             🏆 Bảng Xếp Hạng
           </button>
@@ -142,7 +142,7 @@ export default function SpeedQuizPage() {
                   </span>
                 ))}
               </div>
-              <button onClick={startRun} className="bg-sky-600 hover:bg-sky-500 text-white font-black text-xl px-12 py-4 rounded-full shadow-[0_0_20px_rgba(56,189,248,0.5)] transition-transform hover:scale-105">
+              <button onClick={startRun} className="bg-gradient-to-r from-yellow-300 to-amber-500 hover:from-yellow-200 hover:to-amber-400 text-[#78350f] font-black text-xl px-12 py-4 rounded-full shadow-[0_0_20px_rgba(251,191,36,0.5)] transition-transform hover:scale-105">
                 BẮT ĐẦU
               </button>
             </div>

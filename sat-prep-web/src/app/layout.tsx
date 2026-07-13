@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Sidebar } from "@/components/Sidebar";
+import { AppShell } from "@/components/AppShell";
 import { AuthProvider } from "@/context/AuthContext";
 import { GamificationProvider } from "@/context/GamificationContext";
 import { ToastProvider } from "@/context/ToastContext";
@@ -26,13 +26,7 @@ export default function RootLayout({
           <GamificationProvider>
             <ToastProvider>
               <BadgeUnlockWatcher />
-              <Sidebar />
-
-              <main className="flex-1 overflow-y-auto">
-                <div className="max-w-[1200px] mx-auto p-8">
-                  {children}
-                </div>
-              </main>
+              <AppShell>{children}</AppShell>
             </ToastProvider>
           </GamificationProvider>
         </AuthProvider>

@@ -124,7 +124,7 @@ export default function JourneyPage() {
             </div>
             <Link
               href="/upgrade"
-              className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-white font-bold px-6 py-3 rounded-xl transition-all text-center whitespace-nowrap shadow-lg"
+              className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-amber-950 font-bold px-6 py-3 rounded-xl transition-all text-center whitespace-nowrap shadow-lg"
             >
               💎 Mở khóa Ultimate
             </Link>

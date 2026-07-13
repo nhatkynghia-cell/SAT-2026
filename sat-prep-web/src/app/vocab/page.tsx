@@ -17,18 +17,35 @@ export default function VocabPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
+  // Fetch thuần — mọi setState nằm trong callback async (không gọi đồng bộ trong effect).
+  const runFetch = () => {
     fetch('/api/vocab')
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error('fetch failed');
+        return res.json();
+      })
       .then(data => {
         if (data.words) setWords(data.words);
         setIsLoading(false);
       })
       .catch(err => {
         console.error(err);
+        setLoadError(true);
         setIsLoading(false);
       });
+  };
+
+  // Nút "Thử lại" — event handler nên setState đồng bộ hợp lệ.
+  const retry = () => {
+    setIsLoading(true);
+    setLoadError(false);
+    runFetch();
+  };
+
+  useEffect(() => {
+    runFetch();
   }, []);
 
   const handleReview = async (isRemembered: boolean) => {
@@ -62,7 +79,23 @@ export default function VocabPage() {
     return <div className="text-center p-12 text-white">Đang tải hộp từ vựng Leitner...</div>;
   }
 
-  const isFinished = currentIndex >= words.length;
+  if (loadError) {
+    return (
+      <div className="max-w-md mx-auto mt-12 bg-[#1b2533] p-8 rounded-xl border border-[#ef4444]/40 text-center space-y-4">
+        <div className="text-5xl">📡</div>
+        <p className="text-gray-300">Không tải được hộp từ vựng. Kiểm tra kết nối rồi thử lại.</p>
+        <button
+          onClick={retry}
+          className="text-sm font-bold bg-gradient-to-r from-yellow-300 to-amber-500 text-[#78350f] px-5 py-2 rounded-lg hover:from-yellow-200 hover:to-amber-400"
+        >
+          🔄 Thử lại
+        </button>
+      </div>
+    );
+  }
+
+  const isEmpty = words.length === 0;
+  const isFinished = !isEmpty && currentIndex >= words.length;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20">
@@ -76,15 +109,25 @@ export default function VocabPage() {
         </div>
       </div>
       
-      {!isFinished ? (
+      {isEmpty ? (
+        <div className="bg-[#1b2533] p-12 rounded-xl border border-[#262730] text-center space-y-3">
+          <div className="text-6xl mb-2">📭</div>
+          <h2 className="text-2xl font-black text-white">Chưa có từ nào đến hạn ôn</h2>
+          <p className="text-gray-400">Hệ thống Leitner sẽ tự xếp lịch. Quay lại sau hoặc học thêm từ mới nhé!</p>
+        </div>
+      ) : !isFinished ? (
         <>
           <div className="text-center text-gray-400 font-bold">
             Tiến độ hôm nay: {currentIndex} / {words.length} từ
           </div>
-          
-          <div 
+
+          <div
             onClick={() => setIsFlipped(!isFlipped)}
-            className="bg-[#1b2533] p-8 rounded-xl border border-[#262730] flex flex-col items-center justify-center min-h-[300px] shadow-[0_0_20px_rgba(168,85,247,0.15)] relative overflow-hidden cursor-pointer transition-all hover:scale-[1.01]"
+            role="button"
+            tabIndex={0}
+            aria-label="Thẻ từ vựng — nhấn để lật"
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsFlipped(!isFlipped); } }}
+            className="bg-[#1b2533] p-8 rounded-xl border border-[#262730] flex flex-col items-center justify-center min-h-[300px] shadow-[0_0_20px_rgba(168,85,247,0.15)] relative overflow-hidden cursor-pointer transition-all hover:scale-[1.01] focus:outline-none focus:ring-2 focus:ring-amber-400"
           >
             <div className="absolute inset-0 bg-gradient-to-br from-[#a855f7]/10 to-transparent pointer-events-none"></div>
             <div className="absolute top-4 right-4 bg-[#a855f7] text-white text-xs font-bold px-2 py-1 rounded">

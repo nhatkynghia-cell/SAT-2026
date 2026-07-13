@@ -11,7 +11,7 @@ const TIER_META: Record<PaidTier, { label: string; icon: string; tagline: string
   premium: {
     label: 'Premium',
     icon: '⭐',
-    accent: 'from-blue-500 to-indigo-600',
+    accent: 'from-amber-400 to-orange-500',
     tagline: 'Full lộ trình học + full game loop',
     perks: [
       '🤖 Gia sư AI + sinh câu không giới hạn lượt/ngày',

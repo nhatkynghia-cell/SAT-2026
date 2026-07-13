@@ -103,12 +103,12 @@ export default function ParentSharePage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20">
-      <div className="math-academy-header" style={{ background: 'linear-gradient(135deg, #312e81 0%, #1e1b4b 100%)' }}>
+      <div className="math-academy-header" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)' }}>
         <div className="math-title-container">
           <div className="math-icon">👨‍👩‍👧</div>
           <div>
-            <h1 className="math-title" style={{ background: 'linear-gradient(to right, #a5b4fc, #c084fc)', WebkitBackgroundClip: 'text' }}>CHIA SẺ VỚI PHỤ HUYNH</h1>
-            <p className="math-subtitle text-indigo-200">Cho bố mẹ theo dõi tiến độ học của bạn</p>
+            <h1 className="math-title" style={{ background: 'linear-gradient(to right, #fde047, #f59e0b)', WebkitBackgroundClip: 'text' }}>CHIA SẺ VỚI PHỤ HUYNH</h1>
+            <p className="math-subtitle text-amber-200/80">Cho bố mẹ theo dõi tiến độ học của bạn</p>
           </div>
         </div>
       </div>
@@ -116,13 +116,13 @@ export default function ParentSharePage() {
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="bg-[#1b2533] p-6 rounded-xl border border-[#334155]">
           <p className="text-gray-300 text-sm mb-4">
-            Tạo một mã chia sẻ rồi gửi link cho bố mẹ. Bố mẹ mở link là xem được điểm dự đoán, tiến độ và xu hướng học tập của bạn — <span className="text-indigo-300">không cần đăng nhập</span>. Bạn có thể thu hồi mã bất cứ lúc nào.
+            Tạo một mã chia sẻ rồi gửi link cho bố mẹ. Bố mẹ mở link là xem được điểm dự đoán, tiến độ và xu hướng học tập của bạn — <span className="text-amber-300">không cần đăng nhập</span>. Bạn có thể thu hồi mã bất cứ lúc nào.
           </p>
           {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
           <button
             onClick={generate}
             disabled={busy}
-            className="bg-gradient-to-r from-indigo-600 to-purple-500 hover:from-indigo-500 hover:to-purple-400 disabled:opacity-50 text-white font-bold px-6 py-3 rounded-xl"
+            className="bg-gradient-to-r from-yellow-300 to-amber-500 hover:from-yellow-200 hover:to-amber-400 disabled:opacity-50 text-[#78350f] font-bold px-6 py-3 rounded-xl"
           >
             {busy ? 'Đang xử lý...' : '➕ Tạo mã chia sẻ mới'}
           </button>
@@ -136,9 +136,9 @@ export default function ParentSharePage() {
             {activeCodes.map((c) => (
               <div key={c.code} className="bg-[#1b2533] p-4 rounded-xl border border-[#334155] space-y-2">
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <span className="font-mono text-lg text-indigo-300">{c.code}</span>
+                  <span className="font-mono text-lg text-amber-300">{c.code}</span>
                   <div className="flex gap-2">
-                    <button onClick={() => copy(c.code)} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg">
+                    <button onClick={() => copy(c.code)} className="text-xs bg-amber-500 hover:bg-amber-400 text-[#78350f] font-semibold px-3 py-1.5 rounded-lg">
                       {copied === c.code ? '✓ Đã copy link' : '📋 Copy link'}
                     </button>
                     <button onClick={() => revoke(c.code)} disabled={busy} className="text-xs bg-red-700 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg disabled:opacity-50">

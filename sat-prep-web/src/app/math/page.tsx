@@ -541,7 +541,7 @@ export default function MathPage() {
                       </div>
                     )}
 
-                    <button onClick={() => handleGenerateLesson(currentTopic)} className="w-full py-3 bg-[#3b82f6] hover:bg-[#2563eb] rounded-xl font-bold text-white transition-colors">
+                    <button onClick={() => handleGenerateLesson(currentTopic)} className="w-full py-3 bg-gradient-to-r from-yellow-300 to-amber-500 hover:from-yellow-200 hover:to-amber-400 rounded-xl font-bold text-[#78350f] transition-colors">
                       🔄 Tải Bài Giảng Tiếp Theo
                     </button>
                   </div>
@@ -580,18 +580,19 @@ export default function MathPage() {
                   </div>
 
                   <div className="p-4 bg-[#1b2533] border-t border-[#334155] flex gap-2">
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSendChat()}
                       placeholder="Nhập thắc mắc của bạn..."
-                      className="flex-1 bg-[#0f172a] border border-[#334155] rounded-lg px-4 py-2 text-white focus:outline-none focus:border-[#3b82f6]"
+                      aria-label="Nhập thắc mắc gửi gia sư AI"
+                      className="flex-1 bg-[#0f172a] border border-[#334155] rounded-lg px-4 py-2 text-white focus:outline-none focus:border-amber-400"
                     />
-                    <button 
+                    <button
                       onClick={handleSendChat}
                       disabled={isChatting || !chatInput.trim()}
-                      className="bg-[#3b82f6] hover:bg-[#2563eb] disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-6 py-2 rounded-lg font-bold transition-colors">
+                      className="bg-gradient-to-r from-yellow-300 to-amber-500 hover:from-yellow-200 hover:to-amber-400 disabled:from-gray-600 disabled:to-gray-600 disabled:cursor-not-allowed text-[#78350f] px-6 py-2 rounded-lg font-bold transition-colors">
                       Gửi
                     </button>
                   </div>

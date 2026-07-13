@@ -143,10 +143,10 @@ export default function DiagnosticPage() {
         <div className="bg-[#1b2533] p-8 rounded-xl border border-[#334155] max-w-lg mx-auto text-center space-y-6">
           <p className="text-gray-300">Bài test xếp lớp chỉ làm một lần. Tiếp tục luyện tập để nâng cao dự đoán điểm và mở khóa lộ trình.</p>
           <div className="flex flex-col gap-3 items-center">
-            <Link href="/skill-tree" className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-3 rounded-xl inline-block">
+            <Link href="/skill-tree" className="bg-gradient-to-r from-yellow-300 to-amber-500 hover:from-yellow-200 hover:to-amber-400 text-[#78350f] font-bold px-6 py-3 rounded-xl inline-block">
               🌳 Xem Cây Năng Lực
             </Link>
-            <Link href="/dashboard" className="text-indigo-300 hover:text-indigo-200">📊 Xem Nhật Ký Trưởng Thành</Link>
+            <Link href="/dashboard" className="text-amber-300 hover:text-amber-200">📊 Xem Nhật Ký Trưởng Thành</Link>
           </div>
         </div>
       </div>
@@ -174,15 +174,16 @@ export default function DiagnosticPage() {
               <p className="text-gray-300"><span className="text-amber-400 font-bold">🎁 Kết quả:</span> điểm SAT dự đoán ban đầu + gợi ý kỹ năng cần tập trung</p>
             </div>
 
-            <label className="block text-sm text-gray-400 mb-2">Điểm SAT mục tiêu của bạn (tùy chọn, 400–1600):</label>
+            <label htmlFor="targetScore" className="block text-sm text-gray-400 mb-2">Điểm SAT mục tiêu của bạn (tùy chọn, 400–1600):</label>
             <input
+              id="targetScore"
               type="number"
               value={targetScore}
               onChange={(e) => setTargetScore(e.target.value)}
               placeholder="VD: 1400"
               min={400}
               max={1600}
-              className="w-full bg-[#0e1117] border border-[#334155] rounded-lg px-4 py-2 text-white mb-6 focus:border-indigo-500 outline-none"
+              className="w-full bg-[#0e1117] border border-[#334155] rounded-lg px-4 py-2 text-white mb-6 focus:border-amber-400 outline-none"
             />
 
             {error && <p className="text-red-400 mb-4 text-sm">{error}</p>}
@@ -190,7 +191,7 @@ export default function DiagnosticPage() {
             <button
               onClick={startDiagnostic}
               disabled={starting}
-              className="w-full bg-gradient-to-r from-indigo-600 to-blue-500 hover:from-indigo-500 hover:to-blue-400 disabled:opacity-50 text-white font-black text-lg px-10 py-4 rounded-xl shadow-lg transition-transform hover:scale-[1.02]"
+              className="w-full bg-gradient-to-r from-yellow-300 to-amber-500 hover:from-yellow-200 hover:to-amber-400 disabled:opacity-50 text-[#78350f] font-black text-lg px-10 py-4 rounded-xl shadow-lg transition-transform hover:scale-[1.02]"
             >
               {starting ? 'Đang chuẩn bị...' : '🚀 Bắt đầu làm bài'}
             </button>
@@ -288,7 +289,7 @@ export default function DiagnosticPage() {
                   Premium phân tích sâu từng điểm yếu, gợi ý skill ưu tiên và bài &ldquo;Luyện Mục Tiêu&rdquo;
                   để lên điểm nhanh nhất — dựa trên chính kết quả bạn vừa làm.
                 </p>
-                <Link href="/upgrade" className="inline-block text-sm font-bold bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 py-2.5 rounded-lg hover:opacity-90 shadow-lg">
+                <Link href="/upgrade" className="inline-block text-sm font-bold bg-gradient-to-r from-yellow-300 to-amber-500 text-[#78350f] px-5 py-2.5 rounded-lg hover:from-yellow-200 hover:to-amber-400 shadow-lg">
                   Xem gói nâng cấp →
                 </Link>
               </div>

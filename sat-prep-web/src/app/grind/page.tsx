@@ -154,8 +154,9 @@ export default function GrindPage() {
           </p>
 
           <div className="mb-8 max-w-sm mx-auto text-left">
-            <label className="block text-sm text-gray-400 mb-2 font-bold">Chọn kỹ năng muốn nhồi</label>
+            <label htmlFor="grindSkill" className="block text-sm text-gray-400 mb-2 font-bold">Chọn kỹ năng muốn nhồi</label>
             <select
+              id="grindSkill"
               value={chosenSkill}
               onChange={(e) => setChosenSkill(e.target.value)}
               className="w-full bg-[#1b2533] border border-[#334155] text-white rounded-lg px-4 py-3 focus:border-amber-500 focus:outline-none"

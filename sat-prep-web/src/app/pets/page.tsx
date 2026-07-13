@@ -39,7 +39,7 @@ export default function PetsPage() {
               <button 
                 disabled={isLocked || isActive} 
                 onClick={() => equipPet(pet.id)}
-                className={`w-full py-2 rounded font-bold transition-colors ${isLocked ? 'bg-[#1e293b] text-gray-500 cursor-not-allowed' : isActive ? 'bg-[#334155] text-white cursor-default' : 'bg-[#1e293b] hover:bg-[#f472b6] text-white hover:text-white'}`}>
+                className={`w-full py-2 rounded font-bold transition-colors ${isLocked ? 'bg-[#1e293b] text-gray-500 cursor-not-allowed' : isActive ? 'bg-[#334155] text-white cursor-default' : 'bg-gradient-to-r from-yellow-300 to-amber-500 hover:from-yellow-200 hover:to-amber-400 text-[#78350f]'}`}>
                 {isLocked ? 'Đã Khóa' : isActive ? 'Đang theo sau' : 'Trang bị'}
               </button>
             </div>
