@@ -12,6 +12,7 @@ import {
 import { createTransaction } from '@/lib/payment-store';
 import { buildVnpayPaymentUrl, isVnpayConfigured } from '@/lib/payment-vnpay';
 import { createMomoPayment } from '@/lib/payment-momo';
+import { createStripeCheckout, isStripeConfigured } from '@/lib/payment-stripe';
 
 /**
  * ============================================================================
@@ -91,6 +92,32 @@ export async function POST(req: Request) {
     });
     if (!created) {
       return NextResponse.json({ success: false, error: 'Không thể khởi tạo giao dịch. Thử lại sau.' }, { status: 500 });
+    }
+
+    if (gateway === 'stripe') {
+      if (!isStripeConfigured()) {
+        return NextResponse.json(
+          { success: false, error: 'Cổng Stripe đang được cấu hình. Vui lòng thử lại sau!', code: 'GATEWAY_UNCONFIGURED' },
+          { status: 503 }
+        );
+      }
+      const stripeRes = await createStripeCheckout({
+        orderId,
+        amountVnd: plan.priceVnd,
+        tier,
+        period,
+        orderInfo,
+        // return route đã đọc ?orderId= (nhánh MoMo) → tái dùng nguyên, KHÔNG sửa.
+        successUrl: `${base}/api/payment/return?orderId=${orderId}`,
+        cancelUrl: `${base}/upgrade?status=unknown&order=${orderId}`,
+      });
+      if (!stripeRes.ok || !stripeRes.payUrl) {
+        return NextResponse.json(
+          { success: false, error: stripeRes.message ?? 'Không tạo được phiên thanh toán Stripe.', code: 'GATEWAY_UNCONFIGURED' },
+          { status: 503 }
+        );
+      }
+      return NextResponse.json({ success: true, payUrl: stripeRes.payUrl, orderId });
     }
 
     if (gateway === 'vnpay') {

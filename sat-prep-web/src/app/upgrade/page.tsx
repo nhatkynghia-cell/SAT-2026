@@ -5,7 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { PLANS, type PaidTier, type BillingPeriod } from '@/lib/subscription';
 import { useToast } from '@/context/ToastContext';
 
-type Gateway = 'vnpay' | 'momo';
+// VNPay/MoMo đã disable (chờ creds doanh nghiệp) → chỉ còn Stripe.
+type Gateway = 'stripe';
 
 const TIER_META: Record<PaidTier, { label: string; icon: string; tagline: string; perks: string[]; accent: string }> = {
   premium: {
@@ -67,7 +68,7 @@ function StatusBanner() {
 
 function UpgradeContent() {
   const { showToast } = useToast();
-  const [gateway, setGateway] = useState<Gateway>('vnpay');
+  const [gateway] = useState<Gateway>('stripe');
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
 
   const handleBuy = async (tier: PaidTier, period: BillingPeriod) => {
@@ -110,22 +111,12 @@ function UpgradeContent() {
         <StatusBanner />
       </Suspense>
 
-      {/* Chọn cổng thanh toán */}
+      {/* Cổng thanh toán — hiện chỉ Stripe (VNPay/MoMo chờ creds doanh nghiệp). */}
       <div className="flex items-center gap-3">
         <span className="text-[#94a3b8] text-sm font-bold">Cổng thanh toán:</span>
-        {(['vnpay', 'momo'] as Gateway[]).map((g) => (
-          <button
-            key={g}
-            onClick={() => setGateway(g)}
-            className={`px-4 py-2 rounded-lg font-bold text-sm border-2 transition-colors ${
-              gateway === g
-                ? 'bg-[#1b2533] border-[#fbbf24] text-[#fbbf24]'
-                : 'bg-[#0f172a] border-[#262730] text-[#94a3b8] hover:border-[#475569]'
-            }`}
-          >
-            {g === 'vnpay' ? '🏦 VNPay' : '🟣 MoMo'}
-          </button>
-        ))}
+        <span className="px-4 py-2 rounded-lg font-bold text-sm border-2 bg-[#1b2533] border-[#fbbf24] text-[#fbbf24]">
+          💳 Stripe (thẻ quốc tế)
+        </span>
       </div>
 
       {/* Danh sách gói */}
@@ -171,7 +162,7 @@ function UpgradeContent() {
       </div>
 
       <p className="text-xs text-[#64748b] text-center">
-        Thanh toán an toàn qua cổng {gateway === 'vnpay' ? 'VNPay' : 'MoMo'}. Gói kích hoạt tự động sau khi thanh toán thành công.
+        Thanh toán an toàn qua Stripe (thẻ quốc tế). Gói kích hoạt tự động sau khi thanh toán thành công.
       </p>
     </div>
   );

@@ -8,10 +8,10 @@ import {
   buildOrderInfo,
 } from './payment.ts';
 
-test('isValidGateway: chỉ chấp nhận vnpay/momo', () => {
-  assert.equal(isValidGateway('vnpay'), true);
-  assert.equal(isValidGateway('momo'), true);
-  assert.equal(isValidGateway('stripe'), false);
+test('isValidGateway: chỉ chấp nhận stripe (vnpay/momo đã disable, chờ creds doanh nghiệp)', () => {
+  assert.equal(isValidGateway('stripe'), true);
+  assert.equal(isValidGateway('vnpay'), false); // disable ở tầng app (code còn nguyên)
+  assert.equal(isValidGateway('momo'), false);
   assert.equal(isValidGateway(''), false);
   assert.equal(isValidGateway(undefined), false);
   assert.equal(isValidGateway(123), false);

@@ -4,9 +4,10 @@
  * body.amount thì thanh toán rẻ mở gói đắt); phải đăng nhập; gateway/tier/period
  * không hợp lệ → 400 KHÔNG ghi row. IPN sau này đối chiếu amount_vnd đã ghi ở đây.
  *
- * Dùng đường MoMo-CHƯA-cấu-hình: createMomoPayment kiểm creds TRƯỚC (không fetch)
- * → route trả 503, nhưng createTransaction ĐÃ ghi row 'pending' với giá server →
- * soi được amount_vnd mà không cần crypto/mạng.
+ * Dùng đường Stripe-CHƯA-cấu-hình: isStripeConfigured() false → route trả 503,
+ * nhưng createTransaction ĐÃ ghi row 'pending' với giá server (ghi TRƯỚC nhánh
+ * gateway) → soi được amount_vnd mà không cần crypto/mạng. (vnpay/momo đã disable
+ * ở VALID_GATEWAYS → gateway đó giờ trả 400 trước khi ghi row.)
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -14,14 +15,13 @@ import { resetDb, setCurrentUser, getRows, postJson, readRes } from './harness.m
 import { POST } from '@/app/api/payment/create/route';
 import { getPlan } from '@/lib/subscription';
 
-// Đảm bảo MoMo KHÔNG cấu hình (đường ghi-row-rồi-503, không fetch).
-delete process.env.MOMO_PARTNER_CODE;
-delete process.env.MOMO_ACCESS_KEY;
-delete process.env.MOMO_SECRET_KEY;
+// Đảm bảo Stripe KHÔNG cấu hình (đường ghi-row-rồi-503, không gọi Stripe API).
+delete process.env.STRIPE_SECRET_KEY;
+delete process.env.STRIPE_WEBHOOK_SECRET;
 
 test('payment/create: chưa đăng nhập → 401, KHÔNG ghi giao dịch', async () => {
   resetDb(); setCurrentUser(null); // getCurrentUser → isAuthenticated:false
-  const { status } = await readRes(await POST(postJson({ gateway: 'momo', tier: 'premium', period: 'yearly' })));
+  const { status } = await readRes(await POST(postJson({ gateway: 'stripe', tier: 'premium', period: 'yearly' })));
   assert.equal(status, 401);
   assert.equal(getRows('payment_transactions').length, 0);
 });
@@ -32,7 +32,7 @@ test('payment/create: SERVER tra giá PLANS — body.amount client BỊ BỎ QUA
   assert.ok(plan && plan.priceVnd > 0, 'gói premium/yearly tồn tại');
 
   // Kẻ tấn công gửi amount:1 hòng mua gói yearly giá 1 đồng.
-  await readRes(await POST(postJson({ gateway: 'momo', tier: 'premium', period: 'yearly', amount: 1, amountVnd: 1, priceVnd: 1 })));
+  await readRes(await POST(postJson({ gateway: 'stripe', tier: 'premium', period: 'yearly', amount: 1, amountVnd: 1, priceVnd: 1 })));
 
   const rows = getRows('payment_transactions');
   assert.equal(rows.length, 1, 'đã ghi 1 giao dịch pending');
@@ -44,7 +44,7 @@ test('payment/create: SERVER tra giá PLANS — body.amount client BỊ BỎ QUA
 
 test('payment/create: tier không hợp lệ → 400, KHÔNG ghi row', async () => {
   resetDb(); setCurrentUser({ id: 'pc-badtier' });
-  const { status } = await readRes(await POST(postJson({ gateway: 'momo', tier: 'god_mode', period: 'yearly' })));
+  const { status } = await readRes(await POST(postJson({ gateway: 'stripe', tier: 'god_mode', period: 'yearly' })));
   assert.equal(status, 400);
   assert.equal(getRows('payment_transactions').length, 0);
 });
@@ -58,7 +58,7 @@ test('payment/create: gateway không hợp lệ → 400, KHÔNG ghi row', async 
 
 test('payment/create: period không hợp lệ → 400, KHÔNG ghi row', async () => {
   resetDb(); setCurrentUser({ id: 'pc-badperiod' });
-  const { status } = await readRes(await POST(postJson({ gateway: 'momo', tier: 'ultimate', period: 'lifetime' })));
+  const { status } = await readRes(await POST(postJson({ gateway: 'stripe', tier: 'ultimate', period: 'lifetime' })));
   assert.equal(status, 400);
   assert.equal(getRows('payment_transactions').length, 0);
 });
@@ -66,7 +66,7 @@ test('payment/create: period không hợp lệ → 400, KHÔNG ghi row', async (
 test('payment/create: 4 gói hợp lệ đều ghi đúng giá server tương ứng', async () => {
   for (const [tier, period] of [['premium', 'monthly'], ['premium', 'yearly'], ['ultimate', 'monthly'], ['ultimate', 'yearly']]) {
     resetDb(); setCurrentUser({ id: `pc-${tier}-${period}` });
-    await readRes(await POST(postJson({ gateway: 'momo', tier, period })));
+    await readRes(await POST(postJson({ gateway: 'stripe', tier, period })));
     const rows = getRows('payment_transactions');
     assert.equal(rows.length, 1, `${tier}/${period}: ghi 1 row`);
     assert.equal(rows[0].amount_vnd, getPlan(tier, period).priceVnd, `${tier}/${period}: giá khớp PLANS`);
