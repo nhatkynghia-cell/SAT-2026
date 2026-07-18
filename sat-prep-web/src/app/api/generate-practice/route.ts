@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getFromBank, saveToBank, poolSize, MIN_POOL } from '@/lib/question-bank';
-import { checkBudget, recordGlobalCost } from '@/lib/ai-cost';
+import { checkBudget, recordGlobalCost, modelForTier } from '@/lib/ai-cost';
 import { getCurrentUser } from '@/lib/auth';
 import { reserveQuota, finalizeUsage, releaseUsage } from '@/lib/ai-quota';
 import { getUserTier } from '@/lib/subscription-store';
@@ -112,6 +112,10 @@ export async function POST(req: Request) {
     // KHÔNG tốn token nên đã return sớm, không chạm reserve. Lỗi RPC → fail-closed.
     // Phase 2: tier THẬT từ subscription (fail-safe → 'free' khi lỗi/không có gói).
     const tier = await getUserTier(user.id);
+    // Quyền lợi A1 (2026-07-07): Ultimate sinh câu bằng model cao cấp (gpt-4o),
+    // free/premium giữ gpt-4o-mini. Dùng cho cả requestBody.model lẫn recordGlobalCost
+    // → kill-switch ngân sách tính đúng chi phí model thật.
+    const model = modelForTier(tier);
     const reservation = await reserveQuota(user.id, tier, 'gen');
     if (!reservation.allowed) {
       return NextResponse.json(
@@ -256,7 +260,7 @@ BẮT BUỘC thêm trường "choice_analysis": MẢNG, mỗi phần tử ứng 
     };
 
     const requestBody = {
-      model: "gpt-4o-mini",
+      model,
       messages: [{ role: "system", content: systemPrompt }],
       response_format: {
         type: "json_schema",
@@ -316,7 +320,7 @@ BẮT BUỘC thêm trường "choice_analysis": MẢNG, mỗi phần tử ứng 
       recordGlobalCost(
         responseData.usage?.prompt_tokens ?? 0,
         responseData.usage?.completion_tokens ?? 0,
-        'gpt-4o-mini'
+        model
       ).catch((e) => console.error('recordGlobalCost:', e)),
       finalizeUsage(
         user.id,

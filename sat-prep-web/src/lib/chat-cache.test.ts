@@ -44,3 +44,14 @@ test('chatCacheHash: đổi câu hỏi → khác hash (không đụng cache nh�
 test('chatCacheHash: đổi đáp án đã chọn → khác hash', () => {
   assert.notEqual(chatCacheHash(base), chatCacheHash({ ...base, selectedAnswer: 'C) 5' }));
 });
+
+test('chatCacheHash: khác model → khác hash (Ultimate không hưởng ké cache mini)', () => {
+  assert.notEqual(
+    chatCacheHash({ ...base, model: 'gpt-4o' }),
+    chatCacheHash({ ...base, model: 'gpt-4o-mini' })
+  );
+});
+
+test('chatCacheHash: bỏ model ≡ model rỗng (tương thích khóa cũ, 0 regression)', () => {
+  assert.equal(chatCacheHash(base), chatCacheHash({ ...base, model: '' }));
+});

@@ -1,4 +1,5 @@
 import { loadLedger, recordCost, type CostLedger } from './cost-ledger-store';
+import type { AiTier } from './ai-quota';
 
 /**
  * ============================================================================
@@ -23,9 +24,37 @@ import { loadLedger, recordCost, type CostLedger } from './cost-ledger-store';
 /** Giá USD cho mỗi 1 TRIỆU token (input / output). Nguồn: OpenAI pricing. */
 export const PRICING: Record<string, { inputPer1M: number; outputPer1M: number }> = {
   'gpt-4o-mini': { inputPer1M: 0.15, outputPer1M: 0.60 },
+  // Model cao cấp cho gói Ultimate (quyền lợi A1 — QUYẾT ĐỊNH user 2026-07-07).
+  // Giá gpt-4o gấp ~16× mini → kill-switch ngân sách PHẢI tính đúng để 1 nhóm
+  // Ultimate không đốt vượt trần mà sổ cái vẫn tưởng đang xài mini.
+  'gpt-4o': { inputPer1M: 2.50, outputPer1M: 10.00 },
 };
 
 const DEFAULT_MODEL = 'gpt-4o-mini';
+
+/**
+ * MODEL AI theo GÓI (quyền lợi A1 — "Gia sư AI model cao cấp hơn"). Ultimate dùng
+ * gpt-4o (suy luận sâu hơn), free/premium giữ gpt-4o-mini (∞ lượt nhưng model
+ * thường) → phân tầng mentor đúng như trang bán hứa. Đổi model qua env mà KHÔNG
+ * sửa code: đặt `ULTIMATE_AI_MODEL`. ⚠️ Model phải CÓ trong PRICING, nếu không
+ * kill-switch tính chi phí sai (estimateCost fallback về mini → dưới thực tế).
+ */
+const ULTIMATE_MODEL = (() => {
+  const m = process.env.ULTIMATE_AI_MODEL;
+  // Chỉ nhận override nếu đã khai giá — tránh cấu hình lỏng làm vỡ kill-switch.
+  return m && PRICING[m] ? m : 'gpt-4o';
+})();
+
+export const TIER_AI_MODEL: Record<AiTier, string> = {
+  free: DEFAULT_MODEL,
+  premium: DEFAULT_MODEL,
+  ultimate: ULTIMATE_MODEL,
+};
+
+/** Model AI dùng cho 1 gói. Nguồn sự thật DUY NHẤT cho mọi route gọi OpenAI. */
+export function modelForTier(tier: AiTier): string {
+  return TIER_AI_MODEL[tier] ?? DEFAULT_MODEL;
+}
 
 /** Ngân sách AI mỗi ngày toàn hệ thống (USD). Override qua env AI_DAILY_BUDGET_USD. */
 export const DAILY_BUDGET_USD = Number(process.env.AI_DAILY_BUDGET_USD ?? 5);

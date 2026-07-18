@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { checkQuota, reserveQuota, finalizeUsage, releaseUsage } from '@/lib/ai-quota';
 import { getUserTier } from '@/lib/subscription-store';
-import { checkBudget, recordGlobalCost } from '@/lib/ai-cost';
+import { checkBudget, recordGlobalCost, modelForTier } from '@/lib/ai-cost';
 import {
   chatCacheHash,
   getCachedReply,
@@ -31,7 +31,8 @@ import { rateLimit } from '@/lib/rate-limit';
  */
 
 // Cấu hình cứng ở server — client KHÔNG được phép override.
-const MODEL = 'gpt-4o-mini';
+// MODEL nay theo GÓI (quyền lợi A1 2026-07-07): Ultimate = gpt-4o, còn lại =
+// gpt-4o-mini. Lấy từ modelForTier() SAU khi biết tier (xem trong handler).
 const MAX_TOKENS = 800;
 const TEMPERATURE = 0.7;
 
@@ -70,6 +71,9 @@ export async function POST(request: Request) {
 
     // Phase 2: tier THẬT từ subscription (fail-safe → 'free' khi lỗi/không có gói).
     const tier = await getUserTier(user.id);
+    // Quyền lợi A1 (2026-07-07): Ultimate dùng model cao cấp (gpt-4o), còn lại
+    // gpt-4o-mini. Model vào KHÓA CACHE (dưới) để các gói không hưởng ké nhau.
+    const model = modelForTier(tier);
 
     const body: ChatRequest = await request.json();
 
@@ -96,6 +100,7 @@ export async function POST(request: Request) {
         correctAnswer: ctxCorrect,
         selectedAnswer: ctxSelected,
         userMessage,
+        model, // phân khoang cache theo model → Ultimate không nhận đáp án mini
       });
       const cached = await getCachedReply(cacheHash);
       if (cached) {
@@ -165,7 +170,7 @@ export async function POST(request: Request) {
     }));
 
     const requestBody = {
-      model: MODEL,
+      model,
       messages: [
         { role: 'system', content: systemPrompt },
         ...historyMessages,
@@ -213,7 +218,7 @@ export async function POST(request: Request) {
     // (audit 2026-07-03, ROOT D): fire-and-forget trên serverless có thể bị
     // kill trước khi ghi → thất thoát trần ngân sách. .catch giữ để lỗi ghi
     // KHÔNG làm hỏng reply.
-    await recordGlobalCost(tokIn, tokOut, MODEL).catch((e) => console.error('recordGlobalCost:', e));
+    await recordGlobalCost(tokIn, tokOut, model).catch((e) => console.error('recordGlobalCost:', e));
 
     // 6) Lưu vào cache chia sẻ để HS sau hỏi giống thì khỏi gọi OpenAI (§5.3).
     if (cacheable && reply) {
