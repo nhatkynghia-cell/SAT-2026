@@ -32,7 +32,7 @@ const TIER_META: Record<PaidTier, { label: string; icon: string; tagline: string
       '✨ Tất cả quyền lợi Premium',
       '🎯 Luyện thích ứng cá nhân hóa (adaptive) theo điểm yếu',
       '📝 Chế độ Thi Thật QAS full-length — bộ đề mô phỏng sát đề thi thật',
-      '🧠 Gia sư AI model cao cấp hơn — giải thích sâu hơn',
+      '🧠 Gia sư AI — giải thích sâu hơn theo điểm yếu',
       '⚔️ Hệ số xu RPG ×2 — tích lũy nhanh gấp đôi',
       '👨‍👩‍👧 Báo cáo phụ huynh chuyên sâu + xu hướng 90 ngày',
     ],

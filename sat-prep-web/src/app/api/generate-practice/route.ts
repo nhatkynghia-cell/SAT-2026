@@ -4,9 +4,11 @@ import { checkBudget, recordGlobalCost, modelForTier } from '@/lib/ai-cost';
 import { getCurrentUser } from '@/lib/auth';
 import { reserveQuota, finalizeUsage, releaseUsage } from '@/lib/ai-quota';
 import { getUserTier } from '@/lib/subscription-store';
-import { isValidSkill } from '@/lib/skill-taxonomy';
+import { getDomainOfSkill, isValidSkill } from '@/lib/skill-taxonomy';
+import { FREE_DOMAINS } from '@/lib/skill-tree';
 import { resolveSkillId } from '@/lib/skill-resolver';
 import { issueQuestion, type ChoiceAnalysis } from '@/lib/issued-questions';
+import type { AiTier } from '@/lib/ai-quota';
 import { OPENAI_CHAT_COMPLETIONS_URL } from '@/lib/openai';
 import { rateLimit } from '@/lib/rate-limit';
 
@@ -35,6 +37,13 @@ async function issueBankResponse(
   return NextResponse.json({ ...safe, skillId, questionId: qId, ...extra });
 }
 
+export function canGeneratePracticeForTier(tier: AiTier, skillId: string | undefined): boolean {
+  if (tier !== 'free') return true;
+  if (!skillId) return false;
+  const domain = getDomainOfSkill(skillId);
+  return !!domain && FREE_DOMAINS.includes(domain.id);
+}
+
 export async function POST(req: Request) {
   try {
     const { moduleType, topic: topicRaw, prefer = 'auto', skillId: clientSkillId, difficulty: reqDiffRaw } = await req.json();
@@ -59,6 +68,19 @@ export async function POST(req: Request) {
       typeof clientSkillId === 'string' && isValidSkill(clientSkillId)
         ? clientSkillId
         : resolveSkillId(moduleType, topic);
+
+    // Tier THẬT lấy sớm để gate cả đường Question Bank: free không được bypass UI
+    // bằng cách POST tay module/skill thuộc chương trả phí.
+    const tier = await getUserTier(user.id);
+    if (!canGeneratePracticeForTier(tier, skillId)) {
+      return NextResponse.json(
+        {
+          error: 'Nội dung này chỉ dành cho Premium/Ultimate. Nâng cấp để mở khóa toàn bộ chương luyện tập.',
+          tierLocked: true,
+        },
+        { status: 403 }
+      );
+    }
 
     // CHIẾN LƯỢC LAI (implementation_plan.md §9.4):
     // Ưu tiên lấy câu từ Question Bank khi pool đã đủ lớn → cắt chi phí OpenAI.
@@ -110,8 +132,6 @@ export async function POST(req: Request) {
     // NGAY ĐÂY → N request đồng thời không cùng vượt cap 3/ngày (Free) đốt OpenAI.
     // Chỉ tính khi THỰC SỰ gọi AI — câu lấy từ Question Bank / degrade budget ở trên
     // KHÔNG tốn token nên đã return sớm, không chạm reserve. Lỗi RPC → fail-closed.
-    // Phase 2: tier THẬT từ subscription (fail-safe → 'free' khi lỗi/không có gói).
-    const tier = await getUserTier(user.id);
     // Quyền lợi A1 (2026-07-07): Ultimate sinh câu bằng model cao cấp (gpt-4o),
     // free/premium giữ gpt-4o-mini. Dùng cho cả requestBody.model lẫn recordGlobalCost
     // → kill-switch ngân sách tính đúng chi phí model thật.

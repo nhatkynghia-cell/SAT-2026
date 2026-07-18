@@ -33,10 +33,7 @@ export interface CurrentUser {
   isAuthenticated: boolean;
 }
 
-/**
- * Trả về người dùng hiện tại của request.
- * Đã tích hợp Supabase Auth.
- */
+/** Trả về người dùng hiện tại của request. */
 export async function getCurrentUser(): Promise<CurrentUser> {
   // E2E: khi E2E_TEST_MODE=1 (chỉ máy test), trả user test cố định, KHÔNG gọi
   // Supabase. Env không set trên prod → nhánh này coi như không tồn tại. Xem src/lib/e2e.ts.
