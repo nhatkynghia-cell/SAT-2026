@@ -115,7 +115,7 @@ Trước khi chốt giá, cần bạn quyết:
 
 ```
 Đọc memory.md + master_task_list.md + CLtinhchinh.md + CLgia.md trong
-D:\10.SAT_Prep_App 30.6\10.SAT_Prep_App 30.6\10.SAT_Prep_App\10.SAT_Prep_App\
+C:/Users/DELL/Desktop/SAT_Rescue 17.7/SAT_Rescue/0.SAT.Guru 2026/10.SAT_Prep_App 30.6/10.SAT_Prep_App 30.6/10.SAT_Prep_App/10.SAT_Prep_App/
 rồi tinh chỉnh cấu trúc theo backlog CLtinhchinh.md. Trả lời tiếng Việt.
 
 Trước khi làm gì: export PATH="$PATH:/c/Program Files/nodejs" rồi verify môi trường

@@ -3,7 +3,7 @@
 > Cập nhật 2026-07-17. Đánh dấu `[x]` khi xong. Gửi được creds/token cho Claude thì Claude wire vào ngay.
 
 > **🖥️ BẢN LÀM VIỆC MỚI = ổ C:** (ổ F: bad sector, build gãy EIO).
-> `C:/SAT_Rescue/0.SAT.Guru 2026/10.SAT_Prep_App 30.6/10.SAT_Prep_App 30.6/10.SAT_Prep_App/10.SAT_Prep_App/sat-prep-web`
+> `C:/Users/DELL/Desktop/SAT_Rescue 17.7/SAT_Rescue/0.SAT.Guru 2026/10.SAT_Prep_App 30.6/10.SAT_Prep_App 30.6/10.SAT_Prep_App/10.SAT_Prep_App/sat-prep-web`
 > Bản C: có `.git`, đã verify: tsc sạch · lint 0 · test 498/498 · build 79 pages.
 
 > **🚀 DEPLOY:** prod https://sat-2026.vercel.app đang LIVE ở `da0b370` (BẢN CŨ, chưa có Stripe). Code Stripe đã commit local `ed982f5` nhánh `feat/stripe-payment-migration` — CHƯA push, nên prod chưa có Stripe.

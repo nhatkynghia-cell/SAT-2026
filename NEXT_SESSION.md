@@ -8,7 +8,7 @@ Copy nguyên khối dưới đây, dán vào ô chat để mở phiên mới:
 
 ```
 Đọc memory.md + master_task_list.md trong
-D:\10.SAT_Prep_App 30.6\10.SAT_Prep_App 30.6\10.SAT_Prep_App\10.SAT_Prep_App\
+C:/Users/DELL/Desktop/SAT_Rescue 17.7/SAT_Rescue/0.SAT.Guru 2026/10.SAT_Prep_App 30.6/10.SAT_Prep_App 30.6/10.SAT_Prep_App/10.SAT_Prep_App/
 rồi tiếp tục dự án. Đọc kỹ 2 block "ĐỌC ĐẦU TIÊN" đầu memory.md (PARENT DASHBOARD +
 DIAGNOSTIC ONBOARDING). Trả lời tiếng Việt.
 

@@ -5,7 +5,7 @@
       "name": "sat-prep-web",
       "runtimeExecutable": "C:/Program Files/nodejs/node.exe",
       "runtimeArgs": ["node_modules/next/dist/bin/next", "dev"],
-      "cwd": "D:/10.SAT_Prep_App 30.6/10.SAT_Prep_App 30.6/10.SAT_Prep_App/10.SAT_Prep_App/sat-prep-web",
+      "cwd": "C:/Users/DELL/Desktop/SAT_Rescue 17.7/SAT_Rescue/0.SAT.Guru 2026/10.SAT_Prep_App 30.6/10.SAT_Prep_App 30.6/10.SAT_Prep_App/10.SAT_Prep_App/sat-prep-web",
       "autoPort": true,
       "port": 3000
     }
