@@ -20,13 +20,13 @@ export interface BuyResult {
 
 export const ITEM_CATALOG = [
   { id: "skin_1", name: "Đại Pháp Sư Desmos", icon: "🧙‍♂️", type: "skin", price: 1500, effectClass: "shadow-[0_0_20px_#8b5cf6] animate-pulse text-purple-400 border-[#8b5cf6]" },
-  { id: "skin_2", name: "Kiếm Khách SAT Cổ Đại", icon: "🗡️", type: "skin", price: 1800, effectClass: "shadow-[0_0_20px_#ef4444] text-red-400 border-[#ef4444]" },
+  { id: "skin_2", name: "Kiếm Khách Cambridge Cổ Đại", icon: "🗡️", type: "skin", price: 1800, effectClass: "shadow-[0_0_20px_#ef4444] text-red-400 border-[#ef4444]" },
   { id: "skin_3", name: "Đỉnh Phong Thủ Khoa", icon: "👑", type: "skin", price: 3000, effectClass: "shadow-[0_0_30px_#fbbf24] animate-bounce text-yellow-300 border-[#fbbf24]" },
   { id: "eq_epic_1", name: "Găng Tay Tri Thức", icon: "🥊", type: "equipment", price: 800, effectClass: "text-blue-400" },
   { id: "eq_epic_2", name: "Mũ Cú Vọ Ban Đêm", icon: "🎩", type: "equipment", price: 850, effectClass: "text-indigo-400" },
   { id: "eq_leg_1", name: "Huy Hiệu Ivy League (Cũ)", icon: "🛡️", type: "equipment", price: 5000, effectClass: "shadow-[0_0_15px_#34d399] text-emerald-400" },
-  { id: "eq_leg_2", name: "Nhẫn Chân Lý SAT", icon: "💍", type: "equipment", price: 6000, effectClass: "shadow-[0_0_25px_#f472b6] animate-pulse text-pink-400" },
-  { id: "rw_1", name: "Voucher Lệ Phí Thi SAT (100%)", icon: "🎟️", type: "reward", price: 50000, effectClass: "border-green-500 shadow-[0_0_20px_#22c55e]" },
+  { id: "eq_leg_2", name: "Nhẫn Chân Lý Cambridge", icon: "💍", type: "equipment", price: 6000, effectClass: "shadow-[0_0_25px_#f472b6] animate-pulse text-pink-400" },
+  { id: "rw_1", name: "Voucher Lệ Phí Thi Cambridge KET/PET (100%)", icon: "🎟️", type: "reward", price: 50000, effectClass: "border-green-500 shadow-[0_0_20px_#22c55e]" },
   { id: "rw_2", name: "Bộ Tài Liệu Giải Bẫy Toán Thủ Khoa", icon: "📚", type: "reward", price: 10000, effectClass: "border-blue-500 shadow-[0_0_15px_#3b82f6]" },
   { id: "rw_3", name: "Thẻ Đặc Quyền Gia Sư AI VIP", icon: "🤖", type: "reward", price: 20000, effectClass: "border-purple-500 shadow-[0_0_15px_#a855f7]" },
   { id: "shield_1", name: "Khiên Bảo Vệ Streak", icon: "🛡️", type: "consumable", price: 50 },

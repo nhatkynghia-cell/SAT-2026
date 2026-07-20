@@ -71,14 +71,14 @@ test('id các câu là duy nhất', () => {
   assert.equal(new Set(ids).size, ids.length, 'có id trùng trong bộ câu diagnostic');
 });
 
-test('phủ đủ 4 domain Toán + reading_writing', () => {
+test('phủ các domain Cambridge chính (reading/vocabulary/grammar/listening/writing)', () => {
   const domains = new Set(QUESTIONS.map((q) => getDomainOfSkill(q.skillId)?.id));
-  for (const d of ['algebra', 'advanced_math', 'data_analysis', 'geometry', 'reading_writing']) {
+  for (const d of ['reading', 'vocabulary', 'grammar', 'listening', 'writing']) {
     assert.ok(domains.has(d), `chưa phủ domain: ${d}`);
   }
 });
 
-test('ưu tiên algebra (domain tiên quyết) — có ít nhất 3 câu algebra', () => {
-  const algebraCount = QUESTIONS.filter((q) => getDomainOfSkill(q.skillId)?.id === 'algebra').length;
-  assert.ok(algebraCount >= 3, `algebra chỉ có ${algebraCount} câu, cần >= 3`);
+test('ưu tiên reading (kỹ năng free) — có ít nhất 3 câu reading', () => {
+  const readingCount = QUESTIONS.filter((q) => getDomainOfSkill(q.skillId)?.id === 'reading').length;
+  assert.ok(readingCount >= 3, `reading chỉ có ${readingCount} câu, cần >= 3`);
 });

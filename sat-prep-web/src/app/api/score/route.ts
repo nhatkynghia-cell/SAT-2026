@@ -4,16 +4,14 @@ import { predictScore, setGoal } from '@/lib/score-prediction';
 import { getUserTier } from '@/lib/subscription-store';
 
 /**
- * SCORE PREDICTION API (implementation_plan.md §10.A.5, task #11)
+ * SCORE PREDICTION API (Cambridge CEFR)
  *
- * GET  → dự đoán điểm SAT 400-1600 từ mastery + mục tiêu + skill cần tập trung.
- * POST → đặt điểm mục tiêu { targetScore } (400..1600).
+ * GET  → dự đoán cấp độ CEFR + Cambridge Scale từ mastery + mục tiêu + skill cần tập trung.
+ * POST → đặt bậc CEFR mục tiêu { targetLevel } (A1/A2/B1).
  *
- * PHÂN TẦNG (định giá theo phễu 2026-07-06): server LUÔN tính full prediction
- * (dữ liệu vẫn tích lũy đủ ở free), nhưng CẮT tầng HIỂN THỊ theo tier —
- * free chỉ thấy TỔNG điểm (miếng mồi), premium/ultimate mở breakdown môn +
- * focus skills. Redact SERVER-SIDE (không chỉ ẩn ở UI) để client free không
- * đọc được breakdown từ network response. Nâng cấp = mở khóa dữ liệu đã có.
+ * PHÂN TẦNG: server LUÔN tính full prediction (dữ liệu vẫn tích lũy đủ ở free),
+ * nhưng CẮT tầng HIỂN THỊ theo tier — free chỉ thấy cấp độ tổng (miếng mồi),
+ * premium/ultimate mở focus skills + chi tiết. Redact SERVER-SIDE.
  */
 
 export async function GET() {
@@ -23,12 +21,10 @@ export async function GET() {
     getUserTier(user.id),
   ]);
 
-  // Free → khóa chi tiết: giữ tổng/độ tin cậy/mục tiêu, ẩn breakdown + focus.
+  // Free → khóa chi tiết: giữ cấp độ/scale/độ tin cậy/mục tiêu, ẩn focus skills.
   if (tier === 'free') {
     return NextResponse.json({
       ...prediction,
-      math: null,
-      reading: null,
       focusSkills: [],
       detailLocked: true,
     });
@@ -40,13 +36,13 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
-    const { targetScore } = await req.json();
+    const { targetLevel } = await req.json();
 
-    if (typeof targetScore !== 'number' || Number.isNaN(targetScore)) {
-      return NextResponse.json({ error: 'targetScore phải là số (400..1600)' }, { status: 400 });
+    if (targetLevel !== 'A1' && targetLevel !== 'A2' && targetLevel !== 'B1') {
+      return NextResponse.json({ error: 'targetLevel phải là A1, A2 hoặc B1' }, { status: 400 });
     }
 
-    const goal = await setGoal(user.id, targetScore);
+    const goal = await setGoal(user.id, targetLevel);
     return NextResponse.json({ success: true, goal, prediction: await predictScore(user.id) });
   } catch (error) {
     console.error('Lỗi đặt mục tiêu:', error);

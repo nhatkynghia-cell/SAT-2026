@@ -5,6 +5,49 @@
 
 ---
 
+## 🎯 CHIẾN LƯỢC GIÁ — BẢN ĐỂ TINH CHỈNH (chốt lưu 2026-07-06) — ĐỌC ĐẦU TIÊN
+
+> **Trạng thái:** Giá + Wave 1 gating + hệ số xu ĐÃ XONG (commit `ad03bf8`). User quyết **GÁC affiliate + Top-5 để app chạy ổn trước**, chỉ LƯU chiến lược giá làm bản tham chiếu → phiên sau mở ra là tinh chỉnh ngay. **CHƯA code gì thêm cho định giá.**
+
+### A. Ba tầng + giá niêm yết (list price, neo cao cho tệp du học)
+| Gói | Tháng | Năm (≈8 tháng) | Vai trò |
+|---|---|---|---|
+| 🆓 Free | 0 | 0 | Mồi / hook đầu phễu |
+| ⭐ Premium | 499k | 3.990k | Chủ lực |
+| 💎 Ultimate | 990k | 7.990k | Elite |
+
+Nguồn sự thật: `src/lib/subscription.ts` PLANS (dòng 70–75). Giá chỉ là dữ liệu bảng, không ảnh hưởng logic tier.
+
+### B. Ma trận quyền lợi (✅ đã code · 📝 chưa code · 🔬 gác)
+| Trục | Free | Premium | Ultimate | TT |
+|---|---|---|---|---|
+| AI/ngày | 5 | ∞ | ∞ | ✅ |
+| Điểm dự đoán | tổng 400–1600 | +breakdown+focus | =Premium | ✅ |
+| Skill tree | 2 chương đầu | toàn bộ | toàn bộ | ✅ |
+| Adaptive "Luyện mục tiêu" | 🔒 | ✅ | ✅ | ✅ |
+| Thi thật/QAS | 🔒 | ✅ (level≥7) | ✅ +đề độc quyền | ✅ (đề độc quyền 📝) |
+| Báo cáo phụ huynh | 7 ngày·5 bài | 30 ngày·10 bài | 90 ngày·20 bài | ✅ |
+| Hệ số xu RPG | ×1 | ×1.5 | ×2 | ✅ |
+| Model AI cao cấp | – | – | ✅ | 📝 |
+| Giải Top-5 toàn quốc | – | – | ✅ | 🔬 gác |
+
+### C. Điểm mỏng đã nhận diện (cần tinh chỉnh)
+Khác biệt Premium↔Ultimate **đã chạy thật** mới có 2: báo cáo 90 ngày + hệ số xu ×2. "Model AI xịn + đề độc quyền + Top-5" mới là chữ trên trang bán → **Ultimate chưa "đáng gấp đôi"**. Cần quyết làm dày trục nào trước.
+
+### D. Affiliate 35% (thiết kế đã chốt, chưa code — chi tiết ở mục "THIẾT KẾ AFFILIATE" dưới)
+- 35% tổng ngân sách = KOL 25% hoa hồng + người mua giảm 10% → giữ 65% biên.
+- VD Premium tháng 499k: mua trả ~449k · KOL ~125k · giữ ~324k.
+- Mỗi mã 2 nút chỉnh (discount%/commission%), mặc định 10/25.
+
+### E. 5 điểm để ngỏ user tinh chỉnh (phiên sau trả lời rồi mới code)
+1. **Giá** 4 con số (499k/3.990k/990k/7.990k) — giữ hay đổi?
+2. **Tỉ lệ chia affiliate** 10/25 (giữ 65%) — giữ hay đổi?
+3. **Ranh giới quyền lợi** Free/Premium/Ultimate — Free đang mở 2 chương skill-tree (nhiều/ít?); thi thật đang chặn level<7 (giữ?).
+4. **Ưu tiên làm dày Ultimate**: model AI cao cấp / đề độc quyền / Top-5 — cái nào trước? (hay để affiliate + Top-5 gánh)
+5. **Khuyến mãi ra mắt**: Premium mồi 49k×3 tháng đầu + gói mùa thi 3 tháng (canh lịch Digital SAT Mar/May/Aug/Oct/Dec)?
+
+---
+
 ## 📋 CÂU LỆNH MỞ PHIÊN MỚI (copy nguyên khối)
 
 ```

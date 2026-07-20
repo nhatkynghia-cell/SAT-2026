@@ -6,52 +6,47 @@ import { checkQuota, recordUsage } from '@/lib/ai-quota';
 import { getUserTier } from '@/lib/subscription-store';
 import { isValidSkill } from '@/lib/skill-taxonomy';
 import { issueQuestion, type ChoiceAnalysis } from '@/lib/issued-questions';
+import { validateQuestion } from '@/lib/question-validate';
 import { OPENAI_CHAT_COMPLETIONS_URL } from '@/lib/openai';
 
 /**
- * Map (moduleType, topic) → skillId chuẩn trong skill-taxonomy (task #9 Mastery).
- * Reading/Writing map cứng theo module; Toán (math + desmos) match theo từ khóa
- * chủ đề vì topic là chuỗi tự do từ UI. Trả undefined nếu không khớp skill nào.
+ * Map (moduleType, topic) → skillId chuẩn trong skill-taxonomy Cambridge.
+ * Chỉ là FALLBACK khi client không gửi skillId tường minh (UI trang kỹ năng
+ * gửi skillId chính xác). Trả undefined nếu không khớp.
  */
 function resolveSkillId(moduleType: string, topic: string): string | undefined {
-  // Chuẩn hóa NFC trước khi match: dấu tiếng Việt có thể tới ở dạng tổ hợp (NFD)
-  // từ một số nguồn input → regex literal (NFC trong source) sẽ trượt nếu không normalize.
   const t = (topic || '').normalize('NFC').toLowerCase();
 
-  if (moduleType === 'vocab') return 'rw.vocab';
-  if (moduleType === 'literature') return 'rw.literature';
-
-  // desmos là công cụ Toán → vẫn quy về skill Toán như math.
-  if (moduleType === 'math' || moduleType === 'desmos') {
-    // Geometry & Trigonometry
-    if (/geo|hình|lượng giác|trig|đường tròn|circle|tam giác|triangle|thể tích|volume/.test(t)) {
-      if (/lượng giác|trig/.test(t)) return 'geo.trig';
-      if (/đường tròn|circle/.test(t)) return 'geo.circles';
-      if (/thể tích|volume/.test(t)) return 'geo.volume';
-      return 'geo.triangles';
-    }
-    // Advanced Math
-    if (/advanced|nâng cao|bậc hai|quadratic|parabol|đỉnh|vertex|mũ|exponential|đa thức|polynomial|căn|radical/.test(t)) {
-      if (/mũ|exponential/.test(t)) return 'advanced.exponential';
-      if (/đa thức|polynomial/.test(t)) return 'advanced.polynomials';
-      if (/căn|radical/.test(t)) return 'advanced.radicals';
-      return 'advanced.quadratic';
-    }
-    // Data Analysis
-    if (/data|số liệu|thống kê|statistic|xác suất|probability|phần trăm|percent|tỉ lệ|tỷ lệ|ratio|rate|tốc độ/.test(t)) {
-      if (/xác suất|probability/.test(t)) return 'data.probability';
-      if (/phần trăm|percent/.test(t)) return 'data.percentages';
-      if (/tỉ lệ|tỷ lệ|ratio|rate|tốc độ/.test(t)) return 'data.ratios';
-      return 'data.statistics';
-    }
-    // Heart of Algebra (mặc định cho Toán)
-    if (/hệ phương trình|system/.test(t)) return 'algebra.systems';
-    if (/bất phương trình|inequal/.test(t)) return 'algebra.inequalities';
-    if (/hàm số|function|đồ thị|graph/.test(t)) return 'algebra.linear_fn';
-    return 'algebra.linear_eq';
+  switch (moduleType) {
+    case 'reading':
+      if (/matching|ghép/.test(t)) return 'reading.matching';
+      if (/gap|gapped|điền câu/.test(t)) return 'reading.gapped_text';
+      if (/cloze|điền từ vựng/.test(t)) return 'reading.cloze_vocab';
+      if (/open cloze|điền từ tự do/.test(t)) return 'reading.open_cloze';
+      if (/detail|chi tiết|đoạn dài/.test(t)) return 'reading.detail_mcq';
+      return 'reading.notice_mcq';
+    case 'writing':
+      if (/email/.test(t)) return 'writing.email_100';
+      if (/story|truyện|tranh/.test(t)) return 'writing.story_pictures';
+      if (/article|bài báo/.test(t)) return 'writing.article_or_story';
+      return 'writing.short_message';
+    case 'listening':
+      if (/matching|ghép/.test(t)) return 'listening.matching';
+      if (/gap|form|điền/.test(t)) return 'listening.gap_fill';
+      if (/long|dài/.test(t)) return 'listening.long_convo';
+      return 'listening.short_convo';
+    case 'speaking':
+      if (/collaborative|thảo luận cặp/.test(t)) return 'speaking.collaborative';
+      if (/long turn|mô tả ảnh/.test(t)) return 'speaking.long_turn';
+      if (/discussion|thảo luận/.test(t)) return 'speaking.discussion';
+      return 'speaking.interview';
+    case 'grammar':
+      return /b1|pet|hoàn thành|điều kiện|bị động|quan hệ/.test(t) ? 'grammar.b1' : 'grammar.a2';
+    case 'vocabulary':
+      return /b1|pet/.test(t) ? 'vocabulary.b1' : 'vocabulary.a2';
+    default:
+      return undefined;
   }
-
-  return undefined;
 }
 
 /**
@@ -152,68 +147,39 @@ export async function POST(req: Request) {
       );
     }
 
-    let systemPrompt = "";
-    if (moduleType === "literature") {
-      systemPrompt = `Mày là giáo sư Văn học và Lịch sử lỗi lạc, chuyên luyện thi phần Reading & Writing khó nhất của Digital SAT.
-Chủ đề yêu cầu: ${topic}
-Nhiệm vụ:
-1. Viết 1 đoạn văn tiếng Anh CỰC KHÓ, chuẩn văn phong thế kỷ 18-19, ngữ pháp đảo lộn phức tạp, từ vựng cổ xưa (Archaic words). Khoảng 100-150 từ.
-2. Viết 1 câu hỏi thực hành chuẩn SAT liên quan đến đoạn văn.
-QUY TẮC:
-- Đoạn văn, câu hỏi, đáp án PHẢI BẰNG TIẾNG ANH.
-- Giải thích PHẢI BẰNG TIẾNG VIỆT 100%.
-- Định dạng JSON phải sạch 100%, có thuộc tính difficulty (Easy, Medium, Hard) và trapRate (vd: 82).`;
-    } else if (moduleType === "math") {
-      systemPrompt = `Mày là giáo sư toán và là chuyên gia luyện thi SAT lỗi lạc.
-Chủ đề yêu cầu: ${topic}
-Nhiệm vụ:
-1. Biên soạn một bài giảng nền tảng và bài tập thực hành Toán (Mức độ: SIÊU KHÓ - HARD MODULE).
-2. Bao gồm concept_name (Tên bài học), theory (Lý thuyết cốt lõi), sample_example (Ví dụ mẫu và hướng dẫn tư duy).
-3. Tạo 1 câu hỏi thực hành Toán học cực khó, có bẫy (practice_question), 4 đáp án (choices), đáp án đúng (correct_choice), và giải thích chi tiết (explanation).
+    const CEFR_HINT: Record<'Easy' | 'Medium' | 'Hard', string> = {
+      Easy: 'A1 (rất cơ bản, câu ngắn, từ vựng thông dụng nhất)',
+      Medium: 'A2 (trình độ KET, câu đơn giản đời thường)',
+      Hard: 'B1 (trình độ PET, câu phức hơn, từ vựng đa dạng hơn)',
+    };
+    const level = CEFR_HINT[reqDifficulty ?? 'Medium'];
+
+    const MODULE_TASK: Record<string, string> = {
+      reading: `Tạo 1 câu ĐỌC HIỂU trắc nghiệm tiếng Anh trình độ ${level}. Nếu là đoạn văn, đặt vào full_passage (2-4 câu ngắn) rồi hỏi ở practice_question; nếu là điền từ, để full_passage rỗng.`,
+      listening: `Tạo 1 câu NGHE HIỂU trắc nghiệm trình độ ${level}. Vì chưa có audio, ĐẶT transcript đoạn hội thoại/thông báo NGAY TRONG practice_question (VD: 'Nghe đoạn hội thoại: "A: ... B: ..." Câu hỏi: ...'). full_passage để rỗng.`,
+      grammar: `Tạo 1 câu NGỮ PHÁP trắc nghiệm trình độ ${level} (chia thì, giới từ, mạo từ, so sánh, modal...). Dạng điền vào chỗ trống hoặc chọn câu đúng ngữ pháp. full_passage rỗng.`,
+      vocabulary: `Tạo 1 câu TỪ VỰNG trắc nghiệm trình độ ${level}: điền từ hợp ngữ cảnh, hoặc chọn nghĩa/từ đồng nghĩa. full_passage rỗng.`,
+    };
+    const task = MODULE_TASK[moduleType] ?? MODULE_TASK.reading;
+
+    let systemPrompt = `Bạn là chuyên gia soạn đề luyện thi Cambridge English KET (A2) / PET (B1) cho học sinh cấp 2 Việt Nam.
+Chủ đề yêu cầu: ${topic || 'tự chọn phù hợp trình độ'}
+Nhiệm vụ: ${task}
+
 QUY TẮC BẮT BUỘC:
-- practice_question, choices, correct_choice PHẢI BẰNG TIẾNG ANH.
-- concept_name, theory, sample_example, explanation PHẢI BẰNG TIẾNG VIỆT 100%.
-- Công thức toán học, phân số, ký tự độ BẮT BUỘC bọc trong cặp dấu $...$ (VD: $\frac{1}{2}$, $180^\circ$).
-- JSON trả về có difficulty (Hard) và trapRate (vd: 85).`;
-    } else if (moduleType === "desmos") {
-      systemPrompt = `Mày là chuyên gia dạy giải nhanh SAT bằng máy tính bỏ túi Desmos.
-Chủ đề yêu cầu: ${topic}
-Nhiệm vụ: Tạo 1 câu hỏi Toán có thể giải cực nhanh bằng cách vẽ đồ thị Desmos (bẫy hằng số k, hệ phương trình, parabola...).
-QUY TẮC:
-- Câu hỏi và đáp án Tiếng Anh.
-- Giải thích Tiếng Việt, phải chỉ ra cách gõ lệnh vào Desmos.
-- JSON trả về có difficulty và trapRate.`;
-    } else {
-      systemPrompt = `Mày là chuyên gia từ vựng SAT (Vocab).
-Chủ đề: ${topic}
-Nhiệm vụ: Tạo 1 câu điền từ vào chỗ trống chuẩn SAT.
-QUY TẮC JSON y hệt các phần trên. Tiếng Anh cho câu hỏi, Tiếng Việt cho giải thích.`;
-    }
+- practice_question, full_passage, choices, correct_choice PHẢI BẰNG TIẾNG ANH, đúng trình độ ${level}.
+- explanation PHẢI BẰNG TIẾNG VIỆT 100% (giải thích ngắn gọn, dễ hiểu cho học sinh cấp 2).
+- KHÔNG dùng LaTeX, KHÔNG toán học, KHÔNG thành ngữ phương Tây hiếm gặp.
+- Đúng 4 lựa chọn, format "A) ...", "B) ...", "C) ...", "D) ...". correct_choice COPY NGUYÊN VĂN 1 phần tử trong choices.
+- Trường "difficulty" = "${reqDifficulty ?? 'Medium'}". trapRate là số (VD 40).`;
 
-    // ADAPTIVE: nếu caller yêu cầu độ khó cụ thể (Tower/Gate), ÉP độ khó đó —
-    // directive đặt CUỐI prompt nên ghi đè dòng "SIÊU KHÓ/Hard" hardcode phía trên.
-    // Không truyền difficulty → KHÔNG nối gì → prompt y hệt cũ (math vẫn mặc định Hard).
-    if (reqDifficulty) {
-      const DIFFICULTY_SPEC: Record<'Easy' | 'Medium' | 'Hard', string> = {
-        Easy: 'CƠ BẢN (Easy): chỉ 1-2 bước suy luận, không cài bẫy tinh vi, học sinh trung bình làm được. trapRate khoảng 10-30.',
-        Medium: 'TRUNG BÌNH (Medium): vài bước suy luận, có 1 bẫy phân tâm hợp lý. trapRate khoảng 40-60.',
-        Hard: 'KHÓ (Hard): nhiều bước, bẫy tinh vi, đòi hỏi tư duy sâu. trapRate khoảng 70-90.',
-      };
-      systemPrompt += `
-
-⚠️ ĐỘ KHÓ BẮT BUỘC (GHI ĐÈ mọi yêu cầu độ khó phía trên): ${DIFFICULTY_SPEC[reqDifficulty]}
-Trường JSON "difficulty" PHẢI đúng bằng "${reqDifficulty}".`;
-    }
-
-    // PHÂN TÍCH TỪNG ĐÁP ÁN (Nhóm 7 #9) — dạy kỹ năng loại trừ bẫy, áp dụng MỌI
-    // module. Mỗi phương án có 1 phân tích NGẮN Tiếng Việt: vì sao đúng, hoặc vì
-    // sao SAI/đây là bẫy gì. choice_letter khớp nhãn đáp án (A/B/C/D).
+    // choice_analysis (giữ nguyên cơ chế dạy loại trừ bẫy).
     systemPrompt += `
 
-BẮT BUỘC thêm trường "choice_analysis": MẢNG, mỗi phần tử ứng với MỘT đáp án trong "choices" theo ĐÚNG thứ tự, gồm:
-- "choice_letter": chữ cái đáp án (A, B, C, D...).
-- "is_correct": true nếu là đáp án đúng, false nếu sai.
-- "analysis": 1-2 câu TIẾNG VIỆT. Nếu đúng: vì sao đúng. Nếu sai: chỉ rõ ĐÂY LÀ BẪY GÌ, vì sao học sinh dễ chọn nhầm (lỗi tư duy/tính sai/hiểu nhầm đề). Ngắn gọn, sắc.`;
+BẮT BUỘC thêm trường "choice_analysis": MẢNG 4 phần tử ứng với 4 đáp án theo ĐÚNG thứ tự, gồm:
+- "choice_letter": chữ cái đáp án (A, B, C, D).
+- "is_correct": true nếu đúng, false nếu sai. CHỈ ĐÚNG 1 phần tử is_correct=true, khớp correct_choice.
+- "analysis": 1-2 câu TIẾNG VIỆT. Nếu đúng: vì sao đúng. Nếu sai: chỉ rõ lỗi/hiểu nhầm khiến học sinh dễ chọn nhầm.`;
 
     const choiceAnalysisSchema = {
       type: "array",
@@ -222,63 +188,28 @@ BẮT BUỘC thêm trường "choice_analysis": MẢNG, mỗi phần tử ứng 
         properties: {
           choice_letter: { type: "string", description: "A, B, C, or D" },
           is_correct: { type: "boolean" },
-          analysis: { type: "string", description: "1-2 câu tiếng Việt giải thích vì sao đúng hoặc đây là bẫy gì" }
+          analysis: { type: "string", description: "1-2 câu tiếng Việt giải thích vì sao đúng hoặc sai" }
         },
         required: ["choice_letter", "is_correct", "analysis"],
         additionalProperties: false
       }
     };
 
-    const baseSchema = {
+    const cambridgeSchema = {
       type: "object",
       properties: {
         title: { type: "string" },
         full_passage: { type: "string" },
-        archaic_words: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              word: { type: "string" },
-              meaning: { type: "string" }
-            },
-            required: ["word", "meaning"],
-            additionalProperties: false
-          }
-        },
         practice_question: { type: "string" },
-        choices: {
-          type: "array",
-          items: { type: "string" }
-        },
+        choices: { type: "array", items: { type: "string" } },
         correct_choice: { type: "string" },
         explanation: { type: "string" },
+        cefr_level: { type: "string", description: "A1, A2, or B1" },
         difficulty: { type: "string", description: "Easy, Medium, or Hard" },
-        trapRate: { type: "integer", description: "Percentage of students who fall for traps, e.g. 82" },
+        trapRate: { type: "integer", description: "Percentage of students who fall for traps, e.g. 40" },
         choice_analysis: choiceAnalysisSchema
       },
-      required: ["title", "full_passage", "archaic_words", "practice_question", "choices", "correct_choice", "explanation", "difficulty", "trapRate", "choice_analysis"],
-      additionalProperties: false
-    };
-
-    const mathSchema = {
-      type: "object",
-      properties: {
-        concept_name: { type: "string" },
-        theory: { type: "string" },
-        sample_example: { type: "string" },
-        practice_question: { type: "string" },
-        choices: {
-          type: "array",
-          items: { type: "string" }
-        },
-        correct_choice: { type: "string" },
-        explanation: { type: "string" },
-        difficulty: { type: "string", description: "Easy, Medium, or Hard" },
-        trapRate: { type: "integer", description: "Percentage of students who fall for traps" },
-        choice_analysis: choiceAnalysisSchema
-      },
-      required: ["concept_name", "theory", "sample_example", "practice_question", "choices", "correct_choice", "explanation", "difficulty", "trapRate", "choice_analysis"],
+      required: ["title", "full_passage", "practice_question", "choices", "correct_choice", "explanation", "cefr_level", "difficulty", "trapRate", "choice_analysis"],
       additionalProperties: false
     };
 
@@ -288,12 +219,12 @@ BẮT BUỘC thêm trường "choice_analysis": MẢNG, mỗi phần tử ứng 
       response_format: {
         type: "json_schema",
         json_schema: {
-          name: moduleType === "math" ? "sat_math_lesson" : "sat_practice_question",
+          name: "cambridge_choice_question",
           strict: true,
-          schema: moduleType === "math" ? mathSchema : baseSchema
+          schema: cambridgeSchema
         }
       },
-      temperature: 0.3
+      temperature: 0.4
     };
 
     const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
@@ -353,6 +284,58 @@ BẮT BUỘC thêm trường "choice_analysis": MẢNG, mỗi phần tử ứng 
           analysis: typeof c.analysis === 'string' ? cleanAiText(c.analysis) : c.analysis,
         })
       );
+    }
+
+    // VALIDATE LOGIC (tối ưu #2): json_schema đảm bảo cấu trúc nhưng KHÔNG đảm bảo
+    // logic (2 đáp án đúng, correct_choice không nằm trong choices...). Câu lỗi lọt
+    // vào bank sẽ lan cho nhiều học sinh → ghi nhớ SAI. Fail → KHÔNG saveToBank +
+    // KHÔNG issue; báo lỗi để client thử lại (fallback bank ở lần sau).
+    const validation = validateQuestion(data);
+    if (!validation.ok) {
+      console.error('Câu AI sinh KHÔNG hợp lệ, bỏ qua:', validation.reasons.join('; '));
+      const fb = (await getFromBank(moduleType, topic, reqDifficulty)) as Record<string, unknown> | null;
+      if (fb) return issueBankResponse(user.id, fb, skillId, { _source: 'bank', _degraded: 'invalid_ai' });
+      return NextResponse.json({ error: 'Câu hỏi vừa sinh chưa đạt chuẩn. Vui lòng thử lại.' }, { status: 502 });
+    }
+
+    // KIỂM CEFR LEVEL chặt hơn (Cambridge KET/PET chỉ dùng A1/A2/B1). json_schema
+    // yêu cầu cefr_level nhưng GPT có thể trả 'B2'/'C1'/thiếu/không khớp độ khó.
+    // ƯU TIÊN sửa nhẹ: nếu cefr_level lệch nhưng difficulty đúng → override theo
+    // difficulty (Easy→'A2', Medium→'A2', Hard→'B1') thay vì reject (tránh fallback
+    // thừa + vẫn dùng được câu AI đã tốn token). Chỉ reject (bank/502) khi cefr_level
+    // KHÔNG thuộc 3 giá trị hợp lệ VÀ không suy được từ difficulty.
+    const VALID_CEFR = ['A1', 'A2', 'B1'] as const;
+    const CEFR_BY_DIFFICULTY: Record<'Easy' | 'Medium' | 'Hard', string> = {
+      Easy: 'A2',
+      Medium: 'A2',
+      Hard: 'B1',
+    };
+    const rawCefr = typeof data.cefr_level === 'string' ? (data.cefr_level as string).trim().toUpperCase() : '';
+    const diffFromAi = typeof data.difficulty === 'string' && VALID_DIFFICULTY.includes(data.difficulty as string)
+      ? (data.difficulty as 'Easy' | 'Medium' | 'Hard')
+      : (reqDifficulty ?? 'Medium');
+
+    if (!VALID_CEFR.includes(rawCefr as typeof VALID_CEFR[number])) {
+      // cefr_level lạ/thiếu → thử suy từ difficulty (ưu tiên sửa nhẹ, không reject).
+      const inferred = CEFR_BY_DIFFICULTY[diffFromAi];
+      if (inferred) {
+        data.cefr_level = inferred;
+        console.error(`cefr_level lạ: "${rawCefr}" → override theo difficulty (${diffFromAi}) thành "${inferred}"`);
+      } else {
+        // Không suy được → reject (không saveToBank/issue).
+        console.error(`cefr_level lạ: "${rawCefr}" và không suy được từ difficulty "${String(data.difficulty)}"`);
+        const fb = (await getFromBank(moduleType, topic, reqDifficulty)) as Record<string, unknown> | null;
+        if (fb) return issueBankResponse(user.id, fb, skillId, { _source: 'bank', _degraded: 'invalid_cefr' });
+        return NextResponse.json({ error: 'Câu hỏi vừa sinh không đúng trình độ Cambridge. Vui lòng thử lại.' }, { status: 502 });
+      }
+    } else {
+      // cefr_level hợp lệ nhưng lệch difficulty (VD difficulty='Hard' mà cefr='A1')
+      // → override cefr theo difficulty để nhất quán chấm band.
+      const expected = CEFR_BY_DIFFICULTY[diffFromAi];
+      if (rawCefr !== expected) {
+        data.cefr_level = expected;
+        console.error(`cefr_level lệch difficulty: "${rawCefr}" vs "${diffFromAi}" → override thành "${expected}"`);
+      }
     }
 
     // Lưu câu mới vào Question Bank để tái sử dụng (§9.4). Không chặn response

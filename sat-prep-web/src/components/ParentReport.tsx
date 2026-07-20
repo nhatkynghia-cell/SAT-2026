@@ -10,18 +10,20 @@ import { WeeklyTrendPanel, type WeeklyTrend } from './WeeklyTrendPanel';
 
 export interface ParentReportData {
   prediction: {
-    math: number;
-    reading: number;
-    total: number;
+    overallMastery: number;
+    scale: number;
+    cefr: string;
     confidence: 'low' | 'medium' | 'high';
     totalAttempts: number;
-    targetScore: number | null;
-    pointsToTarget: number | null;
+    targetLevel: string | null;
+    targetScale: number | null;
+    scaleToTarget: number | null;
+    etaDays: number | null;
     focusSkills: Array<{ id: string; label: string; score: number; subject: string }>;
   };
   mastery: {
     overall: number;
-    bySubject: { math: number; reading: number };
+    bySubject: Record<string, number>;
     domains: Array<{ domainId: string; domainLabel: string; score: number }>;
   };
   streak: number;
@@ -34,11 +36,11 @@ export interface ParentReportData {
 }
 
 const RADAR_AXES: { domainId: string; label: string; color: string; angle: number }[] = [
-  { domainId: 'algebra', label: 'Đại số', color: 'text-blue-400', angle: 90 },
-  { domainId: 'advanced_math', label: 'Nâng cao', color: 'text-emerald-400', angle: 18 },
-  { domainId: 'data_analysis', label: 'Số liệu', color: 'text-yellow-400', angle: 306 },
-  { domainId: 'geometry', label: 'Hình học', color: 'text-purple-400', angle: 234 },
-  { domainId: 'reading_writing', label: 'Đọc & Viết', color: 'text-red-400', angle: 162 },
+  { domainId: 'reading', label: 'Đọc', color: 'text-blue-400', angle: 90 },
+  { domainId: 'listening', label: 'Nghe', color: 'text-emerald-400', angle: 18 },
+  { domainId: 'writing', label: 'Viết', color: 'text-yellow-400', angle: 306 },
+  { domainId: 'speaking', label: 'Nói', color: 'text-purple-400', angle: 234 },
+  { domainId: 'grammar', label: 'Ngữ pháp', color: 'text-red-400', angle: 162 },
 ];
 
 const CONFIDENCE_LABEL: Record<string, string> = {
@@ -85,7 +87,7 @@ export function ParentReport({ data }: { data: ParentReportData }) {
 
       {/* Hàng chỉ số chính */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard icon="📈" value={hasData ? String(prediction.total) : '—'} label="Điểm SAT dự đoán" />
+        <StatCard icon="🎓" value={hasData ? prediction.cefr : '—'} label="Cấp độ CEFR hiện tại" />
         <StatCard icon="🔥" value={`${streak}`} label="Chuỗi ngày học" />
         <StatCard icon="🎯" value={String(prediction.totalAttempts)} label="Tổng câu đã luyện" />
         <StatCard
@@ -97,20 +99,20 @@ export function ParentReport({ data }: { data: ParentReportData }) {
 
       {/* Chi tiết điểm */}
       <div className="bg-[#1b2533] p-6 rounded-xl border border-[#262730]">
-        <h3 className="text-lg font-bold text-white mb-3">🎓 Dự đoán điểm SAT của con</h3>
+        <h3 className="text-lg font-bold text-white mb-3">🎓 Trình độ Cambridge của con</h3>
         {hasData ? (
           <>
             <div className="flex gap-6 flex-wrap">
-              <div><div className="text-2xl font-bold text-blue-400">{prediction.math}</div><div className="text-xs text-gray-400">Toán (200-800)</div></div>
-              <div><div className="text-2xl font-bold text-emerald-400">{prediction.reading}</div><div className="text-xs text-gray-400">Đọc & Viết (200-800)</div></div>
-              {prediction.targetScore !== null && (
-                <div><div className="text-2xl font-bold text-yellow-400">{prediction.targetScore}</div><div className="text-xs text-gray-400">Mục tiêu (còn {prediction.pointsToTarget})</div></div>
+              <div><div className="text-2xl font-bold text-blue-400">{prediction.cefr}</div><div className="text-xs text-gray-400">Cấp độ hiện tại</div></div>
+              <div><div className="text-2xl font-bold text-emerald-400">{prediction.scale}</div><div className="text-xs text-gray-400">Cambridge Scale (82–170)</div></div>
+              {prediction.targetLevel !== null && (
+                <div><div className="text-2xl font-bold text-yellow-400">{prediction.targetLevel}</div><div className="text-xs text-gray-400">Mục tiêu{prediction.etaDays !== null ? ` (~${prediction.etaDays} ngày)` : ''}</div></div>
               )}
             </div>
-            <p className="text-xs text-gray-500 mt-3">Độ tin cậy: {CONFIDENCE_LABEL[prediction.confidence]} — ước lượng động viên, không phải điểm chính thức.</p>
+            <p className="text-xs text-gray-500 mt-3">Độ tin cậy: {CONFIDENCE_LABEL[prediction.confidence]} — ước lượng động viên, không phải điểm thi Cambridge chính thức.</p>
           </>
         ) : (
-          <p className="text-gray-500 text-sm">Con chưa luyện đủ để dự đoán điểm. Hãy động viên con luyện tập mỗi ngày!</p>
+          <p className="text-gray-500 text-sm">Con chưa luyện đủ để dự đoán trình độ. Hãy động viên con luyện tập mỗi ngày!</p>
         )}
       </div>
 

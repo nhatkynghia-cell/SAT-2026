@@ -10,7 +10,7 @@ import { computeStats } from '@/lib/stats';
  * GET → chỉ số nhân vật sinh từ hiệu suất học thật (Trí Tuệ/Chính Xác/Độ Phủ →
  *       Lực Chiến nền) + bonus trang bị (từ túi đồ ảo) → Lực Chiến tổng.
  *
- * Trang bị CHỈ cộng thêm — Lực Chiến nền hoàn toàn từ năng lực SAT thật.
+ * Trang bị CHỈ cộng thêm — Lực Chiến nền hoàn toàn từ năng lực Cambridge thật.
  */
 
 /** Bonus Lực Chiến mỗi món trang bị ảo trong túi (cosmetic-ish, nhỏ). */

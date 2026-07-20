@@ -7,11 +7,11 @@
  */
 
 export interface WeeklyTrend {
-  latestTotal: number | null;
-  weekAgoTotal: number | null;
+  latestScale: number | null;
+  weekAgoScale: number | null;
   scoreDelta: number;
   attemptsThisWeek: number;
-  series: Array<{ date: string; total: number }>;
+  series: Array<{ date: string; scale: number }>;
   activeDays: number;
 }
 
@@ -22,13 +22,13 @@ export function WeeklyTrendPanel({ trend }: { trend: WeeklyTrend }) {
 
   const trendPath = (() => {
     if (series.length < 2) return '';
-    const min = Math.min(...series.map((s) => s.total));
-    const max = Math.max(...series.map((s) => s.total));
+    const min = Math.min(...series.map((s) => s.scale));
+    const max = Math.max(...series.map((s) => s.scale));
     const range = max - min || 1;
     return series
       .map((s, i) => {
         const x = (i / (series.length - 1)) * trendW;
-        const y = trendH - ((s.total - min) / range) * (trendH - 10) - 5;
+        const y = trendH - ((s.scale - min) / range) * (trendH - 10) - 5;
         return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
       })
       .join(' ');
@@ -38,7 +38,7 @@ export function WeeklyTrendPanel({ trend }: { trend: WeeklyTrend }) {
     <div className="bg-[#1b2533] p-6 rounded-xl border border-[#262730]">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-lg font-bold text-white">📊 Xu hướng 7 ngày</h3>
-        {trend.latestTotal !== null && (
+        {trend.latestScale !== null && (
           <span className={`text-sm font-bold ${trend.scoreDelta >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
             {trend.scoreDelta >= 0 ? '⬆️ +' : '⬇️ '}{trend.scoreDelta} điểm
           </span>
@@ -50,10 +50,10 @@ export function WeeklyTrendPanel({ trend }: { trend: WeeklyTrend }) {
             <path d={trendPath} fill="none" stroke="#34d399" strokeWidth="2" />
             {series.map((s, i) => {
               const x = (i / (series.length - 1)) * trendW;
-              const min = Math.min(...series.map((p) => p.total));
-              const max = Math.max(...series.map((p) => p.total));
+              const min = Math.min(...series.map((p) => p.scale));
+              const max = Math.max(...series.map((p) => p.scale));
               const range = max - min || 1;
-              const y = trendH - ((s.total - min) / range) * (trendH - 10) - 5;
+              const y = trendH - ((s.scale - min) / range) * (trendH - 10) - 5;
               return <circle key={i} cx={x} cy={y} r="3" fill="#34d399" />;
             })}
           </svg>

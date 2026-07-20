@@ -6,12 +6,12 @@ import { chatCacheHash } from './chat-cache';
  *  AI CHAT CACHE STORE (Supabase) — implementation_plan.md §9.5 / task 5.3
  * ============================================================================
  *  Cache câu trả lời Gia sư AI để TIẾT KIỆM TOKEN khi nhiều học sinh hỏi GIỐNG
- *  NHAU về cùng một câu hỏi SAT. Khác các bảng user_* (1 dòng/user): bảng này
+ *  NHAU về cùng một câu hỏi Cambridge. Khác các bảng user_* (1 dòng/user): bảng này
  *  DÙNG CHUNG toàn hệ thống — 1 câu trả lời phục vụ mọi học sinh.
  *
  *  ⚠️ HỆ QUẢ RLS: KHÔNG scope theo `auth.uid()=user_id` được (cache chia sẻ).
  *  Policy phải là "mọi user đã đăng nhập đọc/ghi được" (xem ai_chat_cache.sql).
- *  Bảng chỉ chứa lời giải câu hỏi SAT — KHÔNG có PII → chia sẻ là an toàn.
+ *  Bảng chỉ chứa lời giải câu hỏi Cambridge — KHÔNG có PII → chia sẻ là an toàn.
  *
  *  CHỈ cache hội thoại 1-LƯỢT (history rỗng). Hội thoại nhiều lượt vốn duy nhất
  *  → hash sẽ gần như không trùng, cache vô nghĩa.

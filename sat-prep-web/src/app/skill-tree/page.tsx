@@ -7,7 +7,7 @@ import { LoadingState } from '@/components/LoadingState';
 /**
  * SKILL TREE PAGE (implementation_plan.md §10.B.1, task #17 / Nhóm 6 T3)
  *
- * Hiển thị bản đồ năng lực SAT — HỆ TIẾN TRÌNH DUY NHẤT (đã bỏ Level phẳng).
+ * Hiển thị bản đồ năng lực Cambridge — HỆ TIẾN TRÌNH DUY NHẤT (đã bỏ Level phẳng).
  * Đọc /api/skill-tree (buildSkillTree từ mastery thật). Mỗi node = 1 skill;
  * chương phụ thuộc bị KHÓA tới khi chương tiên quyết đạt ngưỡng.
  *
@@ -55,10 +55,12 @@ interface AdaptiveRecommendation {
 
 /** moduleType → route trang luyện tương ứng (deep-link nút "Luyện ngay"). */
 const MODULE_ROUTE: Record<string, string> = {
-  math: '/math',
-  literature: '/literature',
-  vocab: '/vocabulary',
-  desmos: '/desmos',
+  reading: '/reading',
+  writing: '/writing',
+  listening: '/listening',
+  speaking: '/speaking',
+  grammar: '/grammar',
+  vocabulary: '/vocabulary',
 };
 
 const DIFFICULTY_LABEL: Record<AdaptiveRecommendation['difficulty'], { text: string; cls: string }> = {
@@ -135,7 +137,7 @@ export default function SkillTreePage() {
         <div className="math-title-container">
           <div className="math-icon">🌳</div>
           <div>
-            <h1 className="math-title" style={{ background: 'linear-gradient(to right, #818cf8, #6366f1)', WebkitBackgroundClip: 'text' }}>CÂY NĂNG LỰC SAT</h1>
+            <h1 className="math-title" style={{ background: 'linear-gradient(to right, #818cf8, #6366f1)', WebkitBackgroundClip: 'text' }}>CÂY NĂNG LỰC CAMBRIDGE</h1>
             <p className="math-subtitle text-indigo-200">Bản đồ tiến trình thật — mở khóa bằng năng lực, không phải điểm kinh nghiệm.</p>
           </div>
         </div>
@@ -153,7 +155,7 @@ export default function SkillTreePage() {
           <div className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-700" style={{ width: `${masteredPct}%` }} />
         </div>
         <p className="text-xs text-gray-400 mt-2">
-          Bạn đã tinh thông {masteredPct}% số kỹ năng SAT. Mỗi kỹ năng tinh thông là một bước tiến thật tới điểm số mục tiêu.
+          Bạn đã tinh thông {masteredPct}% số kỹ năng Cambridge. Mỗi kỹ năng tinh thông là một bước tiến thật tới điểm số mục tiêu.
         </p>
       </div>
 

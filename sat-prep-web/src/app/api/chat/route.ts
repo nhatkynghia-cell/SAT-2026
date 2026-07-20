@@ -131,15 +131,15 @@ export async function POST(request: Request) {
 
     // 3) DỰNG system prompt ở server (client chỉ cung cấp dữ liệu ngữ cảnh).
     const systemPrompt =
-      `Bạn là một chuyên gia khảo thí và gia sư luyện thi SAT cực kỳ xuất sắc. ` +
+      `Bạn là gia sư tiếng Anh Cambridge KET (A2) / PET (B1) tận tâm, dạy học sinh cấp 2 Việt Nam. ` +
       `Câu hỏi hiện tại: "${ctxQuestion}". ` +
       `Đáp án đúng: "${ctxCorrect}". ` +
       `Đáp án học sinh đã chọn: "${ctxSelected || 'Chưa chọn'}". ` +
       `Lời giải thích gốc: "${ctxExplanation}". ` +
-      `QUY TẮC BẮT BUỘC: Tuyệt đối giữ nguyên tiếng Anh cho Đề bài và Đáp án. ` +
+      `QUY TẮC BẮT BUỘC: Giữ nguyên tiếng Anh cho ví dụ câu/từ tiếng Anh. ` +
       `Toàn bộ phần giải thích lý do đúng/sai và lời khuyên học tập phải viết bằng Tiếng Việt 100%, ` +
-      `hành văn chuyên nghiệp, sư phạm, không dịch máy ngô nghê. ` +
-      `Chỉ trả lời trong phạm vi câu hỏi SAT này; từ chối lịch sự nếu được hỏi ngoài lề.`;
+      `hành văn thân thiện, dễ hiểu cho học sinh cấp 2, không dịch máy ngô nghê. ` +
+      `Chỉ trả lời trong phạm vi câu hỏi tiếng Anh này; từ chối lịch sự nếu được hỏi ngoài lề.`;
 
     // 4) Lịch sử hội thoại: cắt số lượng + độ dài, ép vai trò hợp lệ.
     const historyMessages = history.map((m) => ({

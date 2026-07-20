@@ -32,7 +32,8 @@ export interface ParentReport {
   prediction: ScorePrediction;
   mastery: {
     overall: number;
-    bySubject: { math: number; reading: number };
+    /** Mastery trung bình theo 5 kỹ năng Cambridge (reading/writing/listening/speaking/foundation). */
+    bySubject: Record<string, number>;
     domains: Array<{ domainId: string; domainLabel: string; score: number }>;
   };
   streak: number;
@@ -70,10 +71,12 @@ export async function buildParentReport(studentId: string): Promise<ParentReport
   const skillsData = (mRow?.skills ?? {}) as Record<string, SkillMastery>;
   const summary = summarizeMastery(skillsData);
 
-  // 2) Goal (target score) → prediction thuần.
-  const { data: gRow } = await admin.from('user_goals').select('target_score').eq('user_id', studentId).maybeSingle();
-  const targetScore = typeof gRow?.target_score === 'number' ? gRow.target_score : null;
-  const prediction = computePrediction(summary, targetScore);
+  // 2) Goal (target CEFR level) → prediction thuần.
+  const { data: gRow } = await admin.from('user_goals').select('target_level').eq('user_id', studentId).maybeSingle();
+  const targetLevel = (gRow?.target_level === 'A1' || gRow?.target_level === 'A2' || gRow?.target_level === 'B1')
+    ? gRow.target_level
+    : null;
+  const prediction = computePrediction(summary, targetLevel);
 
   // 3) Time-series → trend theo cửa sổ tier (7/30/90 ngày).
   const today = todayVN();

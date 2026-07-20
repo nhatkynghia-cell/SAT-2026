@@ -18,11 +18,13 @@ import { CorePracticeUI, type PracticeQuestion } from '@/components/CorePractice
 type Phase = 'loading' | 'done_already' | 'intro' | 'fighting' | 'result';
 
 interface Prediction {
-  math: number;
-  reading: number;
-  total: number;
+  overallMastery: number;
+  scale: number;
+  cefr: string;
   confidence: string;
   totalAttempts: number;
+  targetLevel: string | null;
+  etaDays: number | null;
   focusSkills: Array<{ id: string; label: string; score: number; subject: string }>;
 }
 
@@ -37,7 +39,7 @@ export default function DiagnosticPage() {
   const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answerLog, setAnswerLog] = useState<boolean[]>([]);
-  const [targetScore, setTargetScore] = useState<string>('');
+  const [targetLevel, setTargetLevel] = useState<string>('');
   const [prediction, setPrediction] = useState<Prediction | null>(null);
   const [tier, setTier] = useState<string>('free');
   const [starting, setStarting] = useState(false);
@@ -92,13 +94,13 @@ export default function DiagnosticPage() {
   const finish = useCallback(async () => {
     setPhase('loading');
     try {
-      const target = parseInt(targetScore, 10);
+      const validLevel = targetLevel === 'A1' || targetLevel === 'A2' || targetLevel === 'B1';
       const res = await fetch('/api/diagnostic', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'complete',
-          ...(Number.isFinite(target) ? { targetScore: target } : {}),
+          ...(validLevel ? { targetLevel } : {}),
         }),
       });
       const data = await res.json();
@@ -108,7 +110,7 @@ export default function DiagnosticPage() {
       setPrediction(null);
     }
     setPhase('result');
-  }, [targetScore]);
+  }, [targetLevel]);
 
   const handleNext = useCallback(() => {
     const nextIdx = currentIdx + 1;
@@ -169,21 +171,22 @@ export default function DiagnosticPage() {
         <div className="max-w-lg mx-auto space-y-6">
           <div className="bg-[#1b2533] p-8 rounded-xl border border-indigo-500/30">
             <div className="space-y-3 text-left bg-[#0e1117] p-4 rounded-lg border border-[#334155] mb-6">
-              <p className="text-gray-300"><span className="text-blue-400 font-bold">📝 Nội dung:</span> {questions.length || 14} câu phủ Đại số, Toán nâng cao, Phân tích số liệu, Hình học & Đọc hiểu</p>
+              <p className="text-gray-300"><span className="text-blue-400 font-bold">📝 Nội dung:</span> {questions.length || 14} câu phủ Đọc hiểu, Ngữ pháp, Từ vựng & Nghe (KET/PET)</p>
               <p className="text-gray-300"><span className="text-emerald-400 font-bold">⏱️ Thời lượng:</span> khoảng 5–10 phút, không giới hạn giờ</p>
-              <p className="text-gray-300"><span className="text-amber-400 font-bold">🎁 Kết quả:</span> điểm SAT dự đoán ban đầu + gợi ý kỹ năng cần tập trung</p>
+              <p className="text-gray-300"><span className="text-amber-400 font-bold">🎁 Kết quả:</span> cấp độ CEFR dự đoán ban đầu + gợi ý kỹ năng cần tập trung</p>
             </div>
 
-            <label className="block text-sm text-gray-400 mb-2">Điểm SAT mục tiêu của bạn (tùy chọn, 400–1600):</label>
-            <input
-              type="number"
-              value={targetScore}
-              onChange={(e) => setTargetScore(e.target.value)}
-              placeholder="VD: 1400"
-              min={400}
-              max={1600}
+            <label className="block text-sm text-gray-400 mb-2">Cấp độ mục tiêu của bạn (tùy chọn):</label>
+            <select
+              value={targetLevel}
+              onChange={(e) => setTargetLevel(e.target.value)}
               className="w-full bg-[#0e1117] border border-[#334155] rounded-lg px-4 py-2 text-white mb-6 focus:border-indigo-500 outline-none"
-            />
+            >
+              <option value="">— Chưa chọn —</option>
+              <option value="A1">A1 (Khởi đầu)</option>
+              <option value="A2">A2 — KET (Sơ cấp)</option>
+              <option value="B1">B1 — PET (Trung cấp)</option>
+            </select>
 
             {error && <p className="text-red-400 mb-4 text-sm">{error}</p>}
 
@@ -251,17 +254,18 @@ export default function DiagnosticPage() {
           <div className="bg-gradient-to-br from-[#0b3b2e] to-[#0f172a] p-10 rounded-xl border-2 border-emerald-500 shadow-[0_0_40px_rgba(16,185,129,0.25)]">
             <div className="text-7xl mb-4">🎉</div>
             <h2 className="text-3xl font-black text-emerald-400 mb-2">HOÀN THÀNH XẾP LỚP!</h2>
-            <p className="text-gray-300 mb-6">Bạn trả lời đúng {correctCount}/{answerLog.length} câu. Dưới đây là điểm SAT dự đoán ban đầu:</p>
+            <p className="text-gray-300 mb-6">Bạn trả lời đúng {correctCount}/{answerLog.length} câu. Dưới đây là cấp độ CEFR dự đoán ban đầu:</p>
 
             {prediction ? (
               <>
                 <div className="bg-[#0e1117] p-6 rounded-lg border border-[#334155] mb-6">
-                  <div className="text-5xl font-black text-white mb-1">{prediction.total}</div>
-                  <div className="text-gray-400 text-sm mb-4">/ 1600 &middot; Độ tin cậy: {CONFIDENCE_LABEL[prediction.confidence] ?? prediction.confidence}</div>
-                  <div className="flex justify-around text-sm">
-                    <div><span className="text-blue-300 font-bold">{prediction.math}</span><div className="text-gray-500">Toán</div></div>
-                    <div><span className="text-purple-300 font-bold">{prediction.reading}</span><div className="text-gray-500">Đọc & Viết</div></div>
-                  </div>
+                  <div className="text-5xl font-black text-white mb-1">{prediction.cefr}</div>
+                  <div className="text-gray-400 text-sm mb-4">Cambridge Scale {prediction.scale} &middot; Độ tin cậy: {CONFIDENCE_LABEL[prediction.confidence] ?? prediction.confidence}</div>
+                  {prediction.targetLevel && (
+                    <div className="flex justify-center text-sm">
+                      <div><span className="text-yellow-300 font-bold">{prediction.targetLevel}</span><div className="text-gray-500">Mục tiêu{prediction.etaDays !== null ? ` (~${prediction.etaDays} ngày)` : ''}</div></div>
+                    </div>
+                  )}
                 </div>
 
                 {prediction.focusSkills.length > 0 && (
@@ -298,7 +302,7 @@ export default function DiagnosticPage() {
               <Link href="/skill-tree" className="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold px-8 py-4 rounded-xl inline-block shadow-lg">
                 🌳 Xem lộ trình trong Cây Năng Lực
               </Link>
-              <Link href="/math" className="text-indigo-300 hover:text-indigo-200">📐 Luyện Toán ngay →</Link>
+              <Link href="/reading" className="text-indigo-300 hover:text-indigo-200">📖 Luyện Đọc hiểu ngay →</Link>
             </div>
           </div>
         </div>

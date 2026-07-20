@@ -7,7 +7,9 @@ interface VocabWord {
   id: string;
   box: number;
   word: string;
-  meaning: string;
+  ipa?: string;
+  meaning_vi?: string;
+  meaning?: string;
   example: string;
 }
 
@@ -70,8 +72,8 @@ export default function VocabPage() {
         <div className="math-title-container">
           <div className="math-icon">📚</div>
           <div>
-            <h1 className="math-title" style={{ background: "linear-gradient(to right, #c084fc, #a855f7)", WebkitBackgroundClip: "text" }}>LÀM CHỦ TỪ VỰNG</h1>
-            <p className="math-subtitle text-purple-200">Hệ thống ôn tập ngắt quãng (Spaced Repetition) Leitner Box.</p>
+            <h1 className="math-title" style={{ background: "linear-gradient(to right, #c084fc, #a855f7)", WebkitBackgroundClip: "text" }}>TỪ VỰNG KET/PET</h1>
+            <p className="math-subtitle text-purple-200">Từ vựng Cambridge KET/PET — ôn tập ngắt quãng (Spaced Repetition) Leitner Box.</p>
           </div>
         </div>
       </div>
@@ -94,13 +96,19 @@ export default function VocabPage() {
             {!isFlipped ? (
               <>
                 <div className="text-gray-400 text-sm mb-4 animate-pulse">Click để lật thẻ</div>
+                {words[currentIndex].ipa && (
+                  <div className="text-gray-400 text-lg mb-2">{words[currentIndex].ipa}</div>
+                )}
                 <h2 className="text-5xl font-black text-white mb-6 text-center">{words[currentIndex].word}</h2>
               </>
             ) : (
               <div className="animate-in zoom-in duration-300 text-center">
-                <h2 className="text-3xl font-black text-[#c084fc] mb-4">{words[currentIndex].word}</h2>
+                <h2 className="text-3xl font-black text-[#c084fc] mb-2">{words[currentIndex].word}</h2>
+                {words[currentIndex].ipa && (
+                  <p className="text-gray-400 mb-3">{words[currentIndex].ipa}</p>
+                )}
                 <p className="text-[#a855f7] font-bold text-xl mb-4">
-                  {words[currentIndex].meaning}
+                  {words[currentIndex].meaning_vi ?? words[currentIndex].meaning}
                 </p>
                 <p className="text-gray-300 italic max-w-lg mx-auto">
                   &quot;{words[currentIndex].example}&quot;

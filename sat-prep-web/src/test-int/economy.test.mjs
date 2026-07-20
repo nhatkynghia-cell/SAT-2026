@@ -21,9 +21,9 @@ function seedStrongMastery(id) {
   seed('user_mastery', {
     user_id: id,
     skills: {
-      'algebra.linear_eq': { score: 100, attempts: 20, correct: 20, lastSeen: '2026-07-01' },
-      'advanced.quadratic': { score: 100, attempts: 20, correct: 20, lastSeen: '2026-07-01' },
-      'geo.circles': { score: 100, attempts: 20, correct: 20, lastSeen: '2026-07-01' },
+      'reading.notice_mcq': { score: 100, attempts: 20, correct: 20, lastSeen: '2026-07-01' },
+      'grammar.a2': { score: 100, attempts: 20, correct: 20, lastSeen: '2026-07-01' },
+      'vocabulary.b1': { score: 100, attempts: 20, correct: 20, lastSeen: '2026-07-01' },
     },
   });
 }

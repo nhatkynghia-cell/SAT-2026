@@ -15,30 +15,32 @@ interface MasterySkill {
 }
 interface MasterySummary {
   skills: MasterySkill[];
-  bySubject: { math: number; reading: number };
+  bySubject: Record<string, number>;
   overall: number;
 }
-/** Shape trả về từ /api/score (predictScore). Free → breakdown bị khóa (null). */
+/** Shape trả về từ /api/score (predictScore). Free → focus skills bị khóa. */
 interface ScorePrediction {
-  math: number | null;
-  reading: number | null;
-  total: number;
+  overallMastery: number;
+  scale: number;
+  cefr: string;
   confidence: 'low' | 'medium' | 'high';
   totalAttempts: number;
-  targetScore: number | null;
-  pointsToTarget: number | null;
+  targetLevel: string | null;
+  targetScale: number | null;
+  scaleToTarget: number | null;
+  etaDays: number | null;
   focusSkills: Array<{ id: string; label: string; score: number; subject: string }>;
   /** true khi gói free — breakdown môn + focus skills bị ẩn (nâng cấp để mở). */
   detailLocked?: boolean;
 }
 
-// 5 trục radar = 4 chương Toán + 1 cụm Đọc-Viết (neo vào domainId thật).
+// 5 trục radar = 4 kỹ năng Cambridge + Ngữ pháp nền tảng (neo vào domainId thật).
 const RADAR_AXES: { domainId: string; label: string; color: string; angle: number }[] = [
-  { domainId: 'algebra', label: 'Đại số', color: 'text-blue-400', angle: 90 },
-  { domainId: 'advanced_math', label: 'Nâng cao', color: 'text-emerald-400', angle: 18 },
-  { domainId: 'data_analysis', label: 'Số liệu', color: 'text-yellow-400', angle: 306 },
-  { domainId: 'geometry', label: 'Hình học', color: 'text-purple-400', angle: 234 },
-  { domainId: 'reading_writing', label: 'Đọc & Viết', color: 'text-red-400', angle: 162 },
+  { domainId: 'reading', label: 'Đọc', color: 'text-blue-400', angle: 90 },
+  { domainId: 'listening', label: 'Nghe', color: 'text-emerald-400', angle: 18 },
+  { domainId: 'writing', label: 'Viết', color: 'text-yellow-400', angle: 306 },
+  { domainId: 'speaking', label: 'Nói', color: 'text-purple-400', angle: 234 },
+  { domainId: 'grammar', label: 'Ngữ pháp', color: 'text-red-400', angle: 162 },
 ];
 
 const CONFIDENCE_LABEL: Record<ScorePrediction['confidence'], string> = {
@@ -109,7 +111,7 @@ export default function DashboardPage() {
           <div className="math-icon">📊</div>
           <div>
             <h1 className="math-title" style={{ background: 'linear-gradient(to right, #34d399, #10b981)', WebkitBackgroundClip: 'text' }}>NHẬT KÝ TRƯỞNG THÀNH</h1>
-            <p className="math-subtitle text-emerald-200">Thống kê dựa trên năng lực SAT thật của bạn!</p>
+            <p className="math-subtitle text-emerald-200">Thống kê dựa trên năng lực tiếng Anh thật của bạn!</p>
           </div>
         </div>
       </div>
@@ -127,55 +129,40 @@ export default function DashboardPage() {
           <div className="text-gray-400 text-sm">Tổng Câu Đã Luyện</div>
         </div>
         <div className="bg-[#1b2533] p-6 rounded-xl border border-[#262730] flex flex-col items-center justify-center shadow-lg">
-          <div className="text-4xl mb-2">📈</div>
-          <div className="text-3xl font-bold text-white">{loading ? '...' : hasData ? score!.total : '—'}</div>
-          <div className="text-gray-400 text-sm">Điểm SAT Dự Đoán (400-1600)</div>
+          <div className="text-4xl mb-2">🎓</div>
+          <div className="text-3xl font-bold text-white">{loading ? '...' : hasData ? score!.cefr : '—'}</div>
+          <div className="text-gray-400 text-sm">Cấp độ CEFR hiện tại</div>
         </div>
       </div>
 
       {/* Chi tiết điểm dự đoán */}
       <div className="bg-[#1b2533] p-6 rounded-xl border border-[#262730] shadow-lg">
-        <h3 className="text-xl font-bold text-white mb-4">🎓 Dự Đoán Điểm SAT</h3>
+        <h3 className="text-xl font-bold text-white mb-4">🎓 Trình độ Cambridge của bạn</h3>
         {loading ? (
           <p className="text-gray-400">Đang tính toán từ dữ liệu luyện tập...</p>
         ) : hasData ? (
           <div className="space-y-3">
-            {score!.detailLocked ? (
-              /* Free → chỉ tổng điểm; breakdown môn khóa sau upsell. */
-              <div className="flex gap-6 flex-wrap items-start">
-                <div>
-                  <div className="text-2xl font-bold text-white">{score!.total}</div>
-                  <div className="text-xs text-gray-400">Tổng dự đoán (400-1600)</div>
-                </div>
-                <div className="flex-1 min-w-[240px] bg-[#0f172a] border border-[#334155] rounded-lg p-3">
-                  <p className="text-sm text-[#e2e8f0] font-medium">🔒 Điểm chi tiết từng môn đang bị khóa</p>
-                  <p className="text-xs text-gray-400 mt-1">Nâng cấp Premium để xem điểm Toán / Đọc-Viết riêng và biết chính xác cần cải thiện phần nào.</p>
-                  <a href="/upgrade" className="inline-block mt-2 text-xs font-bold bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3 py-1.5 rounded-lg hover:opacity-90">💎 Mở khóa chi tiết</a>
-                </div>
+            <div className="flex gap-6 flex-wrap">
+              <div>
+                <div className="text-2xl font-bold text-blue-400">{score!.cefr}</div>
+                <div className="text-xs text-gray-400">Cấp độ hiện tại</div>
               </div>
-            ) : (
-              <div className="flex gap-6 flex-wrap">
-                <div>
-                  <div className="text-2xl font-bold text-blue-400">{score!.math}</div>
-                  <div className="text-xs text-gray-400">Toán (200-800)</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-emerald-400">{score!.reading}</div>
-                  <div className="text-xs text-gray-400">Đọc & Viết (200-800)</div>
-                </div>
-                {score!.targetScore !== null && (
-                  <div>
-                    <div className="text-2xl font-bold text-yellow-400">{score!.targetScore}</div>
-                    <div className="text-xs text-gray-400">Mục tiêu (còn {score!.pointsToTarget} điểm)</div>
-                  </div>
-                )}
+              <div>
+                <div className="text-2xl font-bold text-emerald-400">{score!.scale}</div>
+                <div className="text-xs text-gray-400">Cambridge Scale (82–170)</div>
               </div>
-            )}
-            <p className="text-xs text-gray-500">Độ tin cậy: {CONFIDENCE_LABEL[score!.confidence]} — ước lượng động viên, không phải điểm chính thức.</p>
+              {score!.targetLevel !== null && (
+                <div>
+                  <div className="text-2xl font-bold text-yellow-400">{score!.targetLevel}</div>
+                  <div className="text-xs text-gray-400">Mục tiêu{score!.etaDays !== null ? ` (~${score!.etaDays} ngày)` : ''}</div>
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-gray-500">Độ tin cậy: {CONFIDENCE_LABEL[score!.confidence]} — ước lượng động viên, không phải điểm thi Cambridge chính thức.</p>
           </div>
         ) : (
           <div className="text-gray-500 text-sm">
-            <p>Chưa có dữ liệu để dự đoán. Hãy luyện một vài câu ở mục Toán / Văn / Từ vựng để hệ thống bắt đầu đo năng lực của bạn.</p>
+            <p>Chưa có dữ liệu để dự đoán. Hãy luyện một vài câu ở mục Đọc / Ngữ pháp / Từ vựng để hệ thống bắt đầu đo năng lực của bạn.</p>
           </div>
         )}
       </div>
@@ -186,7 +173,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Radar Chart Panel — neo vào mastery domain thật */}
         <div className="bg-[#1b2533] p-6 rounded-xl border border-[#262730] flex flex-col items-center shadow-lg">
-          <h3 className="text-xl font-bold text-white mb-6">Biểu Đồ Năng Lực SAT</h3>
+          <h3 className="text-xl font-bold text-white mb-6">Biểu Đồ Năng Lực Tiếng Anh</h3>
           {!hasData && !loading && (
             <p className="text-gray-500 text-sm mb-4 text-center">Biểu đồ sẽ hiện khi bạn bắt đầu luyện tập.</p>
           )}

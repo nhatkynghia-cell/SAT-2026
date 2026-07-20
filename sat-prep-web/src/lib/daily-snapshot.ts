@@ -9,44 +9,49 @@
  *  Ngày VN (UTC+7) do CALLER tiêm (DI) — KHÔNG gọi Date ở đây để unit-test được
  *  (mẫu score-math.ts / gate-exam.ts).
  *
- *  ⚠️ Công thức mastery→section INLINE (không import score-math) để module thuần
+ *  ⚠️ Công thức mastery→scale INLINE (không import score-math) để module thuần
  *  không kéo value-import extensionless mà `node --test` không resolve được (bài
- *  học mistake-variant). Công thức = bản sao score-math.masteryToSection: thang
- *  SAT cố định 200..800, đã có test riêng ở score-math.test.ts.
+ *  học mistake-variant). Công thức = BẢN SAO score-math.masteryToScale: Cambridge
+ *  Scale 82..170. SỬA 2 NƠI (đây + score-math.ts) — test kiểm chéo ở
+ *  daily-snapshot.test.ts đảm bảo đồng nhất.
  * ============================================================================
  */
 
-/** Map mastery 0..100 → điểm phần SAT 200..800 (làm tròn bội số 10). Đồng bộ score-math.ts. */
-function masteryToSection(mastery: number): number {
-  const raw = 200 + (Math.min(100, Math.max(0, mastery)) / 100) * 600;
-  return Math.round(raw / 10) * 10;
+/** Map mastery 0..100 → Cambridge Scale 82..170. BẢN SAO score-math.masteryToScale. */
+function masteryToScale(mastery: number): number {
+  const m = Math.min(100, Math.max(0, mastery));
+  return 82 + Math.round(m * 0.88);
+}
+
+/** Map mastery 0..100 → nhãn CEFR (ngưỡng 20/40/70). BẢN SAO score-math.masteryToCEFR. */
+function masteryToCEFR(mastery: number): 'Pre-A1' | 'A1' | 'A2' | 'B1' {
+  const m = Math.min(100, Math.max(0, mastery));
+  if (m < 20) return 'Pre-A1';
+  if (m < 40) return 'A1';
+  if (m < 70) return 'A2';
+  return 'B1';
 }
 
 export interface DailySnapshot {
   snapshot_date: string; // 'YYYY-MM-DD' (ngày VN)
   overall: number;
-  math_section: number;
-  reading_section: number;
-  total_score: number;
+  overall_scale: number;
+  cefr: string;
   total_attempts: number;
 }
 
 /** Dữ liệu tối thiểu từ getMasterySummary mà snapshot cần (tránh phụ thuộc I/O). */
 export interface SummaryLike {
-  bySubject: { math: number; reading: number };
   overall: number;
   skills: Array<{ attempts: number }>;
 }
 
 /** Ảnh chụp tiến độ hiện tại (KHÔNG kèm ngày — store gắn ngày lúc ghi). */
 export function buildSnapshotFromSummary(summary: SummaryLike): Omit<DailySnapshot, 'snapshot_date'> {
-  const math_section = masteryToSection(summary.bySubject.math);
-  const reading_section = masteryToSection(summary.bySubject.reading);
   return {
     overall: summary.overall,
-    math_section,
-    reading_section,
-    total_score: math_section + reading_section,
+    overall_scale: masteryToScale(summary.overall),
+    cefr: masteryToCEFR(summary.overall),
     total_attempts: summary.skills.reduce((sum, s) => sum + (s.attempts || 0), 0),
   };
 }
@@ -60,16 +65,16 @@ function shiftDate(dateStr: string, days: number): string {
 }
 
 export interface WeeklyTrend {
-  /** Điểm tổng mới nhất (snapshot gần nhất trong 7 ngày, hoặc null nếu chưa có). */
-  latestTotal: number | null;
-  /** Điểm tổng ~7 ngày trước (snapshot cũ nhất trong cửa sổ) để so sánh. */
-  weekAgoTotal: number | null;
-  /** Chênh lệch điểm tổng trong tuần (latest - weekAgo). */
+  /** Cambridge Scale mới nhất (snapshot gần nhất trong 7 ngày, hoặc null nếu chưa có). */
+  latestScale: number | null;
+  /** Cambridge Scale ~7 ngày trước (snapshot cũ nhất trong cửa sổ) để so sánh. */
+  weekAgoScale: number | null;
+  /** Chênh lệch Cambridge Scale trong tuần (latest - weekAgo). */
   scoreDelta: number;
   /** Số câu đã làm trong 7 ngày qua (tổng attempts mới nhất - của ~7 ngày trước). */
   attemptsThisWeek: number;
-  /** Chuỗi điểm tổng theo ngày (7 ngày gần nhất, chỉ ngày CÓ snapshot) để vẽ mini-chart. */
-  series: Array<{ date: string; total: number }>;
+  /** Chuỗi scale theo ngày (7 ngày gần nhất, chỉ ngày CÓ snapshot) để vẽ mini-chart. */
+  series: Array<{ date: string; scale: number }>;
   /** Số ngày có hoạt động (có snapshot) trong 7 ngày. */
   activeDays: number;
 }
@@ -92,20 +97,19 @@ export function computeWeeklyTrend(
     .sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
 
   if (inWindow.length === 0) {
-    return { latestTotal: null, weekAgoTotal: null, scoreDelta: 0, attemptsThisWeek: 0, series: [], activeDays: 0 };
+    return { latestScale: null, weekAgoScale: null, scoreDelta: 0, attemptsThisWeek: 0, series: [], activeDays: 0 };
   }
 
   const oldest = inWindow[0];
   const latest = inWindow[inWindow.length - 1];
 
   return {
-    latestTotal: latest.total_score,
-    weekAgoTotal: oldest.total_score,
-    scoreDelta: latest.total_score - oldest.total_score,
+    latestScale: latest.overall_scale,
+    weekAgoScale: oldest.overall_scale,
+    scoreDelta: latest.overall_scale - oldest.overall_scale,
     // Câu làm trong tuần = attempts tích lũy mới nhất - của mốc cũ nhất trong cửa sổ.
-    // (attempts là tổng tích lũy nên hiệu = số câu làm giữa 2 mốc.) Kẹp >= 0.
     attemptsThisWeek: Math.max(0, latest.total_attempts - oldest.total_attempts),
-    series: inWindow.map((s) => ({ date: s.snapshot_date, total: s.total_score })),
+    series: inWindow.map((s) => ({ date: s.snapshot_date, scale: s.overall_scale })),
     activeDays: inWindow.length,
   };
 }

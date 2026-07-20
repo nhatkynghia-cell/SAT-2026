@@ -5,7 +5,7 @@
       "name": "sat-prep-web",
       "runtimeExecutable": "C:/Program Files/nodejs/node.exe",
       "runtimeArgs": ["node_modules/next/dist/bin/next", "dev"],
-      "cwd": "D:/10.SAT_Prep_App 30.6/10.SAT_Prep_App 30.6/10.SAT_Prep_App/10.SAT_Prep_App/sat-prep-web",
+      "cwd": "D:/Dự án 2026 14.7/Dự án 2026/2. EVNA CII/EVNA CI/10.SAT_Prep_App/10.SAT_Prep_App/sat-prep-web",
       "autoPort": true,
       "port": 3000
     }

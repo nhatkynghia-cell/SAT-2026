@@ -305,8 +305,8 @@ export default function ExamRunner({
             <div className="bg-[#450a0a] border border-[#ef4444] text-[#fca5a5] p-4 rounded-lg mb-4 text-sm">{errorMsg}</div>
           )}
           <div className="bg-[#1b2533] border border-[#262730] rounded-xl p-8 shadow-lg">
-            <h2 className="text-2xl font-bold text-white mb-4">SAT Practice Test (Bản Chuẩn Digital SAT)</h2>
-            <p className="text-gray-400 mb-6">Đề thi mô phỏng sát cấu trúc Digital SAT thật: 4 module adaptive, 98 câu, 134 phút.</p>
+            <h2 className="text-2xl font-bold text-white mb-4">Cambridge Practice Test (KET/PET)</h2>
+            <p className="text-gray-400 mb-6">Đề thi mô phỏng cấu trúc Cambridge KET/PET thật: 4 module adaptive, chấm theo server.</p>
 
             <div className="grid grid-cols-2 gap-4 mb-8">
               <div className="bg-[#0f172a] p-4 rounded-lg border border-[#334155]">
@@ -359,7 +359,7 @@ export default function ExamRunner({
             <div className="w-full bg-[#0f172a] rounded-full h-3 mb-4">
               <div className="h-3 rounded-full transition-all duration-500" style={{ width: `${loadingProgress}%`, background: accentColor }} />
             </div>
-            <p className="text-gray-400 text-sm">Câu hỏi được AI sinh theo chuẩn Digital SAT, đa dạng kỹ năng và độ khó...</p>
+            <p className="text-gray-400 text-sm">Câu hỏi được AI sinh theo chuẩn Cambridge, đa dạng kỹ năng và độ khó...</p>
             {phase === 'between-modules' && rwPath && currentSection === 'rw' && (
               <div className="mt-6 p-4 rounded-lg border" style={{ borderColor: accentColor, background: 'rgba(59,130,246,0.1)' }}>
                 <p className="text-sm font-bold text-white">
@@ -402,7 +402,7 @@ export default function ExamRunner({
         {displayScore && (
           <div className="max-w-2xl mx-auto">
             <div className="bg-[#0f172a] border rounded-xl p-8 text-center shadow-lg" style={{ borderColor: accentColor }}>
-              <h2 className="text-3xl font-black text-white mb-6">KẾT QUẢ THI DIGITAL SAT</h2>
+              <h2 className="text-3xl font-black text-white mb-6">KẾT QUẢ THI CAMBRIDGE</h2>
               <div className="text-[60px] font-black text-[#fbbf24] mb-2 drop-shadow-lg">
                 {displayScore.total} <span className="text-2xl text-gray-400">/ 1600</span>
               </div>

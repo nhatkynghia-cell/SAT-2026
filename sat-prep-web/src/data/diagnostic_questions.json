@@ -1,241 +1,535 @@
 [
   {
     "id": "d1",
-    "skillId": "algebra.linear_eq",
-    "difficulty": "Medium",
-    "title": "Heart of Algebra — Phương trình bậc nhất",
-    "practice_question": "If $3x - 5 = 16$, what is the value of $x$?",
-    "choices": ["A) 7", "B) 21", "C) 3", "D) 11"],
-    "correct_choice": "A) 7",
-    "explanation": "Cộng 5 vào hai vế: $3x = 21$, chia cho 3: $x = 7$.",
-    "trapRate": 35,
+    "skillId": "reading.notice_mcq",
+    "difficulty": "Easy",
+    "title": "Đọc thông báo ngắn — chọn ý đúng",
+    "practice_question": "Read the notice. What does it mean?\n\nLIBRARY CLOSED ON SATURDAY\nOpen again on Monday at 9 a.m.",
+    "choices": [
+      "A) The library is open on Saturday.",
+      "B) The library opens on Monday morning.",
+      "C) The library is closed on Monday.",
+      "D) The library opens at 9 p.m."
+    ],
+    "correct_choice": "B) The library opens on Monday morning.",
+    "explanation": "Thông báo cho biết thư viện ĐÓNG CỬA vào thứ Bảy và MỞ CỬA LẠI vào thứ Hai lúc 9 giờ SÁNG (9 a.m.). Vì vậy ý đúng là thư viện mở cửa vào sáng thứ Hai (đáp án B). \"9 a.m.\" nghĩa là 9 giờ sáng, không phải buổi tối.",
+    "trapRate": 30,
     "choice_analysis": [
-      { "choice_letter": "A", "is_correct": true, "analysis": "Đúng: $3x = 21 \\Rightarrow x = 7$." },
-      { "choice_letter": "B", "is_correct": false, "analysis": "Bẫy: dừng ở bước $3x = 21$ mà quên chia cho 3." },
-      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy: trừ 5 thay vì cộng ($3x = 11$ rồi làm tròn nhầm)." },
-      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: cộng 5 vào 16 rồi trừ 3 vô căn cứ." }
+      {
+        "choice_letter": "A",
+        "is_correct": false,
+        "analysis": "Sai. Thông báo ghi rõ 'CLOSED ON SATURDAY' (đóng cửa thứ Bảy), nên thư viện KHÔNG mở cửa vào thứ Bảy."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": true,
+        "analysis": "Đúng. 'Open again on Monday at 9 a.m.' nghĩa là thư viện mở cửa lại vào sáng thứ Hai lúc 9 giờ, khớp với 'opens on Monday morning'."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai. Thư viện đóng cửa vào thứ Bảy chứ không phải thứ Hai; thứ Hai chính là ngày mở cửa lại."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. '9 a.m.' là 9 giờ SÁNG, còn '9 p.m.' mới là 9 giờ tối. Đây là bẫy dễ nhầm giữa a.m. và p.m."
+      }
     ]
   },
   {
     "id": "d2",
-    "skillId": "algebra.linear_fn",
+    "skillId": "reading.matching",
     "difficulty": "Medium",
-    "title": "Heart of Algebra — Hàm số bậc nhất",
-    "practice_question": "A line in the $xy$-plane passes through $(0, 3)$ and has slope $2$. What is the $y$-value when $x = 4$?",
-    "choices": ["A) 8", "B) 11", "C) 5", "D) 14"],
-    "correct_choice": "B) 11",
-    "explanation": "Phương trình đường thẳng: $y = 2x + 3$. Thay $x = 4$: $y = 2(4) + 3 = 11$.",
-    "trapRate": 40,
+    "title": "Ghép người với hoạt động phù hợp",
+    "practice_question": "Read about Tom. \"Tom loves being outside. He doesn't like sitting quietly indoors, and he thinks reading books is boring. On Saturday, he wants to do something active with his friends in the fresh air.\" Which activity is the best match for Tom?",
+    "choices": [
+      "A) Playing football in the park with his friends",
+      "B) Reading a novel alone in the library",
+      "C) Watching a long film at home on the sofa",
+      "D) Doing a jigsaw puzzle at the kitchen table"
+    ],
+    "correct_choice": "A) Playing football in the park with his friends",
+    "explanation": "Đoạn văn cho biết Tom thích ở ngoài trời (\"loves being outside\"), không thích ngồi yên trong nhà, thấy đọc sách chán, và muốn làm hoạt động năng động cùng bạn bè trong không khí trong lành. Đá bóng ở công viên với bạn bè khớp hoàn toàn: vừa ở ngoài trời, vừa năng động (\"active\"), vừa có bạn bè. Vì vậy đáp án đúng là A.",
+    "trapRate": 35,
     "choice_analysis": [
-      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: chỉ tính $2 \\times 4 = 8$, quên cộng tung độ gốc 3." },
-      { "choice_letter": "B", "is_correct": true, "analysis": "Đúng: $y = 2(4) + 3 = 11$." },
-      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy: cộng slope vào tung độ gốc ($2 + 3$) thay vì thay $x$." },
-      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: nhân cả $(4+3)$ với 2." }
+      {
+        "choice_letter": "A",
+        "is_correct": true,
+        "analysis": "Đúng. Đá bóng ở công viên đáp ứng cả ba yêu cầu của Tom: ngoài trời (outside/fresh air), năng động (active) và cùng bạn bè (with his friends). Đây là lựa chọn phù hợp nhất."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": false,
+        "analysis": "Sai. Đọc tiểu thuyết một mình trong thư viện trái ngược hoàn toàn: Tom thấy đọc sách chán ('reading books is boring'), lại là ở trong nhà và một mình, không có bạn bè."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai. Xem phim trên ghế sofa ở nhà là hoạt động trong nhà và ngồi yên, trong khi Tom không thích ngồi yên trong nhà ('doesn't like sitting quietly indoors')."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. Chơi ghép hình ở bàn bếp là hoạt động yên tĩnh trong nhà, không năng động và không ở ngoài trời, nên không hợp với sở thích của Tom."
+      }
     ]
   },
   {
     "id": "d3",
-    "skillId": "algebra.systems",
+    "skillId": "reading.detail_mcq",
     "difficulty": "Medium",
-    "title": "Heart of Algebra — Hệ phương trình",
-    "practice_question": "If $x + y = 10$ and $x - y = 4$, what is the value of $x$?",
-    "choices": ["A) 3", "B) 6", "C) 7", "D) 5"],
-    "correct_choice": "C) 7",
-    "explanation": "Cộng hai phương trình: $2x = 14 \\Rightarrow x = 7$.",
-    "trapRate": 40,
+    "title": "Đọc đoạn văn ngắn lấy chi tiết",
+    "full_passage": "Anna lives in a small town near the sea. Every Saturday morning, she rides her bike to the market with her mother. They usually buy fresh fruit and vegetables there. After shopping, they have breakfast at a small café next to the market.",
+    "practice_question": "Where does Anna have breakfast on Saturday?",
+    "choices": [
+      "A) At home with her mother",
+      "B) At a café next to the market",
+      "C) At the market",
+      "D) At the beach near her town"
+    ],
+    "correct_choice": "B) At a café next to the market",
+    "explanation": "Đoạn văn nói rõ: \"After shopping, they have breakfast at a small café next to the market\" (Sau khi mua sắm, họ ăn sáng ở một quán cà phê nhỏ cạnh chợ). Vì vậy Anna ăn sáng tại quán cà phê cạnh chợ. Đây là câu hỏi lấy chi tiết trực tiếp từ câu cuối của đoạn văn. Học sinh cần đọc kỹ và tìm đúng thông tin về địa điểm ăn sáng, không nhầm với nơi mua sắm (chợ) hay nơi ở (thị trấn gần biển).",
+    "trapRate": 35,
     "choice_analysis": [
-      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: đây là giá trị của $y$, không phải $x$." },
-      { "choice_letter": "B", "is_correct": false, "analysis": "Bẫy: chia trung bình sai (10 và 4 chia đôi)." },
-      { "choice_letter": "C", "is_correct": true, "analysis": "Đúng: cộng hai vế được $2x = 14 \\Rightarrow x = 7$." },
-      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: lấy $10 \\div 2 = 5$ mà bỏ qua phương trình thứ hai." }
+      {
+        "choice_letter": "A",
+        "is_correct": false,
+        "analysis": "Sai. Đoạn văn không nói họ ăn sáng ở nhà. Anna và mẹ đi ra ngoài ăn sáng sau khi mua sắm chứ không về nhà."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": true,
+        "analysis": "Đúng. Câu cuối ghi rõ 'they have breakfast at a small café next to the market' - họ ăn sáng ở quán cà phê nhỏ cạnh chợ."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai. Chợ (market) là nơi họ mua trái cây và rau, không phải nơi ăn sáng. Đây là bẫy vì quán cà phê nằm cạnh chợ, dễ gây nhầm lẫn."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. Biển (sea/beach) chỉ được nhắc để mô tả thị trấn nơi Anna sống, không liên quan đến việc ăn sáng."
+      }
     ]
   },
   {
     "id": "d4",
-    "skillId": "algebra.inequalities",
+    "skillId": "reading.cloze_vocab",
     "difficulty": "Medium",
-    "title": "Heart of Algebra — Bất phương trình",
-    "practice_question": "What is the greatest integer value of $x$ that satisfies $2x + 1 < 9$?",
-    "choices": ["A) 4", "B) 3", "C) 5", "D) 2"],
-    "correct_choice": "B) 3",
-    "explanation": "$2x < 8 \\Rightarrow x < 4$. Số nguyên lớn nhất nhỏ hơn 4 là 3.",
-    "trapRate": 45,
+    "title": "Điền từ vựng phù hợp ngữ cảnh",
+    "practice_question": "Choose the word that best completes the sentence: \"It was raining heavily, so Nam decided to ______ his umbrella before leaving the house.\"",
+    "choices": [
+      "A) take",
+      "B) cook",
+      "C) win",
+      "D) sleep"
+    ],
+    "correct_choice": "A) take",
+    "explanation": "Câu nói rằng trời đang mưa to, nên Nam quyết định làm gì đó với chiếc ô trước khi ra khỏi nhà. Từ hợp ngữ cảnh nhất là \"take\" (mang theo/cầm theo) — \"take his umbrella\" nghĩa là \"mang theo chiếc ô\". Đây là cách diễn đạt thông dụng trong tiếng Anh khi nói về việc mang theo đồ vật. Các từ còn lại không phù hợp về nghĩa với chiếc ô: \"cook\" (nấu), \"win\" (thắng), \"sleep\" (ngủ) đều không thể đi cùng \"umbrella\" trong ngữ cảnh trời mưa.",
+    "trapRate": 30,
     "choice_analysis": [
-      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: $x < 4$ nghĩa là 4 KHÔNG thỏa (dấu < không phải ≤)." },
-      { "choice_letter": "B", "is_correct": true, "analysis": "Đúng: $x < 4$, số nguyên lớn nhất là 3." },
-      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy: giải sai chiều bất phương trình." },
-      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: chọn quá thấp, chưa phải giá trị lớn nhất." }
+      {
+        "choice_letter": "A",
+        "is_correct": true,
+        "analysis": "Đúng. 'Take his umbrella' nghĩa là 'mang theo chiếc ô'. Khi trời mưa to, việc mang theo ô là hợp lý và 'take' là động từ chuẩn để nói về mang theo đồ vật."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": false,
+        "analysis": "Sai. 'Cook' nghĩa là 'nấu ăn', hoàn toàn không liên quan đến chiếc ô hay việc trời mưa. Ta không thể 'nấu' một chiếc ô."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai. 'Win' nghĩa là 'thắng, giành được', dùng cho trò chơi hay cuộc thi, không hợp với 'umbrella' trong ngữ cảnh chuẩn bị ra ngoài khi trời mưa."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. 'Sleep' nghĩa là 'ngủ', không phải hành động thực hiện với chiếc ô và không phù hợp với ý 'trước khi rời khỏi nhà'."
+      }
     ]
   },
   {
-    "id": "d5",
-    "skillId": "algebra.linear_eq",
+    "choice_analysis": [
+      {
+        "choice_letter": "A",
+        "is_correct": true,
+        "analysis": "Đúng. 'for' đi với một khoảng thời gian có độ dài (a period of duration): 'for more than ten years' (trong hơn mười năm). Khi dùng với thì hiện tại hoàn thành 'has lived' để diễn tả hành động kéo dài từ quá khứ đến hiện tại, ta dùng 'for + khoảng thời gian'. Đây là cấu trúc chuẩn ở trình độ B1."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": false,
+        "analysis": "Sai. 'since' cũng đi với hiện tại hoàn thành nhưng phải theo sau bằng MỘT MỐC thời gian cụ thể (a point in time), ví dụ 'since 2015', 'since I was born'. 'more than ten years' là một khoảng độ dài, không phải một mốc, nên không dùng 'since'. Đây là bẫy since/for kinh điển."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai. 'from' chỉ điểm bắt đầu và thường phải đi cặp với 'to' ('from 2010 to 2020'). Nó không dùng một mình với thì hiện tại hoàn thành để chỉ độ dài thời gian, nên câu sẽ sai ngữ pháp."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. 'during' đi với một danh từ chỉ sự kiện hoặc quãng thời gian có tên gọi ('during the holiday', 'during the summer'), không đi với một con số đo độ dài như 'ten years'. Vì vậy 'during more than ten years' là không tự nhiên và sai."
+      }
+    ],
+    "choices": [
+      "A) for",
+      "B) since",
+      "C) from",
+      "D) during"
+    ],
+    "correct_choice": "A) for",
     "difficulty": "Hard",
-    "title": "Heart of Algebra — Phương trình vô số nghiệm",
-    "practice_question": "For a constant $c$, the equation $2(x + 3) = 2x + c$ has infinitely many solutions. What is the value of $c$?",
-    "choices": ["A) 3", "B) 0", "C) 6", "D) There is no such value"],
-    "correct_choice": "C) 6",
-    "explanation": "Khai triển vế trái: $2x + 6 = 2x + c$. Để vô số nghiệm, hai vế phải trùng nhau nên $c = 6$.",
-    "trapRate": 60,
-    "choice_analysis": [
-      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: lấy hằng số 3 trong ngoặc mà chưa nhân 2." },
-      { "choice_letter": "B", "is_correct": false, "analysis": "Bẫy: nhầm điều kiện vô nghiệm với vô số nghiệm." },
-      { "choice_letter": "C", "is_correct": true, "analysis": "Đúng: $2x + 6 = 2x + c \\Rightarrow c = 6$ để hai vế đồng nhất." },
-      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: tưởng luôn vô nghiệm vì hệ số $x$ bằng nhau — thực ra chỉnh $c$ được." }
-    ]
+    "explanation": "Chỗ trống cần một giới từ chỉ thời gian dùng với thì hiện tại hoàn thành 'has lived'. Quy tắc: dùng 'for' khi theo sau là một KHOẢNG thời gian có độ dài (for two hours, for ten years), và dùng 'since' khi theo sau là một MỐC thời gian cụ thể (since Monday, since 2015). Ở đây 'more than ten years' là một khoảng độ dài, nên đáp án đúng là 'for'. 'since' sai vì cần một mốc; 'from' cần đi với 'to'; 'during' chỉ đi với danh từ sự kiện chứ không đi với con số đo thời gian.",
+    "id": "d5",
+    "practice_question": "Read the sentence and choose the word that best fits the gap: \"My family has lived in Hanoi ___ more than ten years, so we know the city very well.\"",
+    "skillId": "reading.open_cloze",
+    "title": "Điền từ chức năng (giới từ chỉ thời gian) vào chỗ trống",
+    "trapRate": 40
   },
   {
-    "id": "d6",
-    "skillId": "advanced.quadratic",
-    "difficulty": "Medium",
-    "title": "Advanced Math — Phương trình bậc hai",
-    "practice_question": "The vertex of the parabola $y = x^2 - 6x + c$ is at $(3, 5)$. What is the value of $c$?",
-    "choices": ["A) 5", "B) 9", "C) 14", "D) -4"],
-    "correct_choice": "C) 14",
-    "explanation": "Dạng đỉnh $y = (x-3)^2 + 5 = x^2 - 6x + 14$. So sánh: $c = 14$.",
-    "trapRate": 55,
     "choice_analysis": [
-      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: lấy thẳng tung độ đỉnh $k = 5$." },
-      { "choice_letter": "B", "is_correct": false, "analysis": "Bẫy: chỉ lấy $(-3)^2 = 9$ mà quên cộng 5." },
-      { "choice_letter": "C", "is_correct": true, "analysis": "Đúng: $(x-3)^2 + 5 = x^2 - 6x + 14 \\Rightarrow c = 14$." },
-      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: trừ nhầm $5 - 9$." }
-    ]
+      {
+        "choice_letter": "A",
+        "is_correct": false,
+        "analysis": "Sai. 'Sad' nghĩa là buồn, mang nghĩa trái ngược với 'happy'. Đây là bẫy vì học sinh dễ nhầm nếu chỉ đoán mà không nhớ nghĩa."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": true,
+        "analysis": "Đúng. 'Happy' nghĩa là vui vẻ, hạnh phúc. Câu 'She feels happy' nghĩa là cô ấy cảm thấy vui, nên đáp án đúng là 'vui vẻ / hạnh phúc'."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai. 'Tired' nghĩa là mệt mỏi, không liên quan đến cảm giác vui. Đây là một trạng thái cảm xúc/thể chất khác."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. 'Hungry' nghĩa là đói, chỉ cảm giác về ăn uống, không phải nghĩa của 'happy'."
+      }
+    ],
+    "choices": [
+      "A) Sad (buồn)",
+      "B) Happy means glad / joyful (vui vẻ, hạnh phúc)",
+      "C) Tired (mệt mỏi)",
+      "D) Hungry (đói)"
+    ],
+    "correct_choice": "B) Happy means glad / joyful (vui vẻ, hạnh phúc)",
+    "difficulty": "Easy",
+    "explanation": "Từ 'happy' là một tính từ quen thuộc ở trình độ A1-A2, nghĩa là 'vui vẻ, hạnh phúc'. Trong câu 'She got a nice gift, so she feels happy.' (Cô ấy nhận được một món quà đẹp, nên cô ấy cảm thấy vui), ngữ cảnh nhận quà đẹp cho thấy cảm xúc tích cực. Vì vậy nghĩa đúng của 'happy' là 'vui vẻ / hạnh phúc' (đáp án B). Các lựa chọn còn lại đều là những cảm giác khác: 'sad' = buồn, 'tired' = mệt, 'hungry' = đói, nên đều sai.",
+    "id": "d6",
+    "practice_question": "Read the sentence: \"She got a nice gift, so she feels happy.\" What does the word \"happy\" mean?",
+    "skillId": "vocabulary.a2",
+    "title": "Từ vựng A2 — chọn nghĩa đúng",
+    "trapRate": 30
   },
   {
     "id": "d7",
-    "skillId": "advanced.exponential",
+    "skillId": "vocabulary.a2",
     "difficulty": "Medium",
-    "title": "Advanced Math — Hàm số mũ",
-    "practice_question": "A population is modeled by $P = 200 \\cdot 2^{t}$, where $t$ is in years. What is the population when $t = 3$?",
-    "choices": ["A) 1200", "B) 1600", "C) 800", "D) 600"],
-    "correct_choice": "B) 1600",
-    "explanation": "$P = 200 \\cdot 2^3 = 200 \\cdot 8 = 1600$.",
-    "trapRate": 45,
+    "title": "Từ vựng A2 — chọn từ hợp ngữ cảnh",
+    "practice_question": "My sister is very ________. She always shares her toys with other children and helps our mother in the kitchen.",
+    "choices": [
+      "A) kind",
+      "B) angry",
+      "C) lazy",
+      "D) boring"
+    ],
+    "correct_choice": "A) kind",
+    "explanation": "Câu văn mô tả người em gái \"luôn chia sẻ đồ chơi với các bạn khác và giúp mẹ trong bếp\" — đây là những hành động tốt bụng, tử tế. Vì vậy từ hợp ngữ cảnh nhất là \"kind\" (tốt bụng). Các từ còn lại đều mang nghĩa tiêu cực hoặc không phù hợp với những hành động được mô tả: \"angry\" (tức giận), \"lazy\" (lười biếng), \"boring\" (nhàm chán). Ở trình độ A2, học sinh cần biết nối nghĩa của tính từ với hành vi được miêu tả trong câu để chọn đúng.",
+    "trapRate": 30,
     "choice_analysis": [
-      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: tính $200 \\cdot 2 \\cdot 3 = 1200$ (nhân thay vì lũy thừa)." },
-      { "choice_letter": "B", "is_correct": true, "analysis": "Đúng: $2^3 = 8$, nên $200 \\cdot 8 = 1600$." },
-      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy: quên nhân hệ số 200 ($200 \\cdot 4$)." },
-      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: tính $200 \\cdot 3$." }
+      {
+        "choice_letter": "A",
+        "is_correct": true,
+        "analysis": "Đúng. \"kind\" nghĩa là tốt bụng, tử tế. Việc chia sẻ đồ chơi và giúp mẹ đều là biểu hiện của lòng tốt, nên từ này khớp hoàn toàn với ngữ cảnh."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": false,
+        "analysis": "Sai. \"angry\" nghĩa là tức giận, mang nghĩa tiêu cực, trái ngược với những hành động dễ thương như chia sẻ và giúp đỡ được nêu trong câu."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai. \"lazy\" nghĩa là lười biếng. Một người giúp mẹ nấu ăn thì không thể lười biếng, nên từ này mâu thuẫn với ngữ cảnh."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. \"boring\" nghĩa là nhàm chán, buồn tẻ. Từ này không liên quan đến việc chia sẻ hay giúp đỡ, nên không phù hợp để miêu tả tính cách tốt của người em gái."
+      }
     ]
   },
   {
     "id": "d8",
-    "skillId": "data.ratios",
-    "difficulty": "Medium",
-    "title": "Data Analysis — Tỷ lệ",
-    "practice_question": "A recipe uses 3 cups of flour for every 2 cups of sugar. If a baker uses 12 cups of flour, how many cups of sugar are needed?",
-    "choices": ["A) 6", "B) 8", "C) 18", "D) 10"],
-    "correct_choice": "B) 8",
-    "explanation": "Tỷ lệ $3:2$. Với 12 cốc bột, hệ số $\\times 4$, nên đường $= 2 \\times 4 = 8$.",
-    "trapRate": 40,
+    "skillId": "vocabulary.b1",
+    "difficulty": "Hard",
+    "title": "Từ vựng B1 — phân biệt từ gần nghĩa",
+    "practice_question": "Choose the word that best completes the sentence: \"After working hard for the whole year, Linh finally ______ a promotion at her company.\"",
+    "choices": [
+      "A) earned",
+      "B) won",
+      "C) gained",
+      "D) received"
+    ],
+    "correct_choice": "A) earned",
+    "explanation": "Bốn từ đều liên quan đến \"có được\" một thứ gì đó, nhưng khác nhau về sắc thái. \"Earn\" nghĩa là đạt được điều gì đó nhờ nỗ lực và sự xứng đáng của bản thân (làm việc chăm chỉ). Câu có cụm \"After working hard for the whole year\" (sau khi làm việc chăm chỉ cả năm) nên \"earned a promotion\" (giành được thăng chức nhờ công sức) là lựa chọn tự nhiên và chính xác nhất. Đây là điểm khác biệt B1 quan trọng: \"earn\" gắn với nỗ lực xứng đáng, trong khi các từ còn lại mang sắc thái khác.",
+    "trapRate": 42,
     "choice_analysis": [
-      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: chia đôi 12 thay vì dùng tỷ lệ." },
-      { "choice_letter": "B", "is_correct": true, "analysis": "Đúng: $12 \\div 3 = 4$, đường $= 2 \\times 4 = 8$." },
-      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy: đảo tỷ lệ ($12 \\times 3 \\div 2$)." },
-      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: cộng chênh lệch thay vì nhân tỷ lệ." }
+      {
+        "choice_letter": "A",
+        "is_correct": true,
+        "analysis": "Đúng. 'Earn' nghĩa là đạt được điều gì nhờ công sức, sự cố gắng xứng đáng. Cụm 'earn a promotion' (giành được thăng chức nhờ làm việc chăm chỉ) là cách diễn đạt chuẩn và khớp hoàn toàn với ngữ cảnh 'working hard for the whole year'."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": false,
+        "analysis": "Sai. 'Win' nghĩa là thắng, giành được nhờ thi đấu, cạnh tranh hoặc may mắn (win a game, win a prize). Thăng chức đến từ nỗ lực làm việc chứ không phải một cuộc thi, nên 'won a promotion' nghe không tự nhiên trong ngữ cảnh này."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai. 'Gain' nghĩa là có thêm dần dần theo thời gian (gain experience, gain weight). Nó nhấn mạnh sự tích lũy chứ không nhấn mạnh phần thưởng xứng đáng cho nỗ lực, nên không phù hợp bằng 'earn' khi nói về việc được thăng chức."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. 'Receive' nghĩa là nhận một cách thụ động điều mà người khác trao cho (receive a letter, receive a gift). Từ này bỏ mất sắc thái 'nhờ nỗ lực xứng đáng' mà câu muốn nhấn mạnh, nên kém tự nhiên hơn 'earned'."
+      }
     ]
   },
   {
+    "choice_analysis": [
+      {
+        "analysis": "Sai. 'go' là thì hiện tại đơn dạng gốc, dùng với chủ ngữ I/you/we/they. Ở đây có cụm 'Last summer' (mùa hè qua) chỉ thời điểm trong quá khứ, nên không thể dùng thì hiện tại đơn.",
+        "choice_letter": "A",
+        "is_correct": false
+      },
+      {
+        "analysis": "Sai. 'goes' là thì hiện tại đơn ngôi thứ ba số ít (he/she/it). Vẫn là thì hiện tại, không khớp với thời điểm quá khứ 'Last summer'.",
+        "choice_letter": "B",
+        "is_correct": false
+      },
+      {
+        "analysis": "Đúng. 'went' là dạng quá khứ đơn của động từ bất quy tắc 'go', phù hợp với cụm chỉ thời gian 'Last summer' cho biết hành động đã xảy ra trong quá khứ.",
+        "choice_letter": "C",
+        "is_correct": true
+      },
+      {
+        "analysis": "Sai. 'going' là dạng V-ing, cần đi kèm trợ động từ 'be' (ví dụ was/were going) mới tạo thành câu hoàn chỉnh. Đứng một mình thì không đúng ngữ pháp.",
+        "choice_letter": "D",
+        "is_correct": false
+      }
+    ],
+    "choices": [
+      "A) go",
+      "B) goes",
+      "C) went",
+      "D) going"
+    ],
+    "correct_choice": "C) went",
+    "difficulty": "Easy",
+    "explanation": "Câu có cụm chỉ thời gian 'Last summer' (mùa hè qua) cho biết hành động đã xảy ra trong quá khứ, nên phải dùng thì quá khứ đơn. Động từ 'go' là động từ bất quy tắc nên dạng quá khứ đơn là 'went' (go → went → gone). Do đó đáp án đúng là 'C) went'. Các lựa chọn còn lại đều sai vì: 'go' là hiện tại đơn dạng gốc (dùng với I/you/we/they), 'goes' là hiện tại đơn ngôi thứ ba số ít (he/she/it), 'going' là dạng V-ing cần trợ động từ be mới thành câu. Để làm đúng dạng bài này, học sinh cần nhận diện nhanh các cụm từ chỉ thời gian quá khứ như yesterday, last week, last summer, two days ago... và nhớ các động từ bất quy tắc thông dụng.",
     "id": "d9",
-    "skillId": "data.statistics",
-    "difficulty": "Medium",
-    "title": "Data Analysis — Thống kê",
-    "practice_question": "What is the median of the data set $\\{4, 8, 6, 10, 2\\}$?",
-    "choices": ["A) 6", "B) 8", "C) 5", "D) 10"],
-    "correct_choice": "A) 6",
-    "explanation": "Sắp xếp: $2, 4, 6, 8, 10$. Trung vị là giá trị giữa: 6.",
-    "trapRate": 35,
-    "choice_analysis": [
-      { "choice_letter": "A", "is_correct": true, "analysis": "Đúng: sắp xếp lại, giá trị giữa của 5 số là 6." },
-      { "choice_letter": "B", "is_correct": false, "analysis": "Bẫy: lấy số giữa của dãy CHƯA sắp xếp." },
-      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy: tính trung bình cộng ($30 \\div 5 = 6$ đúng ra, nhưng 5 là sai số)." },
-      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: lấy giá trị lớn nhất." }
-    ]
+    "practice_question": "Last summer, we _____ to the beach with our family.",
+    "skillId": "grammar.a2",
+    "title": "Ngữ pháp A2 — thì hiện tại đơn/quá khứ đơn",
+    "trapRate": 32
   },
   {
-    "id": "d10",
-    "skillId": "geo.triangles",
-    "difficulty": "Medium",
-    "title": "Geometry — Tam giác",
-    "practice_question": "In a right triangle, the two legs have lengths 6 and 8. What is the length of the hypotenuse?",
-    "choices": ["A) 10", "B) 14", "C) 12", "D) 48"],
-    "correct_choice": "A) 10",
-    "explanation": "Định lý Pythagoras: $\\sqrt{6^2 + 8^2} = \\sqrt{36 + 64} = \\sqrt{100} = 10$.",
-    "trapRate": 35,
     "choice_analysis": [
-      { "choice_letter": "A", "is_correct": true, "analysis": "Đúng: $\\sqrt{36 + 64} = \\sqrt{100} = 10$." },
-      { "choice_letter": "B", "is_correct": false, "analysis": "Bẫy: cộng hai cạnh $6 + 8 = 14$." },
-      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy: nhân đôi cạnh nhỏ." },
-      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: nhân hai cạnh $6 \\times 8$." }
-    ]
+      {
+        "choice_letter": "A",
+        "is_correct": false,
+        "analysis": "Sai. 'more tall' không đúng ngữ pháp. 'tall' là tính từ ngắn (một âm tiết) nên phải thêm đuôi -est để tạo dạng so sánh nhất, không dùng 'more'."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": true,
+        "analysis": "Đúng. Câu có 'in my class' (trong phạm vi một nhóm) và mạo từ 'the' nên đây là so sánh nhất. Tính từ ngắn 'tall' thêm đuôi -est thành 'tallest' → 'the tallest'."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai. 'taller' là dạng so sánh HƠN (so sánh giữa 2 đối tượng), thường đi với 'than'. Ở đây có 'the' và 'in my class' nên phải dùng so sánh nhất, không phải so sánh hơn."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. 'most tall' không đúng. Vì 'tall' là tính từ ngắn nên tạo so sánh nhất bằng đuôi -est ('tallest'), không dùng 'most'. 'most' chỉ dùng cho tính từ dài."
+      }
+    ],
+    "choices": [
+      "A) the more tall",
+      "B) the tallest",
+      "C) taller",
+      "D) the most tall"
+    ],
+    "correct_choice": "B) the tallest",
+    "difficulty": "Medium",
+    "explanation": "Câu này kiểm tra dạng SO SÁNH NHẤT của tính từ. Dấu hiệu nhận biết: có mạo từ 'the' và cụm giới hạn phạm vi 'in my class' (trong lớp của tôi) → so sánh một người/vật với TẤT CẢ những người/vật còn lại trong nhóm. Quy tắc: với tính từ NGẮN (một âm tiết) như 'tall', ta thêm đuôi -est và đặt 'the' phía trước: the tallest. Do đó đáp án đúng là 'the tallest'. Lưu ý phân biệt: 'taller' (so sánh hơn, dùng khi so 2 đối tượng, thường có 'than'); còn 'more/most' chỉ dùng cho tính từ DÀI nên 'more tall' và 'most tall' đều sai.",
+    "id": "d10",
+    "practice_question": "Choose the correct answer. Nam is 175 cm. All the other students are shorter than him. So Nam is ______ student in my class.",
+    "skillId": "grammar.a2",
+    "title": "Ngữ pháp A2 — so sánh hơn/nhất",
+    "trapRate": 35
   },
   {
     "id": "d11",
-    "skillId": "geo.circles",
-    "difficulty": "Medium",
-    "title": "Geometry — Đường tròn",
-    "practice_question": "A circle has radius 5. What is its area? (Use $\\pi$ symbolically.)",
-    "choices": ["A) $10\\pi$", "B) $25\\pi$", "C) $5\\pi$", "D) $50\\pi$"],
-    "correct_choice": "B) $25\\pi$",
-    "explanation": "Diện tích $= \\pi r^2 = \\pi \\cdot 5^2 = 25\\pi$.",
-    "trapRate": 40,
+    "skillId": "grammar.b1",
+    "difficulty": "Hard",
+    "title": "Ngữ pháp B1 — hiện tại hoàn thành / điều kiện",
+    "practice_question": "If I ______ Anna since primary school, I would not have trusted her with my secret.",
+    "choices": [
+      "A) hadn't known",
+      "B) haven't known",
+      "C) didn't know",
+      "D) wouldn't know"
+    ],
+    "correct_choice": "A) hadn't known",
+    "explanation": "Đây là câu điều kiện loại 3 (nói về điều trái với quá khứ). Cấu trúc chuẩn là: If + S + had (not) + V3/ed, S + would (not) have + V3/ed. Vế chính là 'would not have trusted' (had + past participle), nên vế 'if' bắt buộc dùng quá khứ hoàn thành: 'had known' hoặc phủ định 'hadn't known'. Cụm 'since primary school' (từ hồi tiểu học) chỉ khoảng thời gian kéo dài, phù hợp với ý 'quen biết ai đó suốt một thời gian dài'. Vì vế chính mang nghĩa 'lẽ ra đã không tin tưởng', logic hợp lý là 'Nếu tôi đã KHÔNG quen Anna từ hồi tiểu học' → chọn 'hadn't known'. Đáp án đúng là A.",
+    "trapRate": 42,
     "choice_analysis": [
-      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: dùng công thức chu vi $2\\pi r$." },
-      { "choice_letter": "B", "is_correct": true, "analysis": "Đúng: $\\pi r^2 = 25\\pi$." },
-      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy: quên bình phương bán kính." },
-      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: tính $2 r^2$ (nhân đôi thừa)." }
+      {
+        "choice_letter": "A",
+        "is_correct": true,
+        "analysis": "Đúng. 'hadn't known' là dạng quá khứ hoàn thành phủ định, khớp hoàn hảo với vế chính 'would not have trusted' của câu điều kiện loại 3. Nghĩa: 'Nếu tôi đã không quen Anna từ hồi tiểu học, thì tôi đã không tin tưởng giao bí mật cho cô ấy.'"
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": false,
+        "analysis": "Sai. 'haven't known' là hiện tại hoàn thành, dùng cho việc liên hệ tới hiện tại, không dùng trong vế 'if' của câu điều kiện loại 3 (vốn nói về quá khứ trái sự thật). Không hợp với 'would not have trusted'."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai. 'didn't know' là quá khứ đơn, thuộc câu điều kiện loại 2 (If + quá khứ đơn, would + V). Nó không đi cùng vế chính 'would not HAVE trusted' của loại 3."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. 'wouldn't know' không bao giờ xuất hiện trong vế 'if'; 'would' thuộc về vế chính, không đặt sau 'If'. Đây là lỗi cấu trúc điển hình."
+      }
     ]
   },
   {
     "id": "d12",
-    "skillId": "rw.vocab",
-    "difficulty": "Medium",
-    "title": "Reading & Writing — Từ vựng trong ngữ cảnh",
-    "practice_question": "The scientist's findings were considered __________; no other researcher could reproduce the same results.",
-    "choices": ["A) conclusive", "B) dubious", "C) trivial", "D) exhaustive"],
-    "correct_choice": "B) dubious",
-    "explanation": "Không ai tái lập được kết quả → các phát hiện bị nghi ngờ. 'Dubious' (đáng ngờ) khớp ngữ cảnh.",
-    "trapRate": 50,
+    "skillId": "listening.short_convo",
+    "difficulty": "Easy",
+    "title": "Nghe hội thoại ngắn (transcript) — chọn ý đúng",
+    "practice_question": "Read the short conversation. Anna: \"Hi Tom! What time does the football club start today?\" Tom: \"It starts at four o'clock, in the school gym.\" Anna: \"Great, see you there!\" Question: What time does the football club start?",
+    "choices": [
+      "A) At two o'clock.",
+      "B) At three o'clock.",
+      "C) At four o'clock.",
+      "D) At five o'clock."
+    ],
+    "correct_choice": "C) At four o'clock.",
+    "explanation": "Trong đoạn hội thoại, Tom trả lời rõ ràng: \"It starts at four o'clock\" (Nó bắt đầu lúc bốn giờ). Vì vậy câu lạc bộ bóng đá bắt đầu lúc 4 giờ. Đây là dạng nghe lấy thông tin về thời gian, rất phổ biến ở trình độ A1 (KET). Các mốc giờ khác (2, 3, 5 giờ) không hề được nhắc tới trong bài, chỉ là các phương án gây nhiễu.",
+    "trapRate": 30,
     "choice_analysis": [
-      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy nghĩa ngược: 'conclusive' (chắc chắn) mâu thuẫn với việc không ai tái lập được." },
-      { "choice_letter": "B", "is_correct": true, "analysis": "Đúng: 'dubious' = đáng ngờ, khớp mệnh đề sau." },
-      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy: 'trivial' (tầm thường) không liên quan đến độ tin cậy." },
-      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: 'exhaustive' (toàn diện) không phù hợp ngữ cảnh." }
+      {
+        "choice_letter": "A",
+        "is_correct": false,
+        "analysis": "Sai. 'Two o'clock' (2 giờ) không được nhắc đến trong đoạn hội thoại. Đây là phương án nhiễu về thời gian."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": false,
+        "analysis": "Sai. 'Three o'clock' (3 giờ) không xuất hiện trong bài. Học sinh dễ chọn nhầm nếu nghe/đọc không kỹ."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": true,
+        "analysis": "Đúng. Tom nói rõ 'It starts at four o'clock', nghĩa là câu lạc bộ bắt đầu lúc 4 giờ."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. 'Five o'clock' (5 giờ) không được đề cập; đây là phương án gây nhiễu, không khớp với thông tin trong bài."
+      }
     ]
   },
   {
     "id": "d13",
-    "skillId": "rw.vocab",
-    "difficulty": "Hard",
-    "title": "Reading & Writing — Từ vựng nâng cao",
-    "practice_question": "Although initially met with __________, the composer's avant-garde symphony was later hailed as a masterpiece.",
-    "choices": ["A) acclaim", "B) indifference", "C) derision", "D) enthusiasm"],
-    "correct_choice": "C) derision",
-    "explanation": "'Although' báo hiệu tương phản với 'masterpiece' (được ca ngợi sau). Ban đầu phải bị chế nhạo → 'derision'.",
-    "trapRate": 65,
+    "skillId": "listening.gap_fill",
+    "difficulty": "Medium",
+    "title": "Nghe điền thông tin (transcript) — chọn đáp án",
+    "practice_question": "Listen to this phone message: \"Hello, this is the City Library. Your book 'Space Adventures' is ready to collect. The library opens at nine o'clock in the morning and closes at six in the evening. Please bring your library card. Thank you.\" Question: What time does the library close?",
+    "choices": [
+      "A) At nine o'clock",
+      "B) At six o'clock",
+      "C) At five o'clock",
+      "D) At ten o'clock"
+    ],
+    "correct_choice": "B) At six o'clock",
+    "explanation": "Trong đoạn ghi âm, người nói cho biết thư viện \"opens at nine o'clock in the morning and closes at six in the evening\" (mở cửa lúc 9 giờ sáng và đóng cửa lúc 6 giờ chiều). Câu hỏi hỏi về giờ ĐÓNG CỬA, nên đáp án đúng là \"At six o'clock\" (6 giờ). Học sinh cần phân biệt giữa động từ \"opens\" (mở) và \"closes\" (đóng) để không nhầm với giờ 9 giờ.",
+    "trapRate": 38,
     "choice_analysis": [
-      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: 'acclaim' (tán dương) không tạo tương phản với 'although'." },
-      { "choice_letter": "B", "is_correct": false, "analysis": "Bẫy gần đúng: 'indifference' (thờ ơ) có tương phản nhưng yếu; 'derision' mạnh và chuẩn ngữ cảnh hơn." },
-      { "choice_letter": "C", "is_correct": true, "analysis": "Đúng: 'derision' (chế nhạo) tương phản rõ với việc sau này được xem là kiệt tác." },
-      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy nghĩa ngược: 'enthusiasm' (hào hứng) mâu thuẫn với 'although'." }
+      {
+        "choice_letter": "A",
+        "is_correct": false,
+        "analysis": "Sai. 9 giờ (nine o'clock) là giờ thư viện MỞ cửa ('opens at nine'), không phải giờ đóng cửa. Đây là bẫy dễ mắc nếu chỉ nghe con số mà không nghe động từ."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": true,
+        "analysis": "Đúng. Đoạn băng nói rõ 'closes at six in the evening' (đóng cửa lúc 6 giờ chiều), khớp chính xác với câu hỏi về giờ đóng cửa."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai. Số 5 (five) không hề được nhắc đến trong đoạn ghi âm. Đây là con số gây nhiễu."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. Số 10 (ten) không xuất hiện trong đoạn băng; các mốc giờ được nói đến chỉ là 9 giờ và 6 giờ."
+      }
     ]
   },
   {
-    "id": "d14",
-    "skillId": "rw.literature",
-    "difficulty": "Medium",
-    "title": "Reading & Writing — Đọc hiểu văn bản",
-    "full_passage": "The old lighthouse keeper had watched the sea for forty years. He knew its moods better than his own — the way it turned slate-grey before a storm, the deceptive calm that preceded the fiercest gales. Yet each morning he still climbed the spiral stair with a sense of wonder, as though the ocean might reveal something he had never seen.",
-    "practice_question": "The passage most strongly suggests that the lighthouse keeper views the sea with:",
-    "choices": ["A) fear and resentment", "B) familiarity yet enduring wonder", "C) complete indifference", "D) scientific detachment"],
-    "correct_choice": "B) familiarity yet enduring wonder",
-    "explanation": "Đoạn văn nhấn mạnh ông hiểu biển như bản thân (familiarity) nhưng vẫn leo lên với 'sense of wonder' mỗi sáng (enduring wonder).",
-    "trapRate": 50,
     "choice_analysis": [
-      { "choice_letter": "A", "is_correct": false, "analysis": "Bẫy: đoạn văn không nêu sợ hãi hay oán giận, chỉ mô tả sự am hiểu." },
-      { "choice_letter": "B", "is_correct": true, "analysis": "Đúng: kết hợp 'knew its moods' (quen thuộc) với 'sense of wonder' (kinh ngạc bền bỉ)." },
-      { "choice_letter": "C", "is_correct": false, "analysis": "Bẫy nghĩa ngược: 'wonder' loại trừ sự thờ ơ hoàn toàn." },
-      { "choice_letter": "D", "is_correct": false, "analysis": "Bẫy: giọng văn giàu cảm xúc, không phải khách quan khoa học." }
-    ]
+      {
+        "choice_letter": "A",
+        "is_correct": true,
+        "analysis": "Đúng. Tin nhắn này phù hợp nhất: có lời chào ('Hi Anna'), lời xin lỗi ('I'm sorry'), lý do rõ ràng vì sao không đến được ('because I'm ill') và lời chúc lịch sự. Đây chính là điều tình huống yêu cầu: báo cho Anna biết bạn không thể dự tiệc và giải thích lý do."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": false,
+        "analysis": "Sai. Câu này chỉ nêu thông tin 'Anna sẽ tổ chức tiệc vào thứ Bảy' như một câu tường thuật, không phải là tin nhắn gửi cho Anna và không hề nói rằng bạn không đến được hay lý do. Nó không đáp ứng mục đích của tình huống."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai. Câu này hỏi về địa điểm và giờ bắt đầu tiệc, tức là người viết muốn ĐI dự tiệc và cần thông tin. Điều này trái ngược với tình huống (bạn bị ốm và phải báo là không đến được)."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. Câu này cảm ơn vì bữa tiệc tuyệt vời và nói đã có khoảng thời gian vui vẻ, nghĩa là tiệc đã diễn ra và người viết đã tham dự. Không hợp lý vì bạn đang cần báo rằng bạn KHÔNG thể đến."
+      }
+    ],
+    "choices": [
+      "A) \"Hi Anna, I'm sorry but I can't come to your party because I'm ill. Have a great day!\"",
+      "B) \"Anna is having a party on Saturday.\"",
+      "C) \"Where is the party and what time does it start?\"",
+      "D) \"Thank you for the lovely party. I had a great time.\""
+    ],
+    "correct_choice": "A) \"Hi Anna, I'm sorry but I can't come to your party because I'm ill. Have a great day!\"",
+    "difficulty": "Medium",
+    "explanation": "Tình huống yêu cầu bạn viết tin nhắn cho Anna để báo rằng bạn KHÔNG thể dự tiệc sinh nhật của cô ấy vì bị ốm. Một tin nhắn ngắn phù hợp cần có: lời chào, thông báo bạn không đến được, và lý do. Đáp án A làm đủ cả ba điều đó một cách lịch sự ('Hi Anna, I'm sorry but I can't come... because I'm ill'). Các đáp án còn lại đều lệch mục đích: B chỉ là câu thông tin về bữa tiệc, C là hỏi thông tin để ĐI dự (ngược tình huống), D là lời cảm ơn sau khi đã dự tiệc. Vì vậy A là câu viết tin nhắn phù hợp nhất.",
+    "id": "d14",
+    "practice_question": "You cannot go to your friend Anna's birthday party on Saturday because you are ill. You want to send her a short message. Which message is the most suitable?",
+    "skillId": "writing.short_message",
+    "title": "Chọn câu viết tin nhắn phù hợp nhất",
+    "trapRate": 32
   }
 ]

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { loadVocab, saveVocab } from '@/lib/vocab-store';
+import { loadVocab, saveVocab, hasSeedMarker } from '@/lib/vocab-store';
 import { promote, nextReview, isDue } from '@/lib/leitner';
+import { getSeedWords, toSrsWords, makeSeedMarker, SEED_MARKER_ID } from '@/lib/vocab-seed';
 import { loadEconomy, saveEconomy } from '@/lib/economy-store';
 import { applyExamRewardFromDifficulties } from '@/lib/economy';
 import { getUserTier } from '@/lib/subscription-store';
@@ -10,10 +11,28 @@ import { TIER_COIN_MULTIPLIER } from '@/lib/subscription';
 export async function GET() {
   try {
     const user = await getCurrentUser();
-    const data = await loadVocab(user.id);
+    let data = await loadVocab(user.id);
 
-    // Lọc ra các từ cần ôn tập hôm nay (Leitner — dùng helper chung).
-    const dueWords = data.words.filter((w) => isDue(w.next_review));
+    // Phase 1 — lazy-seed Cambridge KET/PET: nếu user chưa có sentinel seed,
+    // nạp bộ từ KET (A2 — mặc định khi chưa biết CEFR, không phụ thuộc onboarding)
+    // vào SRS Leitner. STAGGER theo lô DAILY_NEW=20 (lô đầu due hôm nay).
+    // Condition = !hasSeedMarker (KHÔNG dựa words.length → phân biệt "chưa seed"
+    // vs "user xoá hết").
+    if (!hasSeedMarker(data.words)) {
+      // Giữ từ vựng cũ (nếu có — user SAT cũ có words không marker) + thêm seed
+      // KET mới. Marker chèn đầu để hasSeedMarker phát hiện lần sau.
+      const srs = toSrsWords(getSeedWords('KET'));
+      const withMarker = [makeSeedMarker(), ...data.words, ...srs];
+      await saveVocab(user.id, { words: withMarker });
+      // Reload chống race: 2 GET song song cùng thấy !hasMarker → reload lấy bản
+      // đã persist (Supabase upsert onConflict user_id) → filter nhất quán.
+      data = await loadVocab(user.id);
+    }
+
+    // Lọc ra các từ cần ôn tập hôm nay (Leitner — dùng helper chung). BỎ marker
+    // (marker không có next_review/word → isDue(undefined)=true → phải loại thủ công
+    // để không lọt dueWords làm page render crash).
+    const dueWords = data.words.filter((w) => w.id !== SEED_MARKER_ID && isDue(w.next_review));
 
     return NextResponse.json({ words: dueWords });
   } catch (error) {

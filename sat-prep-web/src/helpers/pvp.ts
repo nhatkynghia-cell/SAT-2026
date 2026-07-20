@@ -20,7 +20,7 @@ export const PVP_OPPONENTS: Record<number, PvpOpponent> = {
   4: { rank: 4, name: "Chiến Thần Hoàn Hảo", level: 75, luc_chien: 2000, max_hp: 8000, icon: "⚡", reward_coins: 3500, reward_xp: 2500, rankBorderClass: "border-[#38bdf8] shadow-[0_0_25px_#38bdf8]" },
   3: { rank: 3, name: "Hiệp Sĩ Oxford", level: 90, luc_chien: 2600, max_hp: 12000, icon: "🛡️", reward_coins: 5000, reward_xp: 4000, rankBorderClass: "border-[#38bdf8] shadow-[0_0_25px_#38bdf8]" },
   2: { rank: 2, name: "Đế Vương Harvard", level: 110, luc_chien: 3200, max_hp: 20000, icon: "👑", reward_coins: 8000, reward_xp: 6000, rankBorderClass: "border-[#c084fc] shadow-[0_0_30px_#c084fc] animate-pulse" },
-  1: { rank: 1, name: "Chúa Tể SAT Quest", level: 150, luc_chien: 4000, max_hp: 35000, icon: "🌌", reward_coins: 15000, reward_xp: 10000, rankBorderClass: "border-[#fbbf24] shadow-[0_0_40px_#fbbf24] animate-bounce" }
+  1: { rank: 1, name: "Chúa Tể Cambridge Quest", level: 150, luc_chien: 4000, max_hp: 35000, icon: "🌌", reward_coins: 15000, reward_xp: 10000, rankBorderClass: "border-[#fbbf24] shadow-[0_0_40px_#fbbf24] animate-bounce" }
 };
 
 export const getPvpRankBorder = (rank: number): string => {
