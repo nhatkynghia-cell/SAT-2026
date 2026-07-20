@@ -23,7 +23,7 @@ export function DiagnosticBanner() {
       <div className="text-4xl shrink-0">🎯</div>
       <div className="flex-1 min-w-0">
         <h3 className="text-white font-black text-lg">Làm bài test xếp lớp (5 phút)</h3>
-        <p className="text-indigo-200 text-sm">Đánh giá năng lực để mở khóa dự đoán điểm SAT và lộ trình học cá nhân hóa ngay từ đầu.</p>
+        <p className="text-indigo-200 text-sm">Đánh giá năng lực để mở khóa dự đoán điểm Cambridge và lộ trình học cá nhân hóa ngay từ đầu.</p>
       </div>
       <Link
         href="/diagnostic"

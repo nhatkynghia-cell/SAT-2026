@@ -17,7 +17,7 @@ import { createClient } from '@/lib/supabase/server';
  *
  *  ⚠️ GIỐNG ai_chat_cache/ai_cost_ledger: bảng DÙNG CHUNG toàn hệ thống (nội
  *  dung tĩnh phục vụ mọi học sinh) → RLS `authenticated using(true)`, KHÔNG
- *  scope user_id. Chỉ chứa câu hỏi SAT, KHÔNG có PII. Xem `questions.sql`.
+ *  scope user_id. Chỉ chứa câu hỏi Cambridge, KHÔNG có PII. Xem `questions.sql`.
  *
  *  🔓 FAIL-SAFE (memory 2026-07-02): bảng CHƯA tồn tại (pre-migration) / lỗi đọc
  *  → poolSize=0 + getFromBank=null → route tự sinh câu qua AI (ĐÚNG hành vi

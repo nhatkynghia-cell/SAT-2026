@@ -15,9 +15,9 @@ export default function VocabularyPage() {
   const prefetchedRef = useRef<{ topic: string; promise: Promise<PracticeQuestion | null> } | null>(null);
 
   const categories = [
-    { name: "Words in Context", desc: "Điền từ vựng cao cấp vào chỗ trống phù hợp ngữ cảnh." },
-    { name: "Transitions", desc: "Từ nối (However, Therefore, Conversely...) trong logic đoạn văn." },
-    { name: "Idioms & Phrasal Verbs", desc: "Các cụm từ đặc dụng thường xuất hiện trong SAT." }
+    { name: "Vocabulary in Context (KET)", desc: "Điền từ vựng A2 vào chỗ trống phù hợp ngữ cảnh câu." },
+    { name: "Synonyms & Antonyms (KET/PET)", desc: "Phân biệt từ đồng nghĩa / trái nghĩa A2–B1." },
+    { name: "Phrasal Verbs (PET)", desc: "Các cụm động từ B1 thường gặp trong PET." }
   ];
 
   // Fetch thuần — chỉ trả data, không đụng state. Dùng chung load + prefetch.
@@ -69,8 +69,8 @@ export default function VocabularyPage() {
         <div className="math-title-container">
           <div className="math-icon">📚</div>
           <div>
-            <h1 className="math-title" style={{ background: "linear-gradient(to right, #2dd4bf, #14b8a6)", WebkitBackgroundClip: "text" }}>LÀM CHỦ TỪ VỰNG</h1>
-            <p className="math-subtitle text-teal-200">Kho tàng từ vựng học thuật đỉnh cao của SAT.</p>
+            <h1 className="math-title" style={{ background: "linear-gradient(to right, #2dd4bf, #14b8a6)", WebkitBackgroundClip: "text" }}>LUYỆN TỪ VỰNG KET/PET</h1>
+            <p className="math-subtitle text-teal-200">Luyện điền từ và phân biệt từ vựng Cambridge A2–B1.</p>
           </div>
         </div>
       </div>
@@ -78,8 +78,8 @@ export default function VocabularyPage() {
       {!currentTopic ? (
         <>
           <div className="bg-[#1b2533] border border-[#14b8a6] rounded-xl p-6 shadow-[0_0_15px_rgba(20,184,166,0.1)]">
-            <h2 className="text-2xl font-bold text-[#2dd4bf] mb-4">Lựa Chọn Chủ Đề Vocab</h2>
-            <p className="text-[#e2e8f0] mb-6">Luyện tập khả năng phán đoán từ vựng dựa trên ngữ cảnh với hàng ngàn câu hỏi động:</p>
+            <h2 className="text-2xl font-bold text-[#2dd4bf] mb-4">Lựa Chọn Chủ Đề Từ Vựng</h2>
+            <p className="text-[#e2e8f0] mb-6">Luyện tập khả năng phán đoán từ vựng dựa trên ngữ cảnh với câu hỏi động Cambridge:</p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {categories.map((cat, idx) => (

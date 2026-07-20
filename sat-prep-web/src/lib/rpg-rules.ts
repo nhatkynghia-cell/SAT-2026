@@ -44,10 +44,11 @@ export interface BadgeDef {
 }
 
 export const BADGE_CATALOG: BadgeDef[] = [
-  // Tu Vi — theo THANG KỸ NĂNG (level = số skill tinh thông + 1, §10).
+  // Tu Vi — theo THANG KỸ NĂNG (level = số skill tinh thông + 1, §10). Ngưỡng ≤
+  // 22 node Cambridge (6 domain/22 skill) để đều đạt được.
   { id: 'b_1', title: 'Tân Binh Xuất Thế', req_desc: 'Tinh thông 1 kỹ năng', icon: '🥉', category: 'Tu Vi', check: (s) => s.level >= 2 },
-  { id: 'b_2', title: 'Kiếm Khách SAT', req_desc: 'Tinh thông 3 kỹ năng', icon: '🗡️', category: 'Tu Vi', check: (s) => s.level >= 4 },
-  { id: 'b_3', title: 'Đại Pháp Sư SAT', req_desc: 'Tinh thông 6 kỹ năng', icon: '🧙‍♂️', category: 'Tu Vi', check: (s) => s.level >= 7 },
+  { id: 'b_2', title: 'Kiếm Khách Anh Ngữ', req_desc: 'Tinh thông 3 kỹ năng', icon: '🗡️', category: 'Tu Vi', check: (s) => s.level >= 4 },
+  { id: 'b_3', title: 'Đại Pháp Sư Ngôn Ngữ', req_desc: 'Tinh thông 6 kỹ năng', icon: '🧙‍♂️', category: 'Tu Vi', check: (s) => s.level >= 7 },
   { id: 'b_4', title: 'Đỉnh Phong Thủ Khoa', req_desc: 'Tinh thông 10 kỹ năng', icon: '👑', category: 'Tu Vi', check: (s) => s.level >= 11 },
   { id: 'b_5', title: 'Thần Thoại Học Thuật', req_desc: 'Tinh thông 14 kỹ năng', icon: '🌟', category: 'Tu Vi', check: (s) => s.level >= 15 },
 
@@ -125,7 +126,7 @@ export const EQUIPMENT_POWER: Record<string, number> = {
   eq_epic_1: 40, // Găng Tay Tri Thức (800 xu)
   eq_epic_2: 45, // Mũ Cú Vọ Ban Đêm (850 xu)
   eq_leg_1: 250, // Huy Hiệu Ivy League (5.000 xu)
-  eq_leg_2: 300, // Nhẫn Chân Lý SAT (6.000 xu)
+  eq_leg_2: 300, // Nhẫn Chân Lý (6.000 xu)
 };
 
 export type BuyReason = 'insufficient' | 'already_owned' | 'tier_locked';

@@ -37,7 +37,7 @@ export async function GET() {
     getMasterySummary(user.id),
     getGoal(user.id),
   ]);
-  const plan = buildWeeklyPlan(summary, goal?.targetScore ?? null, new Date().toISOString());
+  const plan = buildWeeklyPlan(summary, goal?.targetLevel ?? null, new Date().toISOString());
   await savePlan(user.id, plan);
 
   return NextResponse.json({ plan, locked: false });
@@ -55,7 +55,7 @@ export async function POST() {
     getMasterySummary(user.id),
     getGoal(user.id),
   ]);
-  const plan = buildWeeklyPlan(summary, goal?.targetScore ?? null, new Date().toISOString());
+  const plan = buildWeeklyPlan(summary, goal?.targetLevel ?? null, new Date().toISOString());
   await savePlan(user.id, plan);
 
   return NextResponse.json({ plan, locked: false });

@@ -4,7 +4,7 @@ import type { MasterySummary } from './mastery';
  * ============================================================================
  *  BASE STATS — chỉ số nhân vật sinh từ HIỆU SUẤT HỌC THẬT (§10.B.2, task #18)
  * ============================================================================
- *  QUYẾT ĐỊNH ĐÃ CHỐT: Lực Chiến / chỉ số nhân vật = năng lực SAT thật.
+ *  QUYẾT ĐỊNH ĐÃ CHỐT: Lực Chiến / chỉ số nhân vật = năng lực Cambridge thật.
  *  TRANG BỊ & PET CHỈ LÀ BONUS CỘNG THÊM, không phải nguồn gốc chỉ số. Bỏ hẳn
  *  cơ chế "nạp/mua để mạnh" (chống pay-to-win trong giáo dục).
  *

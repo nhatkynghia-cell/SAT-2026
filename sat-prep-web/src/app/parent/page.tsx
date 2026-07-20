@@ -49,7 +49,7 @@ export default function ParentPage() {
       <div className="max-w-3xl mx-auto space-y-6">
         <header className="text-center space-y-1">
           <h1 className="text-2xl font-black text-white">📈 Tiến độ học tập của con</h1>
-          <p className="text-gray-400 text-sm">Báo cáo từ Ivy League Math Academy — Gia sư AI SAT</p>
+          <p className="text-gray-400 text-sm">Báo cáo từ Ivy League Math Academy — Gia sư AI Cambridge KET/PET</p>
         </header>
 
         {state.phase === 'loading' && (

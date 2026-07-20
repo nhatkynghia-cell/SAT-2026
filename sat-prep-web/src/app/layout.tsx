@@ -7,8 +7,8 @@ import { ToastProvider } from "@/context/ToastContext";
 import { BadgeUnlockWatcher } from "@/components/BadgeUnlockWatcher";
 
 export const metadata: Metadata = {
-  title: "Gia sư AI SAT - Phú Gia Education",
-  description: "Gamified SAT Prep Platform",
+  title: "Gia sư AI Cambridge KET/PET - Phú Gia Education",
+  description: "Gamified Cambridge English Prep Platform",
 };
 
 export default function RootLayout({

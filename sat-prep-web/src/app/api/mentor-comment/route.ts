@@ -50,12 +50,15 @@ function summarizeReport(report: ParentReport): string {
   const imp = report.improvement
     ? `Cải thiện ${report.improvement.windowDays} ngày: mastery ${report.improvement.deltaOverall >= 0 ? '+' : ''}${report.improvement.deltaOverall}, điểm dự đoán ${report.improvement.deltaPredicted >= 0 ? '+' : ''}${report.improvement.deltaPredicted}.`
     : 'Chưa đủ dữ liệu để đo tốc độ cải thiện.';
+  const bySubject = Object.entries(report.mastery.bySubject)
+    .map(([subject, value]) => `${subject} ${value}`)
+    .join(', ') || 'chưa có dữ liệu';
   return [
-    `Điểm SAT dự đoán: ${p.total} (Toán ${p.math}, Đọc & Viết ${p.reading}), độ tin cậy ${p.confidence}.`,
-    p.targetScore !== null ? `Mục tiêu ${p.targetScore}, còn ${p.pointsToTarget} điểm.` : 'Chưa đặt mục tiêu.',
-    `Mastery tổng: ${report.mastery.overall}/100 (Toán ${report.mastery.bySubject.math}, Đọc & Viết ${report.mastery.bySubject.reading}).`,
+    `Cambridge Scale dự đoán: ${p.scale} (${p.cefr}), độ tin cậy ${p.confidence}.`,
+    p.targetLevel !== null ? `Mục tiêu ${p.targetLevel} (${p.targetScale}), còn ${p.scaleToTarget} scale point.` : 'Chưa đặt mục tiêu.',
+    `Mastery tổng: ${report.mastery.overall}/100 (${bySubject}).`,
     `Tổng câu đã luyện: ${p.totalAttempts}. Chuỗi ngày học: ${report.streak}.`,
-    `Xu hướng ${report.trendWindowDays} ngày: điểm thay đổi ${t.scoreDelta >= 0 ? '+' : ''}${t.scoreDelta}, ${t.activeDays} ngày có học, ${t.attemptsThisWeek} câu làm trong kỳ.`,
+    `Xu hướng ${report.trendWindowDays} ngày: scale thay đổi ${t.scoreDelta >= 0 ? '+' : ''}${t.scoreDelta}, ${t.activeDays} ngày có học, ${t.attemptsThisWeek} câu làm trong kỳ.`,
     imp,
     `Kỹ năng cần tập trung: ${focus}.`,
     `Số bài thi gần đây: ${report.recentTests.length}.`,

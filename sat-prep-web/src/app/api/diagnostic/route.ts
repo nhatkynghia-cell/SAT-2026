@@ -29,7 +29,7 @@ export async function GET() {
   return NextResponse.json({
     completed: state?.completed ?? false,
     completedAt: state?.completedAt ?? null,
-    targetScore: state?.targetScore ?? null,
+    targetLevel: state?.targetLevel ?? null,
   });
 }
 
@@ -70,13 +70,13 @@ export async function POST(req: Request) {
   }
 
   if (action === 'complete') {
-    const targetRaw = body?.targetScore;
-    const targetScore = typeof targetRaw === 'number' && Number.isFinite(targetRaw) ? targetRaw : undefined;
+    const raw = body?.targetLevel;
+    const targetLevel = raw === 'A1' || raw === 'A2' || raw === 'B1' ? raw : undefined;
 
-    if (targetScore !== undefined) {
-      await setGoal(user.id, targetScore); // clamp 400..1600 bên trong
+    if (targetLevel !== undefined) {
+      await setGoal(user.id, targetLevel); // chuẩn hoá CEFR bên trong
     }
-    await saveOnboardingComplete(user.id, targetScore);
+    await saveOnboardingComplete(user.id, targetLevel);
 
     // Diagnostic là MỒI đầu phễu: LUÔN trả full prediction (kể cả free) để user
     // thấy trọn giá trị 1 lần — nhưng kèm `tier` để UI mời nâng cấp đúng aha-moment

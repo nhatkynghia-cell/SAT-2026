@@ -4,15 +4,16 @@ import type { AiTier } from './ai-quota';
 
 /**
  * ============================================================================
- *  SKILL TREE — bản đồ năng lực SAT (implementation_plan.md §10.B.1, task #17)
+ *  SKILL TREE — bản đồ năng lực Cambridge (implementation_plan.md §10.B.1, task #17)
  * ============================================================================
  *  QUYẾT ĐỊNH ĐÃ CHỐT: đây là HỆ TIẾN TRÌNH DUY NHẤT — đã bỏ Level phẳng 1-200.
- *  Tiến trình của người chơi = độ phủ + độ thành thạo chương trình SAT thật,
- *  KHÔNG phải một con số XP vô nghĩa.
+ *  Tiến trình của người chơi = độ phủ + độ thành thạo chương trình Cambridge
+ *  KET/PET thật, KHÔNG phải một con số XP vô nghĩa.
  *
  *  • Mỗi NODE = một skill trong taxonomy.
- *  • Các CHƯƠNG (domain) có quan hệ tiên quyết: Toán nâng cao / Phân tích số liệu
- *    / Hình học cần nền Đại số trước (đúng sư phạm). Reading độc lập.
+ *  • Các CHƯƠNG (domain) có quan hệ tiên quyết: kỹ năng SẢN XUẤT (writing/
+ *    speaking) cần nền grammar/vocabulary trước (đúng sư phạm). Kỹ năng tiếp nhận
+ *    (reading/listening) + nền tảng mở tự do.
  *  • Trạng thái node: locked → available → in_progress → mastered.
  *
  *  ⚠️ THUẦN (pure) — chỉ import TYPE. Tính per-domain average ngay từ
@@ -25,23 +26,26 @@ import type { AiTier } from './ai-quota';
 export const DOMAIN_UNLOCK_THRESHOLD = 40;
 
 /**
- * PHÂN TẦNG (định giá theo phễu 2026-07-06): free mở 2 CHƯƠNG đầu — `algebra`
- * (gốc Toán) + `reading_writing` (Đọc-Viết) — để nếm CẢ hai môn. Các chương còn
- * lại là quyền lợi Premium+. Đây là ranh giới ĐỌC/HIỂN THỊ; mastery vẫn ghi đủ ở
- * free (nâng cấp = mở khóa phần cây đã tích lũy sẵn). Xem applyTierGate.
+ * PHÂN TẦNG: free mở 2 CHƯƠNG đầu — `reading` (Đọc hiểu, không cần audio) +
+ * `grammar` (Ngữ pháp nền tảng) — để nếm cả kỹ năng tiếp nhận lẫn nền tảng.
+ * Các chương còn lại (writing/listening/speaking/vocabulary) là quyền lợi
+ * Premium+. Đây là ranh giới ĐỌC/HIỂN THỊ; mastery vẫn ghi đủ ở free. Xem
+ * applyTierGate.
  */
-export const FREE_DOMAINS = ['algebra', 'reading_writing'];
+export const FREE_DOMAINS = ['reading', 'grammar'];
 
 /**
  * Tiên quyết theo CHƯƠNG (domainId → các domainId phải đạt ngưỡng trước).
- * Đại số là gốc; Reading độc lập.
+ * Kỹ năng TIẾP NHẬN (reading/listening) + nền tảng (grammar/vocabulary) mở tự do;
+ * kỹ năng SẢN XUẤT (writing/speaking) cần nền ngữ pháp + từ vựng trước (đúng sư phạm).
  */
 export const DOMAIN_PREREQS: Record<string, string[]> = {
-  algebra: [],
-  advanced_math: ['algebra'],
-  data_analysis: ['algebra'],
-  geometry: ['algebra'],
-  reading_writing: [],
+  reading: [],
+  listening: [],
+  grammar: [],
+  vocabulary: [],
+  writing: ['grammar'],
+  speaking: ['grammar', 'vocabulary'],
 };
 
 export type NodeState = 'locked' | 'available' | 'in_progress' | 'mastered';

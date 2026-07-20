@@ -1,6 +1,6 @@
 import type { MasterySummary } from './mastery';
 import { MASTERED_THRESHOLD } from './mastery';
-import { masteryToSection } from './score-math';
+import { cefrToScale, masteryToScale, type CEFRLevel } from './score-math';
 
 /**
  * ============================================================================
@@ -11,7 +11,7 @@ import { masteryToSection } from './score-math';
  *  luyện theo độ hụt so với ngưỡng tinh thông (MASTERED_THRESHOLD).
  *
  *  ⚠️ THUẦN (pure) — KHÔNG I/O, KHÔNG gọi API/DB. Nhận MasterySummary +
- *  targetScore + `now` (tiêm vào để tất định, unit-test được), theo đúng mẫu
+ *  targetLevel + `now` (tiêm vào để tất định, unit-test được), theo đúng mẫu
  *  adaptive.ts. summary.skills đã nhúng sẵn moduleType nên không cần import
  *  taxonomy. Cùng công thức điểm với score-prediction (masteryToSection).
  * ============================================================================
@@ -40,9 +40,9 @@ export interface PlanWeek {
 
 export interface WeeklyPlan {
   generatedAt: string;
-  targetScore: number | null;
-  /** Còn cách mục tiêu bao nhiêu điểm (chỉ có khi đã đặt targetScore). */
-  pointsToTarget?: number;
+  targetLevel: CEFRLevel | null;
+  /** Còn cách mục tiêu bao nhiêu điểm (chỉ có khi đã đặt targetLevel). */
+  scaleToTarget?: number;
   weeks: PlanWeek[];
 }
 
@@ -65,14 +65,13 @@ function sessionsForGap(masteryScore: number): number {
  */
 export function buildWeeklyPlan(
   summary: MasterySummary,
-  targetScore: number | null,
+  targetLevel: CEFRLevel | null,
   now: string
 ): WeeklyPlan {
-  // Điểm hiện tại (cùng công thức score-prediction) → còn cách mục tiêu bao nhiêu.
-  const currentTotal =
-    masteryToSection(summary.bySubject.math) + masteryToSection(summary.bySubject.reading);
-  const pointsToTarget =
-    targetScore !== null ? Math.max(0, targetScore - currentTotal) : undefined;
+  // Cambridge Scale hiện tại (cùng công thức score-prediction) → còn cách mục tiêu bao nhiêu scale point.
+  const currentScale = masteryToScale(summary.overall);
+  const targetScale = targetLevel !== null ? cefrToScale(targetLevel) : null;
+  const scaleToTarget = targetScale !== null ? Math.max(0, targetScale - currentScale) : undefined;
 
   // Ưu tiên kỹ năng CHƯA thành thạo; nếu đã thạo hết thì lộ trình rỗng (không ép luyện).
   const notMastered = summary.skills.filter((s) => !s.mastered);
@@ -108,8 +107,8 @@ export function buildWeeklyPlan(
 
   return {
     generatedAt: now,
-    targetScore,
-    ...(pointsToTarget !== undefined ? { pointsToTarget } : {}),
+    targetLevel,
+    ...(scaleToTarget !== undefined ? { scaleToTarget } : {}),
     weeks,
   };
 }

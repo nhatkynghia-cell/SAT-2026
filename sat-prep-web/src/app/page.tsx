@@ -125,7 +125,7 @@ export default function Home() {
 
             <div className="hud-row" style={{ justifyContent: "flex-start", gap: "4px" }}>
               <span className="tag-pill" style={{ background: "rgba(59,130,246,0.2)", color: "#60a5fa", border: "1px solid #3b82f6" }}>
-                {level >= 15 ? "Thần Thoại Học Thuật" : level >= 11 ? "Đỉnh Phong Thủ Khoa" : level >= 7 ? "Đại Pháp Sư SAT" : level >= 4 ? "Kiếm Khách SAT" : "Tân Sinh"}
+                {level >= 15 ? "Thần Thoại Học Thuật" : level >= 11 ? "Đỉnh Phong Thủ Khoa" : level >= 7 ? "Đại Pháp Sư Cambridge" : level >= 4 ? "Kiếm Khách Cambridge" : "Tân Sinh"}
               </span>
               <span className="tag-pill" style={{ background: "rgba(168,85,247,0.2)", color: "#c084fc", border: "1px solid #a855f7" }}>🏆 Tân thủ học thuật</span>
               <span className="tag-pill" style={{ background: "rgba(239,68,68,0.2)", color: "#f87171", border: "1px solid #ef4444" }}>⚔️ {maxPower >= 2000 ? "Chúa Tể Sức Mạnh" : maxPower >= 1000 ? "Chiến Thần Hủy Diệt" : maxPower >= 500 ? "Đòn Đánh Chí Mạng" : maxPower >= 300 ? "Kẻ Phá Vỡ Giới Hạn" : maxPower >= 100 ? "Sức Mạnh Đánh Thức" : "Sức Mạnh Cấp 1"}</span>

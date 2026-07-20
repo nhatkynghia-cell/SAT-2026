@@ -1,50 +1,55 @@
 import { getMasterySummary, type MasterySummary } from './mastery';
 import { loadGoal, saveGoal } from './goals-store';
 import { getDomainOfSkill } from './skill-taxonomy';
+import { loadSnapshots } from './daily-snapshot-store';
 import {
-  masteryToSection,
+  masteryToScale,
+  masteryToCEFR,
+  cefrToScale,
   confidenceOf,
-  clampTargetScore,
+  clampTargetLevel,
+  predictETA,
   type Confidence,
+  type CEFRLevel,
 } from './score-math';
 
 /**
  * ============================================================================
- *  SCORE PREDICTION — dự đoán điểm SAT 400-1600 (implementation_plan.md §10.A.5)
+ *  SCORE PREDICTION — dự đoán cấp độ CEFR + Cambridge Scale (KET/PET)
  * ============================================================================
- *  Map mastery mỗi môn (0..100) → điểm phần SAT (200..800), tổng 400..1600.
- *  Đây là lớp mỏng nằm trên Mastery (task #9): "thứ học sinh & phụ huynh muốn
- *  biết nhất", và là dữ liệu chủ lực cho Parent Dashboard (Phase 2).
+ *  Map mastery tổng thể (0..100) → Cambridge Scale (82..170) + nhãn CEFR
+ *  (Pre-A1/A1/A2/B1). Đây là lớp mỏng trên Mastery — "thứ học sinh & phụ huynh
+ *  muốn biết nhất", dữ liệu chủ lực cho Parent Dashboard.
  *
  *  ⚠️ Đây là ƯỚC LƯỢNG ĐỘNG VIÊN dựa trên hiệu suất luyện tập trong app, KHÔNG
- *  phải điểm SAT chính thức. Độ tin cậy (confidence) tăng theo số câu đã làm —
- *  làm ít thì ước lượng chỉ mang tính tham khảo.
+ *  phải điểm thi Cambridge chính thức. Độ tin cậy tăng theo số câu đã làm.
  *
- *  Lõi tính toán THUẦN (masteryToSection/confidenceOf/clampTargetScore) tách
- *  sang score-math.ts để unit-test được; re-export type Confidence ở đây để
- *  caller cũ vẫn import từ score-prediction như trước.
+ *  Lõi tính toán THUẦN (score-math.ts) tách để unit-test được.
  * ============================================================================
  */
 
-export type { Confidence };
+export type { Confidence, CEFRLevel };
 
 export interface GoalData {
-  targetScore: number; // điểm mục tiêu 400..1600
+  targetLevel: CEFRLevel; // bậc CEFR mục tiêu (A1/A2/B1)
   updatedAt: string;
 }
 
 export interface ScorePrediction {
-  /** Điểm phần (đã làm tròn bội số 10). */
-  math: number;
-  reading: number;
-  /** Tổng 400..1600. */
-  total: number;
+  /** Mastery tổng thể 0..100. */
+  overallMastery: number;
+  /** Cambridge Scale hiện tại (82..170). */
+  scale: number;
+  /** Nhãn CEFR hiện tại. */
+  cefr: CEFRLevel;
   confidence: Confidence;
   totalAttempts: number;
-  /** Mục tiêu (nếu user đã đặt) + còn cách bao nhiêu điểm. */
-  targetScore: number | null;
-  pointsToTarget: number | null;
-  /** Tối đa 3 skill yếu nhất (đã làm ≥1 lần hoặc điểm thấp) nên tập trung. */
+  /** Mục tiêu (nếu user đã đặt) + mốc scale + còn cách bao nhiêu điểm + ETA ngày. */
+  targetLevel: CEFRLevel | null;
+  targetScale: number | null;
+  scaleToTarget: number | null;
+  etaDays: number | null;
+  /** Tối đa 3 skill yếu nhất nên tập trung. */
   focusSkills: Array<{ id: string; label: string; score: number; subject: string }>;
 }
 
@@ -52,9 +57,9 @@ export async function getGoal(userId: string): Promise<GoalData | null> {
   return loadGoal(userId);
 }
 
-/** Đặt điểm mục tiêu (clamp về 400..1600, làm tròn bội số 10). */
-export async function setGoal(userId: string, targetScore: number): Promise<GoalData> {
-  const goal: GoalData = { targetScore: clampTargetScore(targetScore), updatedAt: new Date().toISOString() };
+/** Đặt bậc CEFR mục tiêu (chuẩn hoá về A1/A2/B1). */
+export async function setGoal(userId: string, targetLevel: string): Promise<GoalData> {
+  const goal: GoalData = { targetLevel: clampTargetLevel(targetLevel), updatedAt: new Date().toISOString() };
   await saveGoal(userId, goal);
   return goal;
 }
@@ -62,27 +67,52 @@ export async function setGoal(userId: string, targetScore: number): Promise<Goal
 export async function predictScore(userId: string): Promise<ScorePrediction> {
   const summary = await getMasterySummary(userId);
   const goal = await getGoal(userId);
-  return computePrediction(summary, goal?.targetScore ?? null);
+  // Tốc độ tăng scale/ngày ước lượng từ lịch sử snapshot 14 ngày gần nhất.
+  const since = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
+  const snapshots = await loadSnapshots(userId, since).catch(() => [] as Awaited<ReturnType<typeof loadSnapshots>>);
+  const scalePerDay = estimateScaleVelocity(snapshots);
+  return computePrediction(summary, goal?.targetLevel ?? null, scalePerDay);
+}
+
+/** Ước lượng tốc độ tăng Cambridge Scale mỗi ngày từ chuỗi snapshot gần đây. */
+function estimateScaleVelocity(snapshots: Array<{ overall_scale?: number; snapshot_date?: string }>): number {
+  const pts = snapshots
+    .filter((s) => typeof s.overall_scale === 'number' && s.snapshot_date)
+    .slice(-14);
+  if (pts.length < 2) return 0;
+  const first = pts[0];
+  const last = pts[pts.length - 1];
+  const days = Math.max(
+    1,
+    (new Date(last.snapshot_date as string).getTime() - new Date(first.snapshot_date as string).getTime()) /
+      86400000
+  );
+  const delta = (last.overall_scale as number) - (first.overall_scale as number);
+  return delta > 0 ? delta / days : 0;
 }
 
 /**
- * Tính ScorePrediction THUẦN từ MasterySummary + điểm mục tiêu (không I/O). Tách
- * khỏi predictScore để đường phụ huynh (đọc dữ liệu con qua service-role) tái
- * dụng cùng công thức mà không cần RLS session của con.
+ * Tính ScorePrediction THUẦN từ MasterySummary + bậc mục tiêu + tốc độ (không I/O).
+ * Tách khỏi predictScore để đường phụ huynh (service-role) tái dụng cùng công thức.
  */
-export function computePrediction(summary: MasterySummary, targetScore: number | null): ScorePrediction {
-  const math = masteryToSection(summary.bySubject.math);
-  const reading = masteryToSection(summary.bySubject.reading);
-  const total = math + reading;
+export function computePrediction(
+  summary: MasterySummary,
+  targetLevel: CEFRLevel | null,
+  scalePerDay = 0
+): ScorePrediction {
+  const overallMastery = summary.overall;
+  const scale = masteryToScale(overallMastery);
+  const cefr = masteryToCEFR(overallMastery);
 
   const totalAttempts = summary.skills.reduce((sum, s) => sum + s.attempts, 0);
   const reliableSkills = summary.skills.filter((s) => s.reliable).length;
   const confidence = confidenceOf(totalAttempts, reliableSkills);
 
-  const pointsToTarget = targetScore !== null ? Math.max(0, targetScore - total) : null;
+  const targetScale = targetLevel !== null ? cefrToScale(targetLevel) : null;
+  const scaleToTarget = targetScale !== null ? Math.max(0, targetScale - scale) : null;
+  const eta = targetScale !== null ? predictETA(scale, targetScale, scalePerDay) : null;
 
-  // Gợi ý 3 skill cần tập trung: ưu tiên skill đã từng làm (attempts>0) và điểm thấp;
-  // nếu chưa làm gì thì gợi ý 3 skill bất kỳ để khởi động.
+  // Gợi ý 3 skill cần tập trung: ưu tiên skill đã từng làm (attempts>0) và điểm thấp.
   const attempted = summary.skills.filter((s) => s.attempts > 0);
   const ranked = (attempted.length > 0 ? attempted : summary.skills)
     .slice()
@@ -90,17 +120,19 @@ export function computePrediction(summary: MasterySummary, targetScore: number |
     .slice(0, 3)
     .map((s) => {
       const domain = getDomainOfSkill(s.id);
-      return { id: s.id, label: s.label, score: s.score, subject: domain?.subject ?? 'math' };
+      return { id: s.id, label: s.label, score: s.score, subject: domain?.subject ?? 'foundation' };
     });
 
   return {
-    math,
-    reading,
-    total,
+    overallMastery,
+    scale,
+    cefr,
     confidence,
     totalAttempts,
-    targetScore,
-    pointsToTarget,
+    targetLevel,
+    targetScale,
+    scaleToTarget,
+    etaDays: eta ? eta.days : null,
     focusSkills: ranked,
   };
 }

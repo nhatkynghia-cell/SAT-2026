@@ -1,0 +1,535 @@
+[
+  {
+    "id": "read_1",
+    "skillId": "reading.notice_mcq",
+    "moduleType": "reading",
+    "difficulty": "Easy",
+    "cefr_level": "A1",
+    "title": "Đọc thông báo thư viện — hiểu giờ mở cửa",
+    "full_passage": "NOTICE\nCity Library\nClosed on Sunday\nOpen Monday – Saturday: 9 a.m. – 5 p.m.",
+    "practice_question": "Read the notice. When is the City Library closed?",
+    "choices": [
+      "A) On Monday",
+      "B) On Saturday",
+      "C) On Sunday",
+      "D) On Friday"
+    ],
+    "correct_choice": "C) On Sunday",
+    "explanation": "Thông báo ghi rõ 'Closed on Sunday' (đóng cửa vào Chủ nhật). Các ngày Monday – Saturday đều trong khung giờ mở 9 a.m. – 5 p.m., nên thư viện chỉ đóng cửa vào Chủ nhật. Đáp án đúng là C.",
+    "trapRate": 28,
+    "choice_analysis": [
+      {
+        "choice_letter": "A",
+        "is_correct": false,
+        "analysis": "Sai. Thông báo liệt kê Monday trong khung giờ mở cửa (9 a.m. – 5 p.m.), nên thứ Hai thư viện mở, không đóng."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": false,
+        "analysis": "Sai. Saturday cũng nằm trong danh sách ngày mở cửa (Monday – Saturday), nên thứ Bảy thư viện vẫn mở."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": true,
+        "analysis": "Đúng. 'Closed on Sunday' nghĩa là thư viện đóng cửa vào Chủ nhật, khớp đúng câu hỏi."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. Friday thuộc khoảng Monday – Saturday nên thư viện mở cửa bình thường, không đóng."
+      }
+    ]
+  },
+  {
+    "id": "read_2",
+    "skillId": "reading.notice_mcq",
+    "moduleType": "reading",
+    "difficulty": "Easy",
+    "cefr_level": "A1",
+    "title": "Đọc biển báo nhà trường — hiểu quy định",
+    "full_passage": "SCHOOL NOTICE\nPlease walk quietly in the corridors.\nDo not run.",
+    "practice_question": "What does the school notice ask students to do?",
+    "choices": [
+      "A) Run quickly in the corridors",
+      "B) Walk quietly and not run",
+      "C) Shout to their friends",
+      "D) Stay outside the building"
+    ],
+    "correct_choice": "B) Walk quietly and not run",
+    "explanation": "Biển báo gồm hai câu: 'Please walk quietly in the corridors' (xin hãy đi bộ yên tĩnh trong hành lang) và 'Do not run' (không chạy). Gộp lại, học sinh được yêu cầu đi bộ yên tĩnh và không chạy. Đáp án đúng là B.",
+    "trapRate": 25,
+    "choice_analysis": [
+      {
+        "choice_letter": "A",
+        "is_correct": false,
+        "analysis": "Sai. Biển báo nói rõ 'Do not run' (không chạy), nên yêu cầu chạy nhanh là ngược hoàn toàn với nội dung thông báo."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": true,
+        "analysis": "Đúng. 'Walk quietly' + 'Do not run' tóm tắt đúng yêu cầu của biển báo: đi bộ yên tĩnh và không chạy."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai. Biển báo yêu cầu đi bộ 'quietly' (yên tĩnh), nên hô to ('shout') trái ngược với ý cần giữ trật tự."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. Thông báo không yêu cầu ở ngoài building; nó nói về cách di chuyển trong hành lang (corridors)."
+      }
+    ]
+  },
+  {
+    "id": "read_3",
+    "skillId": "reading.notice_mcq",
+    "moduleType": "reading",
+    "difficulty": "Easy",
+    "cefr_level": "A2",
+    "title": "Đọc thông báo bể bơi — hiểu điều kiện vào",
+    "full_passage": "POOL RULES\nAll swimmers must wear a swimming cap.\nNo food or drinks in the pool area.",
+    "practice_question": "What must you do before entering the pool?",
+    "choices": [
+      "A) Bring some food and drinks",
+      "B) Wear a swimming cap",
+      "C) Run around the pool",
+      "D) Pay for a towel"
+    ],
+    "correct_choice": "B) Wear a swimming cap",
+    "explanation": "Quy định ghi 'All swimmers must wear a swimming cap' (mọi người bơi phải đội mũ bơi). 'Must' chỉ nghĩa bắt buộc, nên trước khi xuống bể bạn phải đội mũ bơi. Đáp án đúng là B. Quy định thứ hai cấm mang thức ăn/nước uống vào khu bể, nên A sai.",
+    "trapRate": 30,
+    "choice_analysis": [
+      {
+        "choice_letter": "A",
+        "is_correct": false,
+        "analysis": "Sai. Thông báo ghi 'No food or drinks in the pool area' (cấm thức ăn/nước uống trong khu bể), nên mang thức ăn là vi phạm quy định."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": true,
+        "analysis": "Đúng. 'All swimmers must wear a swimming cap' là yêu cầu bắt buộc trước khi bơi, khớp câu hỏi 'What must you do'."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai. Biển báo không nhắc đến việc chạy, và chạy quanh bể thường nguy hiểm — không phải điều 'must' được yêu cầu."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. Thông báo không đề cập đến khăn tắm hay phí thuê khăn; đây là phương án gây nhiễu không có cơ sở trong texte."
+      }
+    ]
+  },
+  {
+    "id": "read_4",
+    "skillId": "reading.notice_mcq",
+    "moduleType": "reading",
+    "difficulty": "Easy",
+    "cefr_level": "A2",
+    "title": "Đọc thông báo nhà ga — hiểu chuyến tàu",
+    "full_passage": "STATION NOTICE\nThe 10:15 train to Oxford has been cancelled.\nThe next train is at 10:45.",
+    "practice_question": "What should a passenger for Oxford do after reading the notice?",
+    "choices": [
+      "A) Take the 10:15 train",
+      "B) Wait for the 10:45 train",
+      "C) Go to a different station",
+      "D) Ask for a swimming cap"
+    ],
+    "correct_choice": "B) Wait for the 10:45 train",
+    "explanation": "Thông báo cho biết chuyến tàu 10:15 tới Oxford đã bị hủy ('has been cancelled'), và chuyến tiếp theo lúc 10:45 ('The next train is at 10:45'). Vậy hành khách đi Oxford nên chờ chuyến 10:45. Đáp án đúng là B.",
+    "trapRate": 32,
+    "choice_analysis": [
+      {
+        "choice_letter": "A",
+        "is_correct": false,
+        "analysis": "Sai. Chuyến 10:15 đã 'been cancelled' (bị hủy), nên không thể lên chuyến này được nữa."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": true,
+        "analysis": "Đúng. 'The next train is at 10:45' cho biết chuyến tiếp theo tới Oxford lúc 10:45, nên hành khách cần chờ chuyến này."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai. Thông báo không yêu cầu chuyển nhà ga; nó cung cấp chuyến thay thế tại cùng ga (10:45)."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. 'Swimming cap' (mũ bơi) không liên quan gì đến nhà ga — đây là phương án nhiễu lấy từ ngữ cảnh khác."
+      }
+    ]
+  },
+  {
+    "id": "read_5",
+    "skillId": "reading.notice_mcq",
+    "moduleType": "reading",
+    "difficulty": "Medium",
+    "cefr_level": "A2",
+    "title": "Đọc thông báo cửa hàng — hiểu ưu đãi",
+    "full_passage": "BOOKSHOP OFFER\nBuy 2 books, get the 3rd book half price!\nOffer ends Saturday.",
+    "practice_question": "According to the notice, what happens if you buy three books?",
+    "choices": [
+      "A) You get all three books for free",
+      "B) You pay full price for every book",
+      "C) You pay half price for the third book",
+      "D) You get a fourth book for free"
+    ],
+    "correct_choice": "C) You pay half price for the third book",
+    "explanation": "Ưu đãi ghi 'Buy 2 books, get the 3rd book half price!' (mua 2 cuốn, cuốn thứ 3 giảm còn nửa giá). Vậy khi mua 3 cuốn, cuốn thứ 3 chỉ phải trả nửa giá. Đáp án đúng là C. 'Offer ends Saturday' chỉ thời hạn khuyến mãi, không thay đổi nội dung ưu đãi.",
+    "trapRate": 35,
+    "choice_analysis": [
+      {
+        "choice_letter": "A",
+        "is_correct": false,
+        "analysis": "Sai. Thông báo chỉ giảm 'half price' (nửa giá) cho cuốn thứ 3, không phải miễn phí ('for free') cả ba cuốn."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": false,
+        "analysis": "Sai. Nếu mua đủ 3 cuốn thì cuốn thứ 3 được giảm nửa giá, nên không phải trả nguyên giá cho mọi cuốn."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": true,
+        "analysis": "Đúng. 'get the 3rd book half price' nghĩa chính xác là cuốn thứ ba được trả nửa giá, khớp với tình huống mua 3 cuốn."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. Thông báo không tặng cuốn thứ tư; ưu đãi chỉ áp dụng cho cuốn thứ 3 với giá nửa."
+      }
+    ]
+  },
+  {
+    "id": "read_6",
+    "skillId": "reading.notice_mcq",
+    "moduleType": "reading",
+    "difficulty": "Medium",
+    "cefr_level": "A2",
+    "title": "Đọc thông báo phòng khám — hiểu lịch làm việc",
+    "full_passage": "GREEN STREET DENTIST\nWe are closed on Wednesdays.\nEmergencies only: call 07900 123456.",
+    "practice_question": "What can patients do if they have a dental emergency on Wednesday?",
+    "choices": [
+      "A) Visit the surgery during opening hours",
+      "B) Wait until Thursday morning",
+      "C) Call 07900 123456",
+      "D) Send an email to the clinic"
+    ],
+    "correct_choice": "C) Call 07900 123456",
+    "explanation": "Phòng khám đóng cửa thứ Tư ('closed on Wednesdays') nhưng dòng 'Emergencies only: call 07900 123456' cho biết với trường hợp cấp cứu, bệnh nhân gọi số điện thoại đó. Vậy nếu có ca cấp cứu nha khoa vào thứ Tư, bệnh nhân gọi 07900 123456. Đáp án đúng là C.",
+    "trapRate": 33,
+    "choice_analysis": [
+      {
+        "choice_letter": "A",
+        "is_correct": false,
+        "analysis": "Sai. Phòng khám 'closed on Wednesdays', nên không có giờ mở cửa để tới khám trực tiếp vào thứ Tư."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": false,
+        "analysis": "Sai. Thông báo cung cấp cách xử lý cấp cứu ngay (gọi điện), chứ không yêu cầu chờ đến thứ Năm. 'Wait' làm chậm trễ tình trạng cấp cứu."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": true,
+        "analysis": "Đúng. 'Emergencies only: call 07900 123456' chỉ đúng hành động cho cấp cứu nha khoa vào ngày phòng khám đóng (thứ Tư)."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. Thông báo không đưa địa chỉ email; nó yêu cầu gọi điện thoại cho trường hợp cấp cứu."
+      }
+    ]
+  },
+  {
+    "id": "read_7",
+    "skillId": "reading.notice_mcq",
+    "moduleType": "reading",
+    "difficulty": "Medium",
+    "cefr_level": "A2",
+    "title": "Đọc thông báo trường — hiểu yêu cầu họp phụ huynh",
+    "full_passage": "PARENTS' EVENING\nFriday 7 November, 5 – 7 p.m.\nPlease arrive 10 minutes before your appointment.",
+    "practice_question": "What does the school ask parents to do?",
+    "choices": [
+      "A) Arrive exactly at the appointment time",
+      "B) Arrive ten minutes before the appointment",
+      "C) Arrive after 7 p.m.",
+      "D) Bring their children into the classroom"
+    ],
+    "correct_choice": "B) Arrive ten minutes before the appointment",
+    "explanation": "Thông báo yêu cầu 'Please arrive 10 minutes before your appointment' (xin đến trước giờ hẹn 10 phút). Vậy phụ huynh cần đến trước giờ hẹn 10 phút. Đáp án đúng là B. Dòng '5 – 7 p.m.' chỉ khung giờ chung của buổi họp, không phải yêu cầu đến sau 7 giờ.",
+    "trapRate": 40,
+    "choice_analysis": [
+      {
+        "choice_letter": "A",
+        "is_correct": false,
+        "analysis": "Sai. Thông báo yêu cầu đến TRƯỚC giờ hẹn 10 phút, không phải đến đúng giờ hẹn."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": true,
+        "analysis": "Đúng. 'arrive 10 minutes before your appointment' tóm tắt đúng yêu cầu trong thông báo: đến trước giờ hẹn 10 phút."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai. '5 – 7 p.m.' là khung giờ của buổi họp phụ huynh; đến sau 7 p.m. là đến khi sự kiện đã kết thúc, ngược với yêu cầu."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. Thông báo không đề cập việc đưa học sinh vào lớp; nó chỉ nói về thời gian đến của phụ huynh."
+      }
+    ]
+  },
+  {
+    "id": "read_8",
+    "skillId": "reading.notice_mcq",
+    "moduleType": "reading",
+    "difficulty": "Medium",
+    "cefr_level": "B1",
+    "title": "Đọc thông báo rạp phim — hiểu chính sách vé",
+    "full_passage": "CINEMA POLICY\nTickets cannot be exchanged or refunded after the film has started.\nStudents get a £2 discount with a valid student card.",
+    "practice_question": "Why might a customer NOT get their money back for a cinema ticket?",
+    "choices": [
+      "A) Because they are a student",
+      "B) Because they lost their student card",
+      "C) Because the film has already started",
+      "D) Because the cinema is closed"
+    ],
+    "correct_choice": "C) Because the film has already started",
+    "explanation": "Chính sách ghi 'Tickets cannot be exchanged or refunded after the film has started' (vé không đổi/trả sau khi phim đã bắt đầu). Vậy khách có thể không nhận lại tiền vì phim đã chiếu rồi. Đáp án đúng là C. Dòng giảm giá cho sinh viên là thông tin thêm, không liên quan đến hoàn tiền.",
+    "trapRate": 38,
+    "choice_analysis": [
+      {
+        "choice_letter": "A",
+        "is_correct": false,
+        "analysis": "Sai. Là sinh viên chỉ giúp được giảm £2 ('Students get a £2 discount'), không phải lý do từ chối hoàn tiền."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": false,
+        "analysis": "Sai. Mất thẻ sinh viên ảnh hưởng tới việc được giảm giá, nhưng thông báo không nói nó ngăn việc hoàn vé."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": true,
+        "analysis": "Đúng. 'Tickets cannot be exchanged or refunded after the film has started' chỉ đúng lý do từ chối hoàn tiền: phim đã bắt đầu."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. Thông báo không nhắc rạp đóng cửa; đây là phương án nhiễu không có cơ sở trong texte."
+      }
+    ]
+  },
+  {
+    "id": "read_9",
+    "skillId": "reading.notice_mcq",
+    "moduleType": "reading",
+    "difficulty": "Medium",
+    "cefr_level": "B1",
+    "title": "Đọc thông báo công viên — hiểu quy định chó",
+    "full_passage": "RIVERSIDE PARK\nDogs are welcome but must be kept on a lead at all times.\nDogs are not allowed in the children's play area.",
+    "practice_question": "Which of these is allowed in Riverside Park?",
+    "choices": [
+      "A) Letting a dog run free in the play area",
+      "B) Walking a dog on a lead along the path",
+      "C) Bringing a dog into the children's play area",
+      "D) Leaving a dog tied up near the lake"
+    ],
+    "correct_choice": "B) Walking a dog on a lead along the path",
+    "explanation": "Thông báo cho phép đưa chó vào công viên nhưng 'must be kept on a lead at all times' (phải giữ xích suốt thời gian) và 'not allowed in the children's play area' (cấm vào khu vui chơi trẻ em). Vậy dắt chó bằng xích trên đường đi là hành động được phép. Đáp án đúng là B.",
+    "trapRate": 36,
+    "choice_analysis": [
+      {
+        "choice_letter": "A",
+        "is_correct": false,
+        "analysis": "Sai. Chó phải được giữ xích ('on a lead at all times'), nên thả rông ('run free') là vi phạm; thêm nữa khu vui chơi cấm chó."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": true,
+        "analysis": "Đúng. Dắt chó bằng xích dọc đường đi thỏa mãn cả hai quy định: chó được welcome và được giữ xích suốt."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai. 'Dogs are not allowed in the children's play area' cấm rõ việc đưa chó vào khu vui chơi trẻ em."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. Thông báo không cho phép cột chó lại; 'on a lead at all times' yêu cầu người chủ phải giữ xích, không bỏ chó một mình."
+      }
+    ]
+  },
+  {
+    "id": "read_10",
+    "skillId": "reading.notice_mcq",
+    "moduleType": "reading",
+    "difficulty": "Hard",
+    "cefr_level": "B1",
+    "title": "Đọc thông báo tòa nhà văn phòng — hiểu quy định an ninh",
+    "full_passage": "TOWER BLOCK VISITORS\nAll visitors must sign in at reception and wear a visitor badge at all times.\nBadges must be returned before leaving the building.",
+    "practice_question": "What must a visitor do just before leaving the Tower Block?",
+    "choices": [
+      "A) Sign in at reception",
+      "B) Return their visitor badge",
+      "C) Show an ID card to the guard",
+      "D) Leave through the back exit"
+    ],
+    "correct_choice": "B) Return their visitor badge",
+    "explanation": "Thông báo yêu cầu 'Badges must be returned before leaving the building' (thẻ khách phải được trả lại trước khi rời tòa nhà). Vậy đúng trước khi rời đi, khách phải trả thẻ. Đáp án đúng là B. 'Sign in at reception' là việc làm khi vừa tới, không phải lúc rời đi.",
+    "trapRate": 42,
+    "choice_analysis": [
+      {
+        "choice_letter": "A",
+        "is_correct": false,
+        "analysis": "Sai. 'Sign in at reception' là việc làm KHI VỪA TỚI (sign in), không phải trước khi rời đi (trước khi rời là trả thẻ)."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": true,
+        "analysis": "Đúng. 'Badges must be returned before leaving the building' chỉ đúng hành động trước khi rời tòa nhà: trả thẻ khách."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai. Thông báo không yêu cầu xuất thẻ ID cho bảo vệ; nó chỉ nói về đăng ký và thẻ khách."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. Thông báo không nhắc lối ra phía sau ('back exit'); nó chỉ quy định việc đăng ký, đeo và trả thẻ khách."
+      }
+    ]
+  },
+  {
+    "id": "read_11",
+    "skillId": "reading.notice_mcq",
+    "moduleType": "reading",
+    "difficulty": "Hard",
+    "cefr_level": "B1",
+    "title": "Đọc thông báo nhà hàng — hiểu điều kiện đặt bàn",
+    "full_passage": "THE LITTLE KITCHEN\nTables for more than 6 people must be booked at least 48 hours in advance.\nA deposit of £5 per person is required for large groups.",
+    "practice_question": "What must a customer do to book a table for 8 people at The Little Kitchen?",
+    "choices": [
+      "A) Book at least 48 hours in advance and pay a £5 deposit per person",
+      "B) Book on the same day and pay nothing",
+      "C) Book 24 hours in advance and pay £5 total",
+      "D) Book 48 hours in advance with no deposit"
+    ],
+    "correct_choice": "A) Book at least 48 hours in advance and pay a £5 deposit per person",
+    "explanation": "Bàn cho hơn 6 người ('more than 6 people') phải đặt trước ít nhất 48 giờ ('at least 48 hours in advance') và đặt cọc £5 mỗi người ('£5 deposit per person') cho nhóm lớn. Nhóm 8 người thỏa điều kiện 'more than 6', nên phải đặt trước 48 giờ và cọc £5/người. Đáp án đúng là A.",
+    "trapRate": 40,
+    "choice_analysis": [
+      {
+        "choice_letter": "A",
+        "is_correct": true,
+        "analysis": "Đúng. Ghép đúng hai điều kiện cho nhóm trên 6 người: đặt trước ít nhất 48 giờ và cọc £5 mỗi người — khớp nhóm 8 người."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": false,
+        "analysis": "Sai. Nhóm >6 không thể đặt cùng ngày ('must be booked at least 48 hours in advance') và phải có cọc, không phải 'pay nothing'."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai về cả hai: thời gian phải là 48 giờ (không phải 24), và cọc là £5 mỗi người (không phải £5 tổng cộng cho nhóm 8)."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. Đúng là 48 giờ nhưng thiếu cọc: thông báo yêu cầu 'a deposit of £5 per person is required for large groups'."
+      }
+    ]
+  },
+  {
+    "id": "read_12",
+    "skillId": "reading.notice_mcq",
+    "moduleType": "reading",
+    "difficulty": "Hard",
+    "cefr_level": "B1",
+    "title": "Đọc thông báo nhà xe — hiểu dịch vụ sửa chữa",
+    "full_passage": "ABC GARAGE\nFree car check before long journeys.\nRepairs completed within 2 working days — guaranteed, or you pay nothing.",
+    "practice_question": "What can a customer expect if ABC Garage does not finish a repair within two working days?",
+    "choices": [
+      "A) A free car check before their next journey",
+      "B) A discount on the next repair",
+      "C) They do not have to pay for the repair",
+      "D) A replacement car for free"
+    ],
+    "correct_choice": "C) They do not have to pay for the repair",
+    "explanation": "Thông báo cam kết 'Repairs completed within 2 working days — guaranteed, or you pay nothing' (sửa xong trong 2 ngày làm việc — cam kết, nếu không bạn không phải trả tiền). Vậy nếu Garage không sửa xong trong 2 ngày làm việc, khách không phải trả tiền. Đáp án đúng là C. 'Free car check' là dịch vụ khác, liên quan đến hành trình dài, không phải bồi thường chậm trễ.",
+    "trapRate": 44,
+    "choice_analysis": [
+      {
+        "choice_letter": "A",
+        "is_correct": false,
+        "analysis": "Sai. 'Free car check before long journeys' là dịch vụ kiểm tra miễn phí trước chuyến đi dài, không phải bồi thường khi sửa chậm."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": false,
+        "analysis": "Sai. Thông báo không đề cập giảm giá cho lần sửa sau; cam kết là 'you pay nothing' (không trả tiền), mạnh hơn giảm giá."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": true,
+        "analysis": "Đúng. 'guaranteed, or you pay nothing' nghĩa là nếu không sửa xong đúng hạn 2 ngày làm việc, khách không phải trả tiền cho lần sửa đó."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. Thông báo không nói về xe thay thế ('replacement car'); đây là phương án nhiễu không có cơ sở trong texte."
+      }
+    ]
+  },
+  {
+    "id": "read_13",
+    "skillId": "reading.notice_mcq",
+    "moduleType": "reading",
+    "difficulty": "Easy",
+    "cefr_level": "A1",
+    "title": "Đọc biển báo công trường — hiểu cảnh báo an toàn",
+    "full_passage": "WARNING\nWet Floor\nPlease use the other entrance.",
+    "practice_question": "What does the sign tell people to do?",
+    "choices": [
+      "A) Use the other entrance",
+      "B) Walk quickly across the wet floor",
+      "C) Clean the floor with water",
+      "D) Wait outside until the rain stops"
+    ],
+    "correct_choice": "A) Use the other entrance",
+    "explanation": "Biển báo cảnh báo sàn ướt ('Wet Floor') và yêu cầu 'Please use the other entrance' (xin hãy dùng lối vào khác). Vậy người ta được yêu cầu dùng lối vào khác. Đáp án đúng là A. 'Wet Floor' chỉ lý do cảnh báo, không phải yêu cầu hành động chính.",
+    "trapRate": 26,
+    "choice_analysis": [
+      {
+        "choice_letter": "A",
+        "is_correct": true,
+        "analysis": "Đúng. 'Please use the other entrance' là yêu cầu trực tiếp của biển báo: dùng lối vào khác vì sàn ướt."
+      },
+      {
+        "choice_letter": "B",
+        "is_correct": false,
+        "analysis": "Sai. Biển báo cảnh báo sàn ướt nên càng không nên 'walk quickly' đi nhanh — điều này nguy hiểm trượt ngã."
+      },
+      {
+        "choice_letter": "C",
+        "is_correct": false,
+        "analysis": "Sai. Biển báo không yêu cầu lau sàn; 'Wet Floor' là cảnh báo tình trạng sàn đang ướt, không phải chỉ thị hành động."
+      },
+      {
+        "choice_letter": "D",
+        "is_correct": false,
+        "analysis": "Sai. Biển báo không nhắc đến mưa hay chờ ngoài trời; nó đưa lối vào thay thế trong nhà."
+      }
+    ]
+  }
+]

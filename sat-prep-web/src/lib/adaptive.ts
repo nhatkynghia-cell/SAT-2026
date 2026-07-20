@@ -132,20 +132,20 @@ export interface TowerPick {
 }
 
 /**
- * Chọn skill + độ khó cho 1 tầng Tower (math-only — Tower là "Math Survival").
+ * Chọn skill + độ khó cho 1 tầng Tower (reading-only — Tower là "Reading Survival").
  * Xoay vòng trong nhóm skill yếu nhất (ưu tiên chưa thành thạo) theo số tầng.
- * Trả null nếu không có skill math nào (summary rỗng).
+ * Trả null nếu không có skill reading nào (summary rỗng).
  */
 export function pickTowerSkill(
   skills: MasterySummary['skills'],
   floor: number
 ): TowerPick | null {
-  const mathSkills = skills.filter((s) => s.moduleType === 'math');
-  if (mathSkills.length === 0) return null;
+  const readingSkills = skills.filter((s) => s.moduleType === 'reading');
+  if (readingSkills.length === 0) return null;
 
   // Ưu tiên skill CHƯA thành thạo; nếu đã thạo hết thì ôn duy trì trên toàn bộ.
-  const notMastered = mathSkills.filter((s) => !s.mastered);
-  const ranked = [...(notMastered.length > 0 ? notMastered : mathSkills)];
+  const notMastered = readingSkills.filter((s) => !s.mastered);
+  const ranked = [...(notMastered.length > 0 ? notMastered : readingSkills)];
 
   // Yếu nhất trước; cùng score thì ít luyện hơn trước (độ phủ) — như recommendNext.
   ranked.sort((a, b) => a.score - b.score || a.attempts - b.attempts);

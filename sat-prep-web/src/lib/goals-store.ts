@@ -15,12 +15,12 @@ export async function loadGoal(userId: string): Promise<GoalData | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('user_goals')
-    .select('target_score, updated_at')
+    .select('target_level, updated_at')
     .eq('user_id', userId)
     .single();
 
-  if (error || !data || typeof data.target_score !== 'number') return null;
-  return { targetScore: data.target_score, updatedAt: data.updated_at };
+  if (error || !data || typeof data.target_level !== 'string') return null;
+  return { targetLevel: data.target_level as GoalData['targetLevel'], updatedAt: data.updated_at };
 }
 
 export async function saveGoal(userId: string, goal: GoalData): Promise<void> {
@@ -28,7 +28,7 @@ export async function saveGoal(userId: string, goal: GoalData): Promise<void> {
   const { error } = await admin
     .from('user_goals')
     .upsert(
-      { user_id: userId, target_score: goal.targetScore, updated_at: goal.updatedAt },
+      { user_id: userId, target_level: goal.targetLevel, updated_at: goal.updatedAt },
       { onConflict: 'user_id' }
     );
 

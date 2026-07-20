@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
-import { loadVocab, saveVocab } from '@/lib/vocab-store';
+import { loadVocab, saveVocab, hasSeedMarker } from '@/lib/vocab-store';
+import { getSeedWords, toSrsWords, makeSeedMarker, SEED_MARKER_ID } from '@/lib/vocab-seed';
 import { promote, nextReview, isDue } from '@/lib/leitner';
 import { loadEconomy, saveEconomy, tryClaimOnceAtomic, ensureEconomyRow } from '@/lib/economy-store';
 import { applyExamRewardFromDifficulties } from '@/lib/economy';
@@ -16,10 +17,22 @@ const VOCAB_REWARD_KEY = '__vocab_reward__';
 export async function GET() {
   try {
     const user = await getCurrentUser();
-    const data = await loadVocab(user.id);
+    let data = await loadVocab(user.id);
+
+    // Phase 1 — lazy-seed Cambridge KET/PET: nếu user chưa có sentinel seed,
+    // nạp bộ từ KET (A2 — mặc định khi chưa biết CEFR, không phụ thuộc onboarding)
+    // vào SRS Leitner. Marker chèn đầu để lần sau nhận diện đã seed.
+    if (!hasSeedMarker(data.words)) {
+      const srs = toSrsWords(getSeedWords('KET'));
+      const withMarker = [makeSeedMarker(), ...data.words, ...srs];
+      await saveVocab(user.id, { words: withMarker });
+      data = await loadVocab(user.id);
+    }
 
     // Lọc ra các từ cần ôn tập hôm nay (Leitner — dùng helper chung).
-    const dueWords = data.words.filter((w) => isDue(w.next_review));
+    // BỎ marker (marker không có next_review/word → isDue(undefined)=true → phải
+    // loại thủ công để không lọt dueWords làm page render crash).
+    const dueWords = data.words.filter((w) => w.id !== SEED_MARKER_ID && isDue(w.next_review));
 
     return NextResponse.json({ words: dueWords });
   } catch (error) {
@@ -109,7 +122,7 @@ export async function POST(req: Request) {
     data.words[wordIndex] = word;
     await saveVocab(user.id, data);
 
-    // Nuôi mastery rw.vocab: ôn từ vựng là tín hiệu học THẬT.
+    // Nuôi mastery vocabulary.*: ôn từ vựng là tín hiệu học THẬT.
     //  • "đã nhớ" (đúng): CHỈ ghi khi claimedFresh — tức POST này là lần ĐẦU chốt
     //    thưởng cho due-instance (CAS thắng / pre-migration). 2 POST đồng thời hay
     //    resubmit (already_claimed) → KHÔNG ghi lại → chống spam BƠM mastery lên
@@ -126,10 +139,11 @@ export async function POST(req: Request) {
     // Fire-and-forget: try/catch nuốt lỗi để KHÔNG chặn phản hồi ôn từ.
     const shouldRecordMastery = isRemembered ? claimedFresh : wasDue;
     if (shouldRecordMastery) {
+      const vocabSkillId = word.cefr === 'B1' ? 'vocabulary.b1' : 'vocabulary.a2';
       try {
-        await recordAnswer(user.id, 'rw.vocab', !!isRemembered, 'Easy');
+        await recordAnswer(user.id, vocabSkillId, !!isRemembered, 'Easy');
       } catch (e) {
-        console.error('recordAnswer(rw.vocab) lỗi (không chặn ôn từ):', e);
+        console.error(`recordAnswer(${vocabSkillId}) lỗi (không chặn ôn từ):`, e);
       }
     }
 

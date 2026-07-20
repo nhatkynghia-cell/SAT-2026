@@ -14,7 +14,7 @@ const MENU_GROUPS = [
     items: [
       { name: '✨ Ôn Luyện Hằng Ngày', path: '/' },
       { name: '🎯 Test Xếp Lớp', path: '/diagnostic' },
-      { name: '🌳 Cây Năng Lực SAT', path: '/skill-tree' },
+      { name: '🌳 Cây Năng Lực Tiếng Anh', path: '/skill-tree' },
       { name: '📊 Nhật Ký Trưởng Thành', path: '/dashboard' },
       { name: '👨‍👩‍👧 Chia Sẻ Phụ Huynh', path: '/parent-share' },
       { name: '💎 Nâng Cấp Gói VIP', path: '/upgrade' },
@@ -31,11 +31,12 @@ const MENU_GROUPS = [
   {
     title: '🧠 HUẤN LUYỆN KỸ NĂNG',
     items: [
-      { name: '📐 Chinh Phục Toán Học', path: '/math' },
-      { name: '📚 Làm Chủ Từ Vựng', path: '/vocab' },
-      { name: '🧮 Bí Kíp Hack Desmos', path: '/desmos' },
-      { name: '📜 Giải Mã Văn Học Cổ', path: '/literature' },
-      { name: '🔥 Khổ Luyện Chuyên Sâu', path: '/grind' },
+      { name: '📖 Đọc Hiểu (Reading)', path: '/reading' },
+      { name: '✍️ Viết (Writing)', path: '/writing' },
+      { name: '🎧 Nghe (Listening)', path: '/listening' },
+      { name: '🗣️ Nói (Speaking)', path: '/speaking' },
+      { name: '📐 Ngữ Pháp (Grammar)', path: '/grammar' },
+      { name: '📚 Từ Vựng KET/PET', path: '/vocab' },
     ]
   },
   {
@@ -106,10 +107,11 @@ export function Sidebar() {
           {learningMode === 'ai' && (
             <div className="mt-4 space-y-4">
               <div>
-                <label className="text-xs text-gray-400 mb-1 block">Chọn môn học:</label>
+                <label className="text-xs text-gray-400 mb-1 block">Chọn kỹ năng:</label>
                 <select value={subject} onChange={e => setSubject(e.target.value)} className="w-full bg-[#1b2533] border border-[#262730] text-[#fafafa] text-sm rounded p-2 outline-none focus:border-[#3b82f6]">
-                  <option>Reading &amp; Writing (Đọc hiểu)</option>
-                  <option>Math (Toán học)</option>
+                  <option>Reading (Đọc hiểu)</option>
+                  <option>Grammar (Ngữ pháp)</option>
+                  <option>Vocabulary (Từ vựng)</option>
                 </select>
               </div>
               <button
@@ -118,6 +120,25 @@ export function Sidebar() {
               >
                 🔄 Đổi câu hỏi khác
               </button>
+            </div>
+          )}
+          {learningMode === 'notebook' && (
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">Lọc theo Phân hệ:</label>
+                <select className="w-full bg-[#1b2533] border border-[#262730] text-[#fafafa] text-sm rounded p-2 outline-none">
+                  <option>Tất cả</option>
+                  <option>Reading</option>
+                  <option>Grammar</option>
+                  <option>Vocabulary</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs text-gray-400 mb-1 block">Lọc theo Chủ đề:</label>
+                <select className="w-full bg-[#1b2533] border border-[#262730] text-[#fafafa] text-sm rounded p-2 outline-none">
+                  <option>Tất cả</option>
+                </select>
+              </div>
             </div>
           )}
         </div>

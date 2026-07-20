@@ -14,7 +14,7 @@ function seedUser(id, coins = 100) {
 function seedQuestion(id, userId, correct, opts = {}) {
   seed('issued_questions', {
     id, user_id: userId, correct_choice: correct,
-    skill_id: opts.skillId ?? 'algebra.linear_eq',
+    skill_id: opts.skillId ?? 'reading.notice_mcq',
     difficulty: opts.difficulty ?? 'Medium',
     answered: false, was_correct: null, context: opts.context ?? null,
   });
@@ -33,8 +33,8 @@ test('grade: đúng → 200, thưởng theo độ khó, cộng xu 1 lần + ghi 
   // mastery ghi đúng skill (attempts+1, correct+1)
   const m = getRows('user_mastery')[0];
   assert.ok(m, 'có row mastery');
-  assert.equal(m.skills['algebra.linear_eq'].attempts, 1);
-  assert.equal(m.skills['algebra.linear_eq'].correct, 1);
+  assert.equal(m.skills['reading.notice_mcq'].attempts, 1);
+  assert.equal(m.skills['reading.notice_mcq'].correct, 1);
 });
 
 test('grade: sai → 200, granted 0, KHÔNG cộng xu, mastery attempts+1 correct+0', async () => {
@@ -47,8 +47,8 @@ test('grade: sai → 200, granted 0, KHÔNG cộng xu, mastery attempts+1 correc
   assert.deepEqual(body.granted, { coins: 0, xp: 0 });
   assert.equal(getRows('user_economy')[0].coins, 100);
   const m = getRows('user_mastery')[0];
-  assert.equal(m.skills['algebra.linear_eq'].attempts, 1);
-  assert.equal(m.skills['algebra.linear_eq'].correct, 0);
+  assert.equal(m.skills['reading.notice_mcq'].attempts, 1);
+  assert.equal(m.skills['reading.notice_mcq'].correct, 0);
 });
 
 test('grade: replay câu đã chấm → 404, KHÔNG cộng xu lần 2 (CAS)', async () => {

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ONBOARDING_KEY, readOnboarding, setOnboardingFlag, type OnboardingState } from './onboarding';
+import type { CEFRLevel } from './score-math';
 
 /**
  * Onboarding storage — dùng key `__onboarding__` trong `user_mastery.skills`
@@ -18,7 +19,7 @@ export async function loadOnboarding(userId: string): Promise<OnboardingState | 
   return readOnboarding((data?.skills ?? null) as Record<string, unknown> | null);
 }
 
-export async function saveOnboardingComplete(userId: string, targetScore?: number): Promise<void> {
+export async function saveOnboardingComplete(userId: string, targetLevel?: CEFRLevel): Promise<void> {
   const supabase = await createClient();
   const { data, error: readError } = await supabase
     .from('user_mastery')
@@ -38,7 +39,7 @@ export async function saveOnboardingComplete(userId: string, targetScore?: numbe
   const skills = (data?.skills ?? {}) as Record<string, unknown>;
   setOnboardingFlag(skills, {
     completedAt: new Date().toISOString(),
-    ...(typeof targetScore === 'number' ? { targetScore } : {}),
+    ...(targetLevel ? { targetLevel } : {}),
   });
 
   const admin = createAdminClient();

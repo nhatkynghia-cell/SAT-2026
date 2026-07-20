@@ -2,14 +2,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildSkillTree, applyTierGate, FREE_DOMAINS, DOMAIN_UNLOCK_THRESHOLD, DOMAIN_PREREQS } from './skill-tree.ts';
 import type { MasterySummary } from './mastery.ts';
+import type { Subject } from './skill-taxonomy.ts';
 
-// Map chương cho các skill dùng trong test (khớp taxonomy thật).
-const DOMAIN: Record<string, { domainId: string; domainLabel: string; subject: 'math' | 'reading'; moduleType: string }> = {
-  'algebra.linear_eq': { domainId: 'algebra', domainLabel: 'Heart of Algebra', subject: 'math', moduleType: 'math' },
-  'algebra.systems': { domainId: 'algebra', domainLabel: 'Heart of Algebra', subject: 'math', moduleType: 'math' },
-  'advanced.quadratic': { domainId: 'advanced_math', domainLabel: 'Advanced Math', subject: 'math', moduleType: 'math' },
-  'geo.trig': { domainId: 'geometry', domainLabel: 'Geometry', subject: 'math', moduleType: 'math' },
-  'rw.vocab': { domainId: 'reading_writing', domainLabel: 'Reading & Writing', subject: 'reading', moduleType: 'vocab' },
+// Map chương cho các skill dùng trong test (khớp taxonomy Cambridge thật).
+const DOMAIN: Record<string, { domainId: string; domainLabel: string; subject: Subject; moduleType: string }> = {
+  'reading.notice_mcq': { domainId: 'reading', domainLabel: 'Reading', subject: 'reading', moduleType: 'reading' },
+  'reading.matching': { domainId: 'reading', domainLabel: 'Reading', subject: 'reading', moduleType: 'reading' },
+  'grammar.a2': { domainId: 'grammar', domainLabel: 'Grammar', subject: 'foundation', moduleType: 'grammar' },
+  'grammar.b1': { domainId: 'grammar', domainLabel: 'Grammar', subject: 'foundation', moduleType: 'grammar' },
+  'vocabulary.a2': { domainId: 'vocabulary', domainLabel: 'Vocabulary', subject: 'foundation', moduleType: 'vocabulary' },
+  'writing.short_message': { domainId: 'writing', domainLabel: 'Writing', subject: 'writing', moduleType: 'writing' },
+  'speaking.interview': { domainId: 'speaking', domainLabel: 'Speaking', subject: 'speaking', moduleType: 'speaking' },
 };
 
 function fakeSummary(
@@ -18,162 +21,159 @@ function fakeSummary(
   const skills = Object.entries(entries).map(([id, v]) => ({
     id,
     label: id,
+    correct: 0,
     score: v.score,
     attempts: v.attempts,
     reliable: v.attempts >= 5,
     mastered: v.mastered ?? false,
     ...DOMAIN[id],
   }));
-  return { skills, bySubject: { math: 0, reading: 0 }, overall: 0 } as MasterySummary;
+  return { skills, bySubject: {}, overall: 0 } as unknown as MasterySummary;
 }
 
-test('node algebra: chưa luyện → available (chương gốc không có tiên quyết)', () => {
-  const view = buildSkillTree(fakeSummary({ 'algebra.linear_eq': { score: 0, attempts: 0 } }));
-  const n = view.nodes.find((x) => x.id === 'algebra.linear_eq');
+test('node reading: chưa luyện → available (chương tiếp nhận không có tiên quyết)', () => {
+  const view = buildSkillTree(fakeSummary({ 'reading.notice_mcq': { score: 0, attempts: 0 } }));
+  const n = view.nodes.find((x) => x.id === 'reading.notice_mcq');
   assert.equal(n?.state, 'available');
 });
 
 test('node đã làm nhưng chưa thạo → in_progress', () => {
-  const view = buildSkillTree(fakeSummary({ 'algebra.linear_eq': { score: 50, attempts: 6 } }));
-  assert.equal(view.nodes.find((x) => x.id === 'algebra.linear_eq')?.state, 'in_progress');
+  const view = buildSkillTree(fakeSummary({ 'reading.notice_mcq': { score: 50, attempts: 6 } }));
+  assert.equal(view.nodes.find((x) => x.id === 'reading.notice_mcq')?.state, 'in_progress');
 });
 
 test('node mastered → mastered + đếm vào masteredCount', () => {
-  const view = buildSkillTree(fakeSummary({ 'algebra.linear_eq': { score: 90, attempts: 8, mastered: true } }));
-  assert.equal(view.nodes.find((x) => x.id === 'algebra.linear_eq')?.state, 'mastered');
+  const view = buildSkillTree(fakeSummary({ 'reading.notice_mcq': { score: 90, attempts: 8, mastered: true } }));
+  assert.equal(view.nodes.find((x) => x.id === 'reading.notice_mcq')?.state, 'mastered');
   assert.equal(view.masteredCount, 1);
 });
 
-test('chương phụ thuộc bị KHÓA khi Đại số chưa đạt ngưỡng', () => {
-  // Đại số avg thấp (< ngưỡng) → advanced_math bị khóa.
+test('writing bị KHÓA khi grammar chưa đạt ngưỡng', () => {
   const view = buildSkillTree(fakeSummary({
-    'algebra.linear_eq': { score: 10, attempts: 5 },
-    'advanced.quadratic': { score: 0, attempts: 0 },
+    'grammar.a2': { score: 10, attempts: 5 },
+    'writing.short_message': { score: 0, attempts: 0 },
   }));
-  const adv = view.nodes.find((x) => x.id === 'advanced.quadratic');
-  assert.equal(adv?.state, 'locked');
-  assert.ok(adv?.lockedBy && adv.lockedBy.length > 0, 'phải nêu chương tiên quyết');
+  const w = view.nodes.find((x) => x.id === 'writing.short_message');
+  assert.equal(w?.state, 'locked');
+  assert.ok(w?.lockedBy && w.lockedBy.length > 0, 'phải nêu chương tiên quyết');
 });
 
-test('chương phụ thuộc MỞ KHÓA khi Đại số đạt ngưỡng VÀ gate passed', () => {
-  // Đại số avg >= ngưỡng + gate passed → advanced_math mở.
-  const gates = { algebra: { passed: true, lastAttempt: '2026-01-01', score: 5, correctSinceFail: 0 } };
+test('writing MỞ KHÓA khi grammar đạt ngưỡng VÀ gate passed', () => {
+  const gates = { grammar: { passed: true, lastAttempt: '2026-01-01', score: 5, correctSinceFail: 0 } };
   const view = buildSkillTree(fakeSummary({
-    'algebra.linear_eq': { score: DOMAIN_UNLOCK_THRESHOLD + 10, attempts: 6 },
-    'advanced.quadratic': { score: 0, attempts: 0 },
+    'grammar.a2': { score: DOMAIN_UNLOCK_THRESHOLD + 10, attempts: 6 },
+    'writing.short_message': { score: 0, attempts: 0 },
   }), gates);
-  assert.equal(view.nodes.find((x) => x.id === 'advanced.quadratic')?.state, 'available');
+  assert.equal(view.nodes.find((x) => x.id === 'writing.short_message')?.state, 'available');
 });
 
-test('chương phụ thuộc VẪN KHÓA khi Đại số đạt ngưỡng nhưng gate chưa pass', () => {
+test('writing VẪN KHÓA khi grammar đạt ngưỡng nhưng gate chưa pass', () => {
   const view = buildSkillTree(fakeSummary({
-    'algebra.linear_eq': { score: DOMAIN_UNLOCK_THRESHOLD + 10, attempts: 6 },
-    'advanced.quadratic': { score: 0, attempts: 0 },
+    'grammar.a2': { score: DOMAIN_UNLOCK_THRESHOLD + 10, attempts: 6 },
+    'writing.short_message': { score: 0, attempts: 0 },
   }));
-  assert.equal(view.nodes.find((x) => x.id === 'advanced.quadratic')?.state, 'locked');
+  assert.equal(view.nodes.find((x) => x.id === 'writing.short_message')?.state, 'locked');
 });
 
-test('gate ĐÃ PASS thì chương sau KHÔNG bị re-lock khi mastery Đại số tụt dưới ngưỡng', () => {
-  // Kịch bản decay: học sinh qua cổng algebra (gate passed vĩnh viễn) rồi chuyển
-  // sang luyện advanced_math, ngừng ôn algebra → EWMA algebra tụt < ngưỡng.
-  // Qua cổng LÀ bằng chứng bền → advanced_math phải GIỮ mở khóa, không tụt tiến trình.
-  const gates = { algebra: { passed: true, lastAttempt: '2026-01-01', score: 5, correctSinceFail: 0 } };
+test('gate ĐÃ PASS thì writing KHÔNG bị re-lock khi grammar mastery tụt dưới ngưỡng', () => {
+  // Kịch bản decay: học sinh qua cổng grammar (gate passed vĩnh viễn) rồi chuyển
+  // sang luyện writing, ngừng ôn grammar → EWMA grammar tụt < ngưỡng.
+  // Qua cổng LÀ bằng chứng bền → writing phải GIỮ mở khóa, không tụt tiến trình.
+  const gates = { grammar: { passed: true, lastAttempt: '2026-01-01', score: 5, correctSinceFail: 0 } };
   const view = buildSkillTree(fakeSummary({
-    'algebra.linear_eq': { score: 10, attempts: 8 }, // đã decay < DOMAIN_UNLOCK_THRESHOLD
-    'advanced.quadratic': { score: 30, attempts: 6 },
+    'grammar.a2': { score: 10, attempts: 8 }, // đã decay < DOMAIN_UNLOCK_THRESHOLD
+    'writing.short_message': { score: 30, attempts: 6 },
   }), gates);
-  const alg = view.domains.find((d) => d.id === 'algebra');
-  assert.ok(alg && alg.avgScore < DOMAIN_UNLOCK_THRESHOLD, 'tiền đề: algebra đã tụt dưới ngưỡng');
-  assert.equal(alg?.satisfied, true, 'gate passed → satisfied giữ true dù mastery tụt');
+  const grammar = view.domains.find((d) => d.id === 'grammar');
+  assert.ok(grammar && grammar.avgScore < DOMAIN_UNLOCK_THRESHOLD, 'tiền đề: grammar đã tụt dưới ngưỡng');
+  assert.equal(grammar?.satisfied, true, 'gate passed → satisfied giữ true dù mastery tụt');
   assert.notEqual(
-    view.nodes.find((x) => x.id === 'advanced.quadratic')?.state,
+    view.nodes.find((x) => x.id === 'writing.short_message')?.state,
     'locked',
-    'advanced_math KHÔNG được re-lock khi gate đã pass'
+    'writing KHÔNG được re-lock khi gate grammar đã pass'
   );
 });
 
 test('avg chương tính trên TẤT CẢ skill của chương (kể cả skill chưa làm = 0)', () => {
-  // 1 skill algebra = 80, skill algebra khác = 0 → avg = 40.
   const view = buildSkillTree(fakeSummary({
-    'algebra.linear_eq': { score: 80, attempts: 6 },
-    'algebra.systems': { score: 0, attempts: 0 },
+    'grammar.a2': { score: 80, attempts: 6 },
+    'grammar.b1': { score: 0, attempts: 0 },
   }));
-  const dom = view.domains.find((d) => d.id === 'algebra');
+  const dom = view.domains.find((d) => d.id === 'grammar');
   assert.equal(dom?.avgScore, 40);
 });
 
-test('Reading độc lập — không bị khóa bởi Đại số', () => {
+test('Reading độc lập — không bị khóa bởi grammar', () => {
   const view = buildSkillTree(fakeSummary({
-    'algebra.linear_eq': { score: 0, attempts: 0 },
-    'rw.vocab': { score: 0, attempts: 0 },
+    'grammar.a2': { score: 0, attempts: 0 },
+    'reading.notice_mcq': { score: 0, attempts: 0 },
   }));
-  assert.equal(view.nodes.find((x) => x.id === 'rw.vocab')?.state, 'available');
+  assert.equal(view.nodes.find((x) => x.id === 'reading.notice_mcq')?.state, 'available');
 });
 
-test('DOMAIN_PREREQS: advanced/data/geometry đều cần algebra; reading & algebra không cần gì', () => {
-  assert.deepEqual(DOMAIN_PREREQS.advanced_math, ['algebra']);
-  assert.deepEqual(DOMAIN_PREREQS.geometry, ['algebra']);
-  assert.deepEqual(DOMAIN_PREREQS.data_analysis, ['algebra']);
-  assert.deepEqual(DOMAIN_PREREQS.algebra, []);
-  assert.deepEqual(DOMAIN_PREREQS.reading_writing, []);
+test('DOMAIN_PREREQS: writing←grammar, speaking←grammar+vocabulary; tiếp nhận & nền tảng không cần', () => {
+  assert.deepEqual(DOMAIN_PREREQS.writing, ['grammar']);
+  assert.deepEqual([...DOMAIN_PREREQS.speaking].sort(), ['grammar', 'vocabulary']);
+  assert.deepEqual(DOMAIN_PREREQS.reading, []);
+  assert.deepEqual(DOMAIN_PREREQS.listening, []);
+  assert.deepEqual(DOMAIN_PREREQS.grammar, []);
+  assert.deepEqual(DOMAIN_PREREQS.vocabulary, []);
 });
 
-// ── applyTierGate (phân tầng theo gói định giá 2026-07-06) ──
+// ── applyTierGate (phân tầng theo gói) ──
 
-test('FREE_DOMAINS = algebra + reading_writing (nếm cả 2 môn)', () => {
-  assert.deepEqual([...FREE_DOMAINS].sort(), ['algebra', 'reading_writing']);
+test('FREE_DOMAINS = reading + grammar (nếm kỹ năng tiếp nhận + nền tảng)', () => {
+  assert.deepEqual([...FREE_DOMAINS].sort(), ['grammar', 'reading']);
 });
 
 test('applyTierGate premium → no-op (trả nguyên view, không khóa gì)', () => {
   const view = buildSkillTree(fakeSummary({
-    'algebra.linear_eq': { score: 80, attempts: 6 },
-    'advanced.quadratic': { score: 70, attempts: 6, mastered: true },
+    'reading.notice_mcq': { score: 80, attempts: 6 },
+    'grammar.a2': { score: 70, attempts: 6, mastered: true },
   }));
   const gated = applyTierGate(view, 'premium');
   assert.equal(gated, view, 'premium phải nhận đúng object gốc (no-op)');
 });
 
 test('applyTierGate ultimate → no-op', () => {
-  const view = buildSkillTree(fakeSummary({ 'algebra.linear_eq': { score: 80, attempts: 6 } }));
+  const view = buildSkillTree(fakeSummary({ 'reading.notice_mcq': { score: 80, attempts: 6 } }));
   assert.equal(applyTierGate(view, 'ultimate'), view);
 });
 
 test('applyTierGate free → chương ngoài free bị tierLocked, chương free giữ nguyên', () => {
   const view = buildSkillTree(fakeSummary({
-    'algebra.linear_eq': { score: DOMAIN_UNLOCK_THRESHOLD + 10, attempts: 6 },
-    'geo.trig': { score: 50, attempts: 6 },
-    'rw.vocab': { score: 30, attempts: 6 },
+    'reading.notice_mcq': { score: DOMAIN_UNLOCK_THRESHOLD + 10, attempts: 6 },
+    'vocabulary.a2': { score: 50, attempts: 6 },
+    'grammar.a2': { score: 30, attempts: 6 },
   }));
   const gated = applyTierGate(view, 'free');
-  const algebra = gated.domains.find((d) => d.id === 'algebra');
-  const geo = gated.domains.find((d) => d.id === 'geometry');
-  const rw = gated.domains.find((d) => d.id === 'reading_writing');
-  assert.ok(!algebra?.tierLocked, 'algebra là free → không khóa');
-  assert.ok(!rw?.tierLocked, 'reading_writing là free → không khóa');
-  assert.equal(geo?.tierLocked, true, 'geometry ngoài free → tierLocked');
+  const reading = gated.domains.find((d) => d.id === 'reading');
+  const vocab = gated.domains.find((d) => d.id === 'vocabulary');
+  const grammar = gated.domains.find((d) => d.id === 'grammar');
+  assert.ok(!reading?.tierLocked, 'reading là free → không khóa');
+  assert.ok(!grammar?.tierLocked, 'grammar là free → không khóa');
+  assert.equal(vocab?.tierLocked, true, 'vocabulary ngoài free → tierLocked');
 });
 
 test('applyTierGate free → node chương trả phí bị ép locked + score ẩn (0)', () => {
   const view = buildSkillTree(fakeSummary({
-    'algebra.linear_eq': { score: 60, attempts: 6 },
-    'geo.trig': { score: 55, attempts: 6, mastered: true },
+    'reading.notice_mcq': { score: 60, attempts: 6 },
+    'vocabulary.a2': { score: 55, attempts: 6, mastered: true },
   }));
   const gated = applyTierGate(view, 'free');
-  const geoNode = gated.nodes.find((n) => n.id === 'geo.trig');
-  assert.equal(geoNode?.state, 'locked');
-  assert.equal(geoNode?.tierLocked, true);
-  assert.equal(geoNode?.score, 0, 'không lộ điểm chương trả phí');
+  const vNode = gated.nodes.find((n) => n.id === 'vocabulary.a2');
+  assert.equal(vNode?.state, 'locked');
+  assert.equal(vNode?.tierLocked, true);
+  assert.equal(vNode?.score, 0, 'không lộ điểm chương trả phí');
 });
 
 test('applyTierGate free → masteredCount chỉ đếm node free, totalNodes giữ nguyên', () => {
-  // Cần gate algebra passed để geometry mở khóa (nếu không geo.trig sẽ locked, không mastered).
-  const gates = { algebra: { passed: true, lastAttempt: '2026-01-01', score: 5, correctSinceFail: 0 } };
   const view = buildSkillTree(fakeSummary({
-    'algebra.linear_eq': { score: 90, attempts: 8, mastered: true }, // free, mastered
-    'geo.trig': { score: 90, attempts: 8, mastered: true },          // trả phí, mastered
-  }), gates);
+    'reading.notice_mcq': { score: 90, attempts: 8, mastered: true }, // free, mastered
+    'vocabulary.a2': { score: 90, attempts: 8, mastered: true },      // trả phí, mastered
+  }));
   assert.equal(view.masteredCount, 2, 'trước gate: cả 2 mastered');
   const gated = applyTierGate(view, 'free');
   assert.equal(gated.masteredCount, 1, 'sau gate: chỉ đếm node free');
-  assert.equal(gated.totalNodes, view.totalNodes, 'totalNodes ổn định (không nhảy % khi nâng cấp)');
+  assert.equal(gated.totalNodes, view.totalNodes, 'totalNodes ổn định');
 });

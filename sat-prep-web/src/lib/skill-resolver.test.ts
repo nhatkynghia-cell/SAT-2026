@@ -3,19 +3,16 @@ import assert from 'node:assert/strict';
 import { resolveSkillId } from './skill-resolver.ts';
 import { isValidSkill } from './skill-taxonomy.ts';
 
-describe('skill-resolver — resolveSkillId', () => {
-  test('INVARIANT: mọi skillId trả về PHẢI hợp lệ trong taxonomy (chống typo/drift)', () => {
-    // Quét rộng các topic đại diện mọi nhánh → id nào trả ra cũng phải tồn tại.
+describe('skill-resolver — resolveSkillId Cambridge', () => {
+  test('INVARIANT: mọi skillId trả về PHẢI hợp lệ trong taxonomy', () => {
     const topics = [
-      'hình học', 'lượng giác', 'đường tròn', 'thể tích khối', 'tam giác',
-      'nâng cao', 'phương trình bậc hai', 'parabol đỉnh', 'hàm mũ', 'đa thức',
-      'căn thức', 'số liệu thống kê', 'xác suất', 'phần trăm', 'tỉ lệ tốc độ',
-      'hệ phương trình', 'bất phương trình', 'hàm số đồ thị', 'phương trình bậc nhất',
-      'circle', 'volume', 'triangle', 'quadratic', 'exponential', 'polynomial',
-      'radical', 'statistic', 'probability', 'percent', 'ratio', 'rate', 'system',
-      'inequality', 'function', 'graph', '', 'chủ đề vu vơ không khớp',
+      'notice', 'matching', 'gapped text', 'open cloze', 'detail', 'điền từ vựng',
+      'short message', 'email 100', 'story pictures', 'article',
+      'short conversation', 'long conversation', 'form gap fill', 'listening matching',
+      'interview', 'collaborative', 'long turn photo', 'discussion',
+      'grammar a2', 'relative clause b1', 'pet vocab', '', 'chủ đề vu vơ',
     ];
-    for (const mt of ['math', 'desmos', 'vocab', 'literature']) {
+    for (const mt of ['reading', 'writing', 'listening', 'speaking', 'grammar', 'vocabulary', 'vocab']) {
       for (const tp of topics) {
         const id = resolveSkillId(mt, tp);
         if (id !== undefined) {
@@ -25,62 +22,38 @@ describe('skill-resolver — resolveSkillId', () => {
     }
   });
 
-  test('module reading/writing map cứng theo module', () => {
-    assert.equal(resolveSkillId('vocab', 'bất kỳ'), 'rw.vocab');
-    assert.equal(resolveSkillId('literature', 'bất kỳ'), 'rw.literature');
+  test('reading map theo dạng bài Cambridge', () => {
+    assert.equal(resolveSkillId('reading', 'matching'), 'reading.matching');
+    assert.equal(resolveSkillId('reading', 'gapped text'), 'reading.gapped_text');
+    assert.equal(resolveSkillId('reading', 'open cloze'), 'reading.open_cloze');
+    assert.equal(resolveSkillId('reading', 'detail long passage'), 'reading.detail_mcq');
+    assert.equal(resolveSkillId('reading', 'notice'), 'reading.notice_mcq');
+  });
+
+  test('productive skills map đúng writing/speaking', () => {
+    assert.equal(resolveSkillId('writing', 'email'), 'writing.email_100');
+    assert.equal(resolveSkillId('writing', 'story pictures'), 'writing.story_pictures');
+    assert.equal(resolveSkillId('writing', 'article'), 'writing.article_or_story');
+    assert.equal(resolveSkillId('speaking', 'long turn photo'), 'speaking.long_turn');
+    assert.equal(resolveSkillId('speaking', 'discussion'), 'speaking.discussion');
+  });
+
+  test('foundation skills map theo CEFR hint', () => {
+    assert.equal(resolveSkillId('grammar', 'relative clause b1'), 'grammar.b1');
+    assert.equal(resolveSkillId('grammar', 'present simple'), 'grammar.a2');
+    assert.equal(resolveSkillId('vocabulary', 'pet topic'), 'vocabulary.b1');
+    assert.equal(resolveSkillId('vocab', 'basic'), 'vocabulary.a2');
   });
 
   test('module lạ → undefined', () => {
+    assert.equal(resolveSkillId('math', 'parabol'), undefined);
+    assert.equal(resolveSkillId('desmos', 'graph'), undefined);
     assert.equal(resolveSkillId('unknown_module', 'topic'), undefined);
-    assert.equal(resolveSkillId('', 'topic'), undefined);
   });
 
-  test('Geometry: từ khóa map đúng nhánh con', () => {
-    assert.equal(resolveSkillId('math', 'lượng giác'), 'geo.trig');
-    assert.equal(resolveSkillId('math', 'trig ratios'), 'geo.trig');
-    assert.equal(resolveSkillId('math', 'đường tròn'), 'geo.circles');
-    assert.equal(resolveSkillId('math', 'circle equation'), 'geo.circles');
-    assert.equal(resolveSkillId('math', 'thể tích'), 'geo.volume');
-    assert.equal(resolveSkillId('math', 'volume of cone'), 'geo.volume');
-    assert.equal(resolveSkillId('math', 'tam giác đồng dạng'), 'geo.triangles');
-  });
-
-  test('Advanced Math: từ khóa map đúng nhánh con', () => {
-    assert.equal(resolveSkillId('math', 'hàm mũ'), 'advanced.exponential');
-    assert.equal(resolveSkillId('math', 'đa thức'), 'advanced.polynomials');
-    assert.equal(resolveSkillId('math', 'căn thức'), 'advanced.radicals');
-    assert.equal(resolveSkillId('math', 'phương trình bậc hai'), 'advanced.quadratic');
-    assert.equal(resolveSkillId('math', 'parabol'), 'advanced.quadratic');
-  });
-
-  test('Data Analysis: từ khóa map đúng nhánh con', () => {
-    assert.equal(resolveSkillId('math', 'xác suất'), 'data.probability');
-    assert.equal(resolveSkillId('math', 'phần trăm'), 'data.percentages');
-    assert.equal(resolveSkillId('math', 'tỉ lệ'), 'data.ratios');
-    assert.equal(resolveSkillId('math', 'thống kê'), 'data.statistics');
-  });
-
-  test('Heart of Algebra: nhánh mặc định + từ khóa', () => {
-    assert.equal(resolveSkillId('math', 'hệ phương trình'), 'algebra.systems');
-    assert.equal(resolveSkillId('math', 'bất phương trình'), 'algebra.inequalities');
-    assert.equal(resolveSkillId('math', 'hàm số'), 'algebra.linear_fn');
-    // Toán không khớp từ khóa nào → mặc định algebra.linear_eq (không undefined).
-    assert.equal(resolveSkillId('math', 'chủ đề vu vơ'), 'algebra.linear_eq');
-  });
-
-  test('desmos cũng quy về skill Toán như math', () => {
-    assert.equal(resolveSkillId('desmos', 'parabol'), 'advanced.quadratic');
-    assert.equal(resolveSkillId('desmos', 'vu vơ'), 'algebra.linear_eq');
-  });
-
-  test('chuẩn hóa NFD → NFC: dấu tổ hợp vẫn match', () => {
-    // "lượng giác" ở dạng NFD (dấu tách rời) phải cho cùng kết quả NFC.
-    const nfd = 'lượng giác'.normalize('NFD');
-    assert.equal(resolveSkillId('math', nfd), 'geo.trig');
-  });
-
-  test('không phân biệt hoa thường', () => {
-    assert.equal(resolveSkillId('math', 'PARABOL'), 'advanced.quadratic');
-    assert.equal(resolveSkillId('math', 'Circle'), 'geo.circles');
+  test('chuẩn hóa NFD → NFC và không phân biệt hoa thường', () => {
+    const nfd = 'điền từ vựng'.normalize('NFD');
+    assert.equal(resolveSkillId('reading', nfd), 'reading.cloze_vocab');
+    assert.equal(resolveSkillId('writing', 'EMAIL'), 'writing.email_100');
   });
 });

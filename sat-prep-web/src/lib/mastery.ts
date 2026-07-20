@@ -120,7 +120,7 @@ export interface MasterySummary {
     domainId: string;
     domainLabel: string;
   }>;
-  /** Mastery trung bình theo từng môn (math/reading). */
+  /** Mastery trung bình theo từng môn (5 kỹ năng Cambridge). */
   bySubject: Record<Subject, number>;
   /** Mastery tổng thể toàn bộ skill (0..100). */
   overall: number;
@@ -153,15 +153,17 @@ export function summarizeMastery(skillsData: Record<string, SkillMastery>): Mast
       reliable: m.attempts >= RELIABLE_ATTEMPTS,
       mastered: m.attempts >= RELIABLE_ATTEMPTS && m.score >= MASTERED_THRESHOLD,
       moduleType: s.moduleType,
-      subject: (domain?.subject ?? 'math') as Subject,
+      subject: (domain?.subject ?? 'foundation') as Subject,
       domainId: domain?.id ?? '',
       domainLabel: domain?.label ?? '',
     };
   });
 
-  // Trung bình theo môn.
-  const bySubject = { math: 0, reading: 0 } as Record<Subject, number>;
-  for (const subject of ['math', 'reading'] as Subject[]) {
+  // Trung bình theo môn — dẫn xuất ĐỘNG từ SKILL_TREE (5 kỹ năng: reading/
+  // writing/listening/speaking/foundation) để không hardcode enum.
+  const subjects = Array.from(new Set(SKILL_TREE.map((d) => d.subject))) as Subject[];
+  const bySubject = Object.fromEntries(subjects.map((s) => [s, 0])) as Record<Subject, number>;
+  for (const subject of subjects) {
     const ids = SKILL_TREE.filter((d) => d.subject === subject).flatMap((d) => d.skills.map((s) => s.id));
     const scores = ids.map((id) => skillsData[id]?.score ?? 0);
     bySubject[subject] = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;

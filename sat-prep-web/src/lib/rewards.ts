@@ -42,7 +42,7 @@ export interface RewardItem {
  * qua buyItem → applySpend thường (không tạo phiếu fulfillment).
  */
 export const REWARDS: Record<string, RewardItem> = {
-  rw_1: { id: 'rw_1', name: 'Voucher Lệ Phí Thi SAT (100%)', cost: 50000, kind: 'voucher' },
+  rw_1: { id: 'rw_1', name: 'Voucher Lệ Phí Thi Cambridge KET/PET (100%)', cost: 50000, kind: 'voucher' },
   rw_2: { id: 'rw_2', name: 'Bộ Tài Liệu Giải Bẫy Toán Thủ Khoa', cost: 10000, kind: 'material' },
   rw_3: { id: 'rw_3', name: 'Thẻ Đặc Quyền Gia Sư AI VIP', cost: 20000, kind: 'ai_perk' },
 };

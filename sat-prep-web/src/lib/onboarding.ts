@@ -9,14 +9,18 @@
  * THUẦN: chỉ đọc/mutate object truyền vào, không I/O → unit-test được.
  */
 
+import type { CEFRLevel } from './score-math';
+
 export const ONBOARDING_KEY = '__onboarding__';
 
 export interface OnboardingState {
   completed: boolean;
   completedAt: string;
-  /** Điểm mục tiêu user đặt lúc onboarding (nếu có) — chỉ để hiển thị lại. */
-  targetScore?: number;
+  /** Bậc CEFR mục tiêu user đặt lúc onboarding (nếu có) — chỉ để hiển thị lại. */
+  targetLevel?: CEFRLevel;
 }
+
+const VALID_LEVELS: CEFRLevel[] = ['Pre-A1', 'A1', 'A2', 'B1'];
 
 /** Đọc trạng thái onboarding từ object `skills`; null nếu chưa từng hoàn tất. */
 export function readOnboarding(skills: Record<string, unknown> | null | undefined): OnboardingState | null {
@@ -25,10 +29,11 @@ export function readOnboarding(skills: Record<string, unknown> | null | undefine
   if (!raw || typeof raw !== 'object') return null;
   const state = raw as Partial<OnboardingState>;
   if (state.completed !== true) return null;
+  const hasLevel = typeof state.targetLevel === 'string' && VALID_LEVELS.includes(state.targetLevel);
   return {
     completed: true,
     completedAt: typeof state.completedAt === 'string' ? state.completedAt : '',
-    ...(typeof state.targetScore === 'number' ? { targetScore: state.targetScore } : {}),
+    ...(hasLevel ? { targetLevel: state.targetLevel } : {}),
   };
 }
 
@@ -38,12 +43,12 @@ export function readOnboarding(skills: Record<string, unknown> | null | undefine
  */
 export function setOnboardingFlag(
   skills: Record<string, unknown>,
-  opts: { completedAt: string; targetScore?: number }
+  opts: { completedAt: string; targetLevel?: CEFRLevel }
 ): void {
   const state: OnboardingState = {
     completed: true,
     completedAt: opts.completedAt,
-    ...(typeof opts.targetScore === 'number' ? { targetScore: opts.targetScore } : {}),
+    ...(opts.targetLevel ? { targetLevel: opts.targetLevel } : {}),
   };
   skills[ONBOARDING_KEY] = state;
 }

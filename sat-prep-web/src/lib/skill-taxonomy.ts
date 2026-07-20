@@ -1,28 +1,30 @@
 /**
  * ============================================================================
- *  SKILL TAXONOMY — cây kỹ năng SAT (implementation_plan.md §10.A.3, §10.B.1)
+ *  SKILL TAXONOMY — cây kỹ năng Cambridge KET(A2)/PET(B1)
  * ============================================================================
- *  Nguồn gốc: trích từ app Streamlit gốc (pages/3_📐_Chinh_Phục_Toán_Học.py,
- *  biến CHU_DE_TOAN) — 4 chương × 4 dạng = 16 dạng Toán chuẩn SAT, cộng các
- *  domain Reading & Writing.
+ *  App luyện chứng chỉ Cambridge English cho học sinh cấp 2 VN. 6 domain theo
+ *  4 kỹ năng (Reading/Writing/Listening/Speaking) + 2 domain nền tảng
+ *  (Grammar/Vocabulary). Skill bám theo LOẠI TASK của đề KET/PET (1 skill phục
+ *  vụ cả A2 và B1, độ khó thể hiện qua mastery/CEFR level).
  *
  *  Đây là NỀN MÓNG dùng chung cho:
- *    • Mastery Tracking (task #9) — đo % thành thạo từng skill.
- *    • Skill Tree = bản đồ năng lực (task #17) — node mở khóa theo mastery.
- *    • Score Prediction (task #11), Adaptive (task #12), Boss = assessment (#19).
+ *    • Mastery Tracking — đo % thành thạo từng skill.
+ *    • Skill Tree = bản đồ năng lực — node mở khóa theo mastery.
+ *    • Score Prediction (CEFR), Adaptive, Boss = assessment (mock KET/PET).
  *
  *  ⚠️ skillId PHẢI ỔN ĐỊNH (không đổi sau khi phát hành) vì dữ liệu mastery của
  *  người dùng tham chiếu tới id này. Thêm skill mới = thêm id mới, không sửa id cũ.
+ *  (App đang pilot chưa phát hành → id cũ trục SAT-Toán đã được thay sạch.)
  * ============================================================================
  */
 
-export type Subject = 'math' | 'reading';
+export type Subject = 'reading' | 'writing' | 'listening' | 'speaking' | 'foundation';
 
 export interface Skill {
   id: string;
-  /** Nhãn hiển thị (song ngữ giữ nguyên phong cách app gốc). */
+  /** Nhãn hiển thị (song ngữ). */
   label: string;
-  /** moduleType tương ứng khi gọi generate-practice (math/literature/desmos/vocab). */
+  /** moduleType khi gọi generate-practice: reading/writing/listening/speaking/grammar/vocabulary. */
   moduleType: string;
 }
 
@@ -35,56 +37,67 @@ export interface SkillDomain {
 
 export const SKILL_TREE: SkillDomain[] = [
   {
-    id: 'algebra',
-    subject: 'math',
-    label: 'Heart of Algebra (Đại số cốt lõi)',
-    skills: [
-      { id: 'algebra.linear_eq', label: 'Phương trình bậc nhất một ẩn (Linear Equations in One Variable)', moduleType: 'math' },
-      { id: 'algebra.linear_fn', label: 'Hàm số bậc nhất và đồ thị đường thẳng (Linear Functions & Graphs)', moduleType: 'math' },
-      { id: 'algebra.systems', label: 'Hệ phương trình bậc nhất hai ẩn (Systems of Linear Equations)', moduleType: 'math' },
-      { id: 'algebra.inequalities', label: 'Bất phương trình bậc nhất và biểu diễn nghiệm (Linear Inequalities)', moduleType: 'math' },
-    ],
-  },
-  {
-    id: 'advanced_math',
-    subject: 'math',
-    label: 'Advanced Math (Toán nâng cao SAT)',
-    skills: [
-      { id: 'advanced.quadratic', label: 'Phương trình bậc hai, biệt thức Delta & Parabol (Quadratic Equations)', moduleType: 'math' },
-      { id: 'advanced.exponential', label: 'Hàm số mũ, bài toán tăng trưởng lũy thừa (Exponential Functions)', moduleType: 'math' },
-      { id: 'advanced.polynomials', label: 'Đa thức, định lý số dư & Phép chia đa thức (Polynomials & Remainder Theorem)', moduleType: 'math' },
-      { id: 'advanced.radicals', label: 'Biến đổi biểu thức căn thức và mũ phân số (Radicals & Rational Exponents)', moduleType: 'math' },
-    ],
-  },
-  {
-    id: 'data_analysis',
-    subject: 'math',
-    label: 'Data Analysis (Giải quyết vấn đề & Phân tích số liệu)',
-    skills: [
-      { id: 'data.ratios', label: 'Tỷ số, tốc độ biến thiên, tỉ lệ thuận nghịch (Ratios, Rates, Proportions)', moduleType: 'math' },
-      { id: 'data.percentages', label: 'Bài toán phần trăm tăng giảm chuyên sâu (Percentages & Multipliers)', moduleType: 'math' },
-      { id: 'data.statistics', label: 'Thống kê mô tả: Trung bình, Trung vị, Độ lệch (Statistics)', moduleType: 'math' },
-      { id: 'data.probability', label: 'Xác suất đơn và xác suất có điều kiện (Probability)', moduleType: 'math' },
-    ],
-  },
-  {
-    id: 'geometry',
-    subject: 'math',
-    label: 'Geometry & Trigonometry (Hình học & Lượng giác SAT)',
-    skills: [
-      { id: 'geo.triangles', label: 'Góc song song, đường phân giác, tam giác đồng dạng (Lines, Angles, Triangles)', moduleType: 'math' },
-      { id: 'geo.circles', label: 'Đường tròn, diện tích hình quạt, phương trình đường tròn (Circles)', moduleType: 'math' },
-      { id: 'geo.volume', label: 'Thể tích hình khối, diện tích toàn phần nâng cao (Volume & Surface Area)', moduleType: 'math' },
-      { id: 'geo.trig', label: 'Lượng giác trong tam giác vuông: Sin Cos Tan (Trigonometry)', moduleType: 'math' },
-    ],
-  },
-  {
-    id: 'reading_writing',
+    id: 'reading',
     subject: 'reading',
-    label: 'Reading & Writing (Đọc hiểu & Ngữ pháp)',
+    label: 'Reading (Đọc hiểu A2/B1)',
     skills: [
-      { id: 'rw.vocab', label: 'Từ vựng trong ngữ cảnh (Words in Context)', moduleType: 'vocab' },
-      { id: 'rw.literature', label: 'Đọc hiểu văn bản cổ điển (Literature & Historical Texts)', moduleType: 'literature' },
+      { id: 'reading.notice_mcq', label: 'Đọc thông báo, biển báo ngắn — trắc nghiệm (KET P1, PET P1)', moduleType: 'reading' },
+      { id: 'reading.matching', label: 'Ghép người với mô tả phù hợp (KET P2, PET P2)', moduleType: 'reading' },
+      { id: 'reading.detail_mcq', label: 'Đọc đoạn dài lấy chi tiết — trắc nghiệm (KET P3, PET P3/P5)', moduleType: 'reading' },
+      { id: 'reading.gapped_text', label: 'Điền câu (A–H) vào chỗ trống trong đoạn văn (PET P4)', moduleType: 'reading' },
+      { id: 'reading.cloze_vocab', label: 'Cloze chọn từ vựng phù hợp ngữ cảnh (KET P4, PET P6)', moduleType: 'reading' },
+      { id: 'reading.open_cloze', label: 'Điền từ tự do vào chỗ trống, không phương án (KET P5)', moduleType: 'reading' },
+    ],
+  },
+  {
+    id: 'writing',
+    subject: 'writing',
+    label: 'Writing (Viết A2/B1)',
+    skills: [
+      { id: 'writing.short_message', label: 'Viết tin nhắn / email ngắn 25–35 từ (KET P6)', moduleType: 'writing' },
+      { id: 'writing.story_pictures', label: 'Viết truyện ngắn theo tranh gợi ý (KET P7)', moduleType: 'writing' },
+      { id: 'writing.email_100', label: 'Viết email 100 từ theo tình huống (PET P1)', moduleType: 'writing' },
+      { id: 'writing.article_or_story', label: 'Viết bài báo hoặc truyện 100 từ (PET P2)', moduleType: 'writing' },
+    ],
+  },
+  {
+    id: 'listening',
+    subject: 'listening',
+    label: 'Listening (Nghe A2/B1)',
+    skills: [
+      { id: 'listening.short_convo', label: 'Nghe hội thoại ngắn — trắc nghiệm (KET P1, PET P1)', moduleType: 'listening' },
+      { id: 'listening.matching', label: 'Nghe và ghép thông tin (KET P2/P5)', moduleType: 'listening' },
+      { id: 'listening.gap_fill', label: 'Nghe điền thông tin vào form / ghi chú (KET P3, PET P2)', moduleType: 'listening' },
+      { id: 'listening.long_convo', label: 'Nghe hội thoại dài — trắc nghiệm (KET P4, PET P3/P4)', moduleType: 'listening' },
+    ],
+  },
+  {
+    id: 'speaking',
+    subject: 'speaking',
+    label: 'Speaking (Nói A2/B1)',
+    skills: [
+      { id: 'speaking.interview', label: 'Phỏng vấn thông tin cá nhân (KET P1, PET P1)', moduleType: 'speaking' },
+      { id: 'speaking.collaborative', label: 'Thảo luận cặp theo tranh / tình huống (KET P2, PET P3)', moduleType: 'speaking' },
+      { id: 'speaking.long_turn', label: 'Nói dài mô tả ảnh (PET P2)', moduleType: 'speaking' },
+      { id: 'speaking.discussion', label: 'Thảo luận mở rộng theo chủ đề (PET P4)', moduleType: 'speaking' },
+    ],
+  },
+  {
+    id: 'grammar',
+    subject: 'foundation',
+    label: 'Grammar (Ngữ pháp nền tảng)',
+    skills: [
+      { id: 'grammar.a2', label: 'Ngữ pháp A2: thì cơ bản, so sánh, modal cơ bản', moduleType: 'grammar' },
+      { id: 'grammar.b1', label: 'Ngữ pháp B1: hiện tại hoàn thành, điều kiện, bị động, mệnh đề quan hệ', moduleType: 'grammar' },
+    ],
+  },
+  {
+    id: 'vocabulary',
+    subject: 'foundation',
+    label: 'Vocabulary (Từ vựng nền tảng)',
+    skills: [
+      { id: 'vocabulary.a2', label: 'Từ vựng A2 Key (đời sống, gia đình, trường học, du lịch)', moduleType: 'vocabulary' },
+      { id: 'vocabulary.b1', label: 'Từ vựng B1 Preliminary (giáo dục, công việc, môi trường, xã hội)', moduleType: 'vocabulary' },
     ],
   },
 ];

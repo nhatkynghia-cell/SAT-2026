@@ -32,9 +32,8 @@ export async function recordDailySnapshot(userId: string): Promise<void> {
           user_id: userId,
           snapshot_date: todayVN(),
           overall: snap.overall,
-          math_section: snap.math_section,
-          reading_section: snap.reading_section,
-          total_score: snap.total_score,
+          overall_scale: snap.overall_scale,
+          cefr: snap.cefr,
           total_attempts: snap.total_attempts,
           updated_at: new Date().toISOString(),
         },
@@ -54,7 +53,7 @@ export async function loadSnapshots(userId: string, sinceDate: string): Promise<
   const admin = createAdminClient();
   const { data, error } = await admin
     .from('daily_snapshots')
-    .select('snapshot_date, overall, math_section, reading_section, total_score, total_attempts')
+    .select('snapshot_date, overall, overall_scale, cefr, total_attempts')
     .eq('user_id', userId)
     .gte('snapshot_date', sinceDate)
     .order('snapshot_date', { ascending: true });
@@ -68,7 +67,7 @@ export async function loadOwnSnapshots(userId: string, sinceDate: string): Promi
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('daily_snapshots')
-    .select('snapshot_date, overall, math_section, reading_section, total_score, total_attempts')
+    .select('snapshot_date, overall, overall_scale, cefr, total_attempts')
     .eq('user_id', userId)
     .gte('snapshot_date', sinceDate)
     .order('snapshot_date', { ascending: true });
