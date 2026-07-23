@@ -17,6 +17,7 @@ const PUBLIC_PREFIXES = [
   '/api/payment/momo-ipn',
   '/api/payment/vnpay-ipn',
   '/api/payment/stripe-webhook', // Stripe gọi server-to-server, không có cookie session
+  '/api/payment/payos-webhook', // payOS gọi server-to-server, không có cookie session (chữ ký HMAC tự bảo vệ)
   '/api/payment/return',
   '/api/parent/report',
   '/api/admin',
