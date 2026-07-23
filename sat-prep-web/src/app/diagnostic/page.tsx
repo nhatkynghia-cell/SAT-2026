@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { CorePracticeUI, type PracticeQuestion } from '@/components/CorePracticeUI';
+import { getSkill } from '@/lib/skill-taxonomy';
 
 /**
  * DIAGNOSTIC ONBOARDING — bài test xếp lớp đầu vào.
@@ -15,7 +16,7 @@ import { CorePracticeUI, type PracticeQuestion } from '@/components/CorePractice
  * → nhận điểm dự đoán vừa gieo để hiển thị.
  */
 
-type Phase = 'loading' | 'done_already' | 'intro' | 'fighting' | 'result';
+type Phase = 'loading' | 'login_required' | 'done_already' | 'intro' | 'fighting' | 'result';
 
 interface Prediction {
   math: number;
@@ -32,6 +33,15 @@ const CONFIDENCE_LABEL: Record<string, string> = {
   high: 'Tin cậy cao',
 };
 
+function routeForFocusSkill(skillId: string, subject: string): string {
+  const moduleType = getSkill(skillId)?.moduleType;
+  if (moduleType === 'vocab') return '/vocabulary';
+  if (moduleType === 'literature') return '/literature';
+  if (moduleType === 'desmos') return '/desmos';
+  if (moduleType === 'math') return '/math';
+  return subject === 'reading' ? '/literature' : '/math';
+}
+
 export default function DiagnosticPage() {
   const [phase, setPhase] = useState<Phase>('loading');
   const [questions, setQuestions] = useState<PracticeQuestion[]>([]);
@@ -47,6 +57,10 @@ export default function DiagnosticPage() {
     async function checkStatus() {
       try {
         const res = await fetch('/api/diagnostic');
+        if (res.status === 401) {
+          setPhase('login_required');
+          return;
+        }
         const data = await res.json();
         setPhase(data.completed ? 'done_already' : 'intro');
       } catch {
@@ -66,6 +80,10 @@ export default function DiagnosticPage() {
         body: JSON.stringify({ action: 'start' }),
       });
       const data = await res.json();
+      if (res.status === 401) {
+        setPhase('login_required');
+        return;
+      }
       if (data.completed) {
         setPhase('done_already');
         return;
@@ -102,10 +120,22 @@ export default function DiagnosticPage() {
         }),
       });
       const data = await res.json();
+      if (res.status === 401) {
+        setPhase('login_required');
+        return;
+      }
+      if (!res.ok) {
+        setError(data?.error ?? 'Không thể lưu kết quả diagnostic. Vui lòng thử lại.');
+        setPhase('fighting');
+        return;
+      }
       setPrediction(data.prediction ?? null);
       if (typeof data.tier === 'string') setTier(data.tier);
     } catch {
       setPrediction(null);
+      setError('Không thể lưu kết quả diagnostic. Vui lòng thử lại.');
+      setPhase('fighting');
+      return;
     }
     setPhase('result');
   }, [targetScore]);
@@ -124,6 +154,28 @@ export default function DiagnosticPage() {
       <div className="min-h-[60vh] flex flex-col items-center justify-center bg-[#0e1117]">
         <div className="text-5xl animate-spin mb-4">⚙️</div>
         <p className="text-white font-bold text-xl">Đang xử lý...</p>
+      </div>
+    );
+  }
+
+  if (phase === 'login_required') {
+    return (
+      <div className="space-y-8 animate-in fade-in duration-700 pb-20">
+        <div className="math-academy-header" style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #1e1b4b 100%)' }}>
+          <div className="math-title-container">
+            <div className="math-icon text-6xl">🔐</div>
+            <div>
+              <h1 className="math-title" style={{ background: 'linear-gradient(to right, #93c5fd, #c084fc)', WebkitBackgroundClip: 'text' }}>ĐĂNG NHẬP ĐỂ XẾP LỚP</h1>
+              <p className="math-subtitle text-blue-200">Kết quả diagnostic cần gắn với tài khoản thật để không mất lộ trình.</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-[#1b2533] p-8 rounded-xl border border-indigo-500/30 max-w-lg mx-auto text-center space-y-4">
+          <p className="text-gray-300">Đăng nhập trước khi làm bài để app lưu điểm dự đoán, skill yếu và kế hoạch luyện hôm nay vào đúng tài khoản của bạn.</p>
+          <Link href="/login?next=/diagnostic" className="inline-block bg-gradient-to-r from-yellow-300 to-amber-500 hover:from-yellow-200 hover:to-amber-400 text-[#78350f] font-black px-8 py-3 rounded-xl shadow-lg">
+            🔑 Đăng nhập rồi làm diagnostic
+          </Link>
+        </div>
       </div>
     );
   }
@@ -246,6 +298,8 @@ export default function DiagnosticPage() {
 
   if (phase === 'result') {
     const correctCount = answerLog.filter(Boolean).length;
+    const primaryFocus = prediction?.focusSkills[0];
+    const focusRoute = primaryFocus ? routeForFocusSkill(primaryFocus.id, primaryFocus.subject) : '/skill-tree';
     return (
       <div className="space-y-8 animate-in fade-in duration-700 pb-20">
         <div className="max-w-lg mx-auto text-center space-y-6">
@@ -289,17 +343,17 @@ export default function DiagnosticPage() {
                   Premium phân tích sâu từng điểm yếu, gợi ý skill ưu tiên và bài &ldquo;Luyện Mục Tiêu&rdquo;
                   để lên điểm nhanh nhất — dựa trên chính kết quả bạn vừa làm.
                 </p>
-                <Link href="/upgrade" className="inline-block text-sm font-bold bg-gradient-to-r from-yellow-300 to-amber-500 text-[#78350f] px-5 py-2.5 rounded-lg hover:from-yellow-200 hover:to-amber-400 shadow-lg">
+                <Link href="/upgrade?from=diagnostic&unlock=premium" className="inline-block text-sm font-bold bg-gradient-to-r from-yellow-300 to-amber-500 text-[#78350f] px-5 py-2.5 rounded-lg hover:from-yellow-200 hover:to-amber-400 shadow-lg">
                   Xem gói nâng cấp →
                 </Link>
               </div>
             )}
 
             <div className="flex flex-col gap-3 items-center">
-              <Link href="/skill-tree" className="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold px-8 py-4 rounded-xl inline-block shadow-lg">
-                🌳 Xem lộ trình trong Cây Năng Lực
+              <Link href={focusRoute} className="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold px-8 py-4 rounded-xl inline-block shadow-lg">
+                {primaryFocus ? `🎯 Luyện ngay: ${primaryFocus.label}` : '🌳 Xem lộ trình trong Cây Năng Lực'}
               </Link>
-              <Link href="/math" className="text-indigo-300 hover:text-indigo-200">📐 Luyện Toán ngay →</Link>
+              <Link href="/skill-tree" className="text-indigo-300 hover:text-indigo-200">🌳 Xem toàn bộ Cây Năng Lực →</Link>
             </div>
           </div>
         </div>

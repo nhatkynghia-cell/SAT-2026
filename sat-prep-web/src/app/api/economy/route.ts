@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { loadEconomy, saveEconomy, loadPvpState, savePvpState, tryConsumePvpFightAtomic, loadQuestClaims, saveQuestClaim, tryClaimQuestRewardAtomic, tryClaimOnceAtomic } from '@/lib/economy-store';
 import { getMasterySummary } from '@/lib/mastery';
-import { computeStats } from '@/lib/stats';
-import { PVP_OPPONENTS } from '@/helpers/pvp';
+import { computeStats, computeDomainStats } from '@/lib/stats';
+import { PVP_OPPONENTS, getPvpRankDomain } from '@/helpers/pvp';
 import { rateLimit } from '@/lib/rate-limit';
 import {
   applyQuestReward,
@@ -20,9 +20,12 @@ import {
 import { cosmeticById } from '@/lib/cosmetics';
 import { getUserTier } from '@/lib/subscription-store';
 import { getEarnedCosmetics } from '@/lib/cosmetics-store';
-import { TIER_COIN_MULTIPLIER } from '@/lib/subscription';
+import { TIER_COIN_MULTIPLIER, TIER_PVP_CAP_PER_DAY } from '@/lib/subscription';
 import { loadSnapshots, todayVN } from '@/lib/daily-snapshot-store';
 import { computeDayStreak, pendingStreakGrant, STREAK_CLAIM_KEY, STREAK_MILESTONE_REWARD, DAILY_LOGIN_KEY, DAILY_LOGIN_COINS } from '@/lib/day-streak';
+import { QUEST_METRIC_MAP, checkQuestCompletion, questClaimKey } from '@/lib/quests';
+import { countCorrectAnsweredOnDay } from '@/lib/issued-questions';
+import { countDailyActivity } from '@/lib/daily-activity-store';
 
 /**
  * ECONOMY API (server-authoritative) — implementation_plan.md §9.1, task #2
@@ -48,6 +51,9 @@ import { computeDayStreak, pendingStreakGrant, STREAK_CLAIM_KEY, STREAK_MILESTON
 
 export async function GET() {
   const user = await getCurrentUser();
+  if (!user.isAuthenticated) {
+    return NextResponse.json({ success: false, error: 'Bạn cần đăng nhập để xem ví học tập.' }, { status: 401 });
+  }
   // Kèm `tier` để UI (shop/collection) gate HIỂN THỊ cosmetic theo gói. Đây chỉ là
   // gate hiển thị; chốt bảo mật spend ở POST (applySpend nhận userTier). FAIL-SAFE
   // getUserTier → 'free' khi lỗi. Đọc song song để không thêm độ trễ đáng kể.
@@ -66,6 +72,9 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
+    if (!user.isAuthenticated) {
+      return NextResponse.json({ success: false, error: 'Bạn cần đăng nhập để dùng ví học tập.' }, { status: 401 });
+    }
 
     const rl = rateLimit(`economy:${user.id}`, 20, 60_000);
     if (!rl.allowed) {
@@ -107,11 +116,52 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: true, granted, state });
       }
 
+      // 🔴 LEARNING CONTRACT (RPG 60/40): quest có metric → server ĐỐI CHIẾU sự
+      // kiện học THẬT hôm nay thay vì tin progress client. Đóng gap "client tự khai
+      // progress rồi claim". Mỗi metric có nguồn đếm server-side riêng:
+      //   • answer-correct : issued_questions was_correct theo ngày (luôn có).
+      //   • vocab-reviewed : counter user_daily_activity (kind vocab_review).
+      //   • exam-completed : counter user_daily_activity (kind exam_complete).
+      // Counter trả NULL khi bảng chưa migrate → metricValue undefined →
+      // checkQuestCompletion 'unknown' → FAIL-OPEN (giữ hành vi cũ, 0 regression).
+      // 'not-done' → 403 KHÔNG cấp thưởng (server thấy chưa đủ hoạt động hôm nay).
+      const metric = QUEST_METRIC_MAP[questId];
+      if (metric) {
+        let metricValue: number | undefined;
+        if (metric === 'answer-correct') {
+          metricValue = await countCorrectAnsweredOnDay(user.id, today);
+        } else if (metric === 'vocab-reviewed') {
+          const c = await countDailyActivity(user.id, 'vocab_review', today);
+          metricValue = c === null ? undefined : c; // null (pre-migration) → fail-open
+        } else if (metric === 'exam-completed') {
+          const c = await countDailyActivity(user.id, 'exam_complete', today);
+          metricValue = c === null ? undefined : c;
+        }
+        const completion = checkQuestCompletion(questId, metricValue);
+        if (completion === 'not-done') {
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'Nhiệm vụ chưa hoàn thành — server chưa ghi nhận đủ hoạt động học hôm nay.',
+              code: 'QUEST_NOT_COMPLETE',
+            },
+            { status: 403 }
+          );
+        }
+      }
+
+      // 🔴 KHÓA CLAIM theo TRACK (chống faucet multi-variant, adversarial review
+      // 2026-07-23): mỗi track chỉ phát 1 biến thể/ngày nhưng cả 3 biến thể cùng
+      // reward+metric → nếu khóa theo questId, client claim q3+q3b+q3c = 3× thưởng
+      // trên 1 hoạt động. questClaimKey → 'qtrack:<track>' để track đã nhận thì
+      // biến thể khác 409. Reward/metric vẫn tra theo questId gốc.
+      const claimKey = questClaimKey(questId);
+
       // Đường ATOMIC (ROOT C — chống race): RPC khóa dòng user_economy + kiểm
-      // questId đã nhận hôm nay chưa + cộng delta server-cấp TRONG 1 transaction
-      // → 2 request cùng questId đồng thời KHÔNG thể cộng xu 2 lần. Fail-safe
+      // claimKey đã nhận hôm nay chưa + cộng delta server-cấp TRONG 1 transaction
+      // → 2 request cùng track đồng thời KHÔNG thể cộng xu 2 lần. Fail-safe
       // null (RPC chưa có, pre-migration) → fallback đường load-check-save cũ.
-      const atomic = await tryClaimQuestRewardAtomic(user.id, questId, today, granted.coins, granted.xp);
+      const atomic = await tryClaimQuestRewardAtomic(user.id, claimKey, today, granted.coins, granted.xp);
       if (atomic) {
         if (atomic.ok) {
           // RPC đã cộng coins/xp + ghi claim atomic. state mới lấy tổng từ RPC.
@@ -136,15 +186,15 @@ export async function POST(req: Request) {
       }
 
       // ── FALLBACK non-atomic (pre-migration hoặc no_row) — hành vi CŨ, race vẫn
-      // hở tới khi chạy quest_claim_atomic.sql. Giữ y nguyên để 0 regression. ──
+      // hở tới khi chạy quest_claim_atomic.sql. Khóa theo claimKey (track). ──
       const claimed = await loadQuestClaims(user.id, today);
-      if (claimed.includes(questId)) {
+      if (claimed.includes(claimKey)) {
         return NextResponse.json(
           { success: false, error: 'Quest đã nhận hôm nay', code: 'ALREADY_CLAIMED' },
           { status: 409 }
         );
       }
-      await saveQuestClaim(user.id, today, questId);
+      await saveQuestClaim(user.id, today, claimKey);
       await saveEconomy(user.id, next);
       return NextResponse.json({ success: true, granted, state: next });
     }
@@ -317,8 +367,14 @@ export async function POST(req: Request) {
       // Đối thủ = hạng KẾ TRÊN theo rank THẬT ở server (bỏ qua targetRank client gửi).
       const targetRank = pvp.pvpRank - 1;
 
-      // Cổng 1: hợp lệ hóa lượt đánh (chỉ đối thủ kế trên + cap/ngày).
-      const attempt = checkPvpAttempt(pvp.pvpRank, targetRank, pvp.fightsToday, pvp.lastFightDate, today);
+      // Cap trận/ngày theo GÓI (Wave 2): free 3 · premium 10 · ultimate 20, kẹp
+      // dưới trần tuyệt đối PVP_MAX_FIGHTS_PER_DAY. Truyền pvpCap xuống RPC atomic
+      // để chốt cùng trong lock dòng; nếu chỉ precheck ở route rồi RPC dùng trần tuyệt
+      // đối, 2 request đồng thời khi free còn 1 lượt có thể cùng vượt cap gói.
+      const pvpCap = Math.min(PVP_MAX_FIGHTS_PER_DAY, TIER_PVP_CAP_PER_DAY[userTier]);
+
+      // Cổng 1: hợp lệ hóa lượt đánh (chỉ đối thủ kế trên + cap/ngày theo gói).
+      const attempt = checkPvpAttempt(pvp.pvpRank, targetRank, pvp.fightsToday, pvp.lastFightDate, today, pvpCap);
       if (!attempt.allowed) {
         return NextResponse.json({
           success: true,
@@ -345,9 +401,15 @@ export async function POST(req: Request) {
         });
       }
 
-      // basePower từ mastery — KHÔNG cộng equipmentBonus vào lực PvP (equipmentBonus=0).
+      // BOSS THEO DOMAIN (RPG 60/40): cổng năng lực dùng basePower CỦA DOMAIN mà
+      // rank đang đấu (getPvpRankDomain) — muốn leo phải GIỎI đúng domain boss,
+      // không thể mạnh tổng thể mà bỏ điểm yếu. rank ngoài bảng → fallback tổng thể.
+      // KHÔNG cộng equipmentBonus (equipmentBonus=0 — chống pay-to-win).
       const summary = await getMasterySummary(user.id);
-      const { basePower } = computeStats(summary, 0);
+      const bossDomain = getPvpRankDomain(targetRank);
+      const { basePower } = bossDomain
+        ? computeDomainStats(summary, bossDomain)
+        : computeStats(summary, 0);
 
       // Cổng 2: năng lực + RNG + thưởng.
       const fight = resolvePvpFight(
@@ -387,7 +449,7 @@ export async function POST(req: Request) {
         targetRank,
         fight.won,
         today,
-        PVP_MAX_FIGHTS_PER_DAY
+        pvpCap
       );
 
       if (consumed) {
@@ -401,10 +463,10 @@ export async function POST(req: Request) {
             granted: { coins: 0, xp: 0 },
             combatPower: fight.combatPower,
             pvpRank: consumed.pvpRank || pvp.pvpRank,
-            fightsRemaining: Math.max(0, PVP_MAX_FIGHTS_PER_DAY - consumed.fightsToday),
+            fightsRemaining: Math.max(0, pvpCap - consumed.fightsToday),
             reason:
               consumed.reason === 'cap'
-                ? `Hôm nay bạn đã đấu đủ ${PVP_MAX_FIGHTS_PER_DAY} trận. Quay lại vào ngày mai nhé!`
+                ? `Hôm nay bạn đã đấu đủ ${pvpCap} trận. Quay lại vào ngày mai nhé!`
                 : 'Chỉ được thách đấu đối thủ kế tiếp trong bảng xếp hạng. Hãy leo tuần tự!',
           });
         }
@@ -419,7 +481,7 @@ export async function POST(req: Request) {
           granted: fight.granted,
           combatPower: fight.combatPower,
           pvpRank: consumed.pvpRank,
-          fightsRemaining: Math.max(0, PVP_MAX_FIGHTS_PER_DAY - consumed.fightsToday),
+          fightsRemaining: Math.max(0, pvpCap - consumed.fightsToday),
           state: fight.state,
         });
       }

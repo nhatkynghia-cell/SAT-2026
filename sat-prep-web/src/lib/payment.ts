@@ -15,11 +15,11 @@ import type { PaidTier, BillingPeriod } from './subscription';
  */
 
 /**
- * Cổng thanh toán hỗ trợ. Giữ 'vnpay'|'momo' trong type để lib/route cũ vẫn
- * typecheck (code KHÔNG xóa — bật lại khi có creds doanh nghiệp). Runtime chỉ cho
- * 'stripe' qua VALID_GATEWAYS bên dưới → vnpay/momo bị chặn ở cửa create route.
+ * Cổng thanh toán hỗ trợ. 'payos' (VietQR, cá nhân VN) + 'stripe' (thẻ quốc tế)
+ * bật mặc định; 'vnpay'|'momo' cũng bật (khung code có sẵn) — cổng nào chưa có
+ * env creds thì create route trả 503 (fail-safe), KHÔNG vỡ.
  */
-export type PaymentGateway = 'vnpay' | 'momo' | 'stripe';
+export type PaymentGateway = 'vnpay' | 'momo' | 'stripe' | 'payos';
 
 /** Trạng thái 1 giao dịch (khớp CHECK của bảng payment_transactions). */
 export type TxnStatus = 'pending' | 'paid' | 'failed' | 'expired';
@@ -37,10 +37,9 @@ export interface PaymentTxn {
   paidAt: string | null;
 }
 
-// 🔴 DISABLE vnpay/momo ở TẦNG APP (giữ code): chỉ 'stripe' hợp lệ runtime →
-// isValidGateway('vnpay'|'momo') = false → create route trả 400. Thêm lại vào
-// mảng này khi có creds VNPay/MoMo doanh nghiệp để bật lại (không cần sửa gì khác).
-const VALID_GATEWAYS: readonly PaymentGateway[] = ['stripe'];
+// Cổng hợp lệ runtime. payOS + Stripe là kênh chính (VN cá nhân + thẻ quốc tế);
+// vnpay/momo bật kèm (khung có sẵn). Cổng chưa có env creds → create route trả 503.
+const VALID_GATEWAYS: readonly PaymentGateway[] = ['stripe', 'payos', 'vnpay', 'momo'];
 const VALID_TIERS: readonly PaidTier[] = ['premium', 'ultimate'];
 const VALID_PERIODS: readonly BillingPeriod[] = ['monthly', 'quarterly', 'semiannual', 'yearly'];
 

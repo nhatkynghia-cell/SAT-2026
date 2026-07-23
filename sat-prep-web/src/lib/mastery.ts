@@ -1,6 +1,7 @@
 import { loadMastery, saveMastery } from './mastery-store';
 import { ALL_SKILLS, isValidSkill, getDomainOfSkill, SKILL_TREE, type Subject } from './skill-taxonomy';
 import { bumpDomainGateProgress } from './gate-exam';
+import { todayStr } from './leitner';
 
 /**
  * ============================================================================
@@ -27,6 +28,20 @@ export interface SkillMastery {
   attempts: number;    // số câu đã làm cho skill này
   correct: number;     // số câu đúng
   lastSeen: string;    // ISO timestamp lần cập nhật gần nhất
+  /**
+   * Độ tin cậy của mastery (0..1). Tăng theo số câu đã làm + độ tươi (ôn gần
+   * đây), giảm khi lâu không ôn. Optional (dữ liệu cũ pre-migration không có →
+   * derive = attempts/RELIABLE_ATTEMPTS). Dùng cho RPG 60/40: chỉ tin mastery
+   * có confidence cao làm nền "đo tiến bộ bản thân" + gate boss/PvP chặt hơn.
+   */
+  confidence?: number;
+  /**
+   * Ngày (YYYY-MM-DD VN) của lần ĐÚNG đầu tiên — dùng kiểm "retention": để coi
+   * là đã TINH THÔNG bền vững cần thêm 1 lần đúng ở lần ôn cách ≥1 ngày sau đó.
+   * Optional (dữ liệu cũ → undefined → retention chưa đạt, nhưng KHÔNG tụt
+   * mastered đã đạt để tránh khóa Skill Tree — pattern gate permanent).
+   */
+  firstCorrectDay?: string;
 }
 
 export interface MasteryStore {
@@ -46,8 +61,67 @@ export const RELIABLE_ATTEMPTS = 5;
 /** Ngưỡng % để coi là đã "làm chủ" skill (dùng cho Skill Tree gating). */
 export const MASTERED_THRESHOLD = 80;
 
+/**
+ * Số ngày tối thiểu giữa lần đúng đầu tiên và một lần ôn đúng sau đó để coi
+ * mastery là "bền vững" (retention). Phục vụ RPG 60/40: "mastered" giờ phản
+ * ánh học bền vững, không phải burst ngắn hạn. Số ngày dùng trục VN khớp
+ * `todayStr` (leitner.ts). attempts/score vẫn giữ (tương thích gate hiện có).
+ */
+export const RETENTION_GAP_DAYS = 1;
+
+/**
+ * Confidence tươi giảm một nửa sau bao nhiêu ngày không ôn (half-life). Dùng
+ * trục VN ngày. Mastery cũ không ôn dài → confidence tụt → RPG không tin vào
+ * mastery "ngốn" lâu ngày, ép user ôn duy trì (cải thiện "đo tiến bộ bản thân").
+ */
+export const CONFIDENCE_HALF_LIFE_DAYS = 30;
+
 function emptySkill(): SkillMastery {
-  return { score: 0, attempts: 0, correct: 0, lastSeen: '' };
+  return { score: 0, attempts: 0, correct: 0, lastSeen: '', confidence: 0, firstCorrectDay: undefined };
+}
+
+/**
+ * Confidence (0..1) của 1 skill: kết hợp "độ tin theo số câu" + "độ tươi theo
+ * ngày cuối ôn". Pure: nhận attempts + lastSeen (ISO) + `nowMs` tiêm để test.
+ *   • attemptsPart = min(1, attempts / RELIABLE_ATTEMPTS) — 5+ câu mới tin đầy.
+ *   • freshPart = 0.5^(daysSinceLastSeen / CONFIDENCE_HALF_LIFE_DAYS) — tụt
+ *     một nỗi mỗi 30 ngày không ôn. Không có lastSeen → freshPart=0.
+ *   • confidence = attemptsPart * freshPart (cả hai phải tốt).
+ * Trả về số trong [0..1]. Dùng cho UI/RPG hiển thị "độ tin" + gate boss/PvP.
+ */
+export function computeConfidence(
+  attempts: number,
+  lastSeen: string,
+  nowMs: number = Date.now()
+): number {
+  const attemptsPart = Math.min(1, attempts / RELIABLE_ATTEMPTS);
+  if (!lastSeen) return 0;
+  const lastMs = new Date(lastSeen).getTime();
+  if (Number.isNaN(lastMs)) return 0;
+  const daysSince = Math.max(0, (nowMs - lastMs) / 86_400_000);
+  const freshPart = Math.pow(0.5, daysSince / CONFIDENCE_HALF_LIFE_DAYS);
+  return Math.max(0, Math.min(1, attemptsPart * freshPart));
+}
+
+/**
+ * Có đạt "retention" không: cần có lần đúng ĐẦU TIÊN (firstCorrectDay) AND một
+ * lần ĐÚNG ở ngày KHÁC, cách firstCorrectDay ít nhất RETENTION_GAP_DAYS ngày.
+ * Pure: nhận firstCorrectDay + lastCorrectDay (VN YYYY-MM-DD). Thiếu dữ liệu
+ * (dữ liệu cũ) → false (chưa chứng minh bền vững), nhưng KHÔNG dùng để TỤT
+ * mastered đã đạt ở nơi gate permanent (Skill Tree) — chỉ dùng cho gate "mới"
+ * (boss/PvP/level bền vững) để không vỡ tương thích ngược.
+ */
+export function hasRetention(
+  firstCorrectDay: string | undefined,
+  lastCorrectDay: string | undefined
+): boolean {
+  if (!firstCorrectDay || !lastCorrectDay) return false;
+  if (firstCorrectDay === lastCorrectDay) return false;
+  const firstMs = new Date(firstCorrectDay + 'T00:00:00Z').getTime();
+  const lastMs = new Date(lastCorrectDay + 'T00:00:00Z').getTime();
+  if (Number.isNaN(firstMs) || Number.isNaN(lastMs)) return false;
+  const gapDays = (lastMs - firstMs) / 86_400_000;
+  return gapDays >= RETENTION_GAP_DAYS;
 }
 
 /**
@@ -74,11 +148,23 @@ export async function recordAnswer(
   const target = isCorrect ? 100 : 0;
   const newScore = Math.round(cur.score + alpha * (target - cur.score));
 
+  const nowISO = new Date().toISOString();
+  const todayVN = todayStr();
+
+  // Retention: ghi ngày ĐÚNG đầu tiên (chỉ đặt 1 lần) + ngày ĐÚNG cuối cùng
+  // (cập nhật = hôm nay VN khi đúng; giữ nguyên khi sai). hasRetention so 2 ngày.
+  const prevLastCorrect = (cur as SkillMastery & { lastCorrectDay?: string }).lastCorrectDay ?? '';
+  const firstCorrectDay = cur.firstCorrectDay ?? (isCorrect ? todayVN : undefined);
+  const lastCorrectDay = isCorrect ? todayVN : prevLastCorrect;
+
   const updated: SkillMastery = {
     score: Math.min(100, Math.max(0, newScore)),
     attempts: cur.attempts + 1,
     correct: cur.correct + (isCorrect ? 1 : 0),
-    lastSeen: new Date().toISOString(),
+    lastSeen: nowISO,
+    confidence: computeConfidence(cur.attempts + 1, nowISO),
+    ...(firstCorrectDay ? { firstCorrectDay } : {}),
+    ...({ lastCorrectDay } as { lastCorrectDay?: string }),
   };
 
   store.skills[skillId] = updated;
@@ -95,6 +181,32 @@ export async function recordAnswer(
 
   await saveMastery(userId, store);
   return updated;
+}
+
+/**
+ * Kiểm "mastered bền vững" cho 1 skill: đủ attempts + score≥threshold + có
+ * retention (ít nhất 1 lần đúng cách lần đầu ≥1 ngày). Pure, nhận SkillMastery.
+ * Dữ liệu cũ thiếu field → retention=false → trả false (chưa chứng minh bền).
+ * Dùng cho level/boss/PvP gate "mới"; KHÔNG thay thế `mastered` hiện tại ở
+ * summarizeMastery (giữ Skill Tree không bị khóa lại).
+ */
+export function isDurableMastered(skill: SkillMastery): boolean {
+  if (skill.attempts < RELIABLE_ATTEMPTS) return false;
+  if (skill.score < MASTERED_THRESHOLD) return false;
+  const lastCorrectDay = (skill as SkillMastery & { lastCorrectDay?: string }).lastCorrectDay;
+  return hasRetention(skill.firstCorrectDay, lastCorrectDay);
+}
+
+/**
+ * Số skill đã TINH THÔNG BỀN VỮNG (durable mastered) của user — nền cho "level"
+ * RPG 60/40 phản ánh học bền vững thay vì burst ngắn. Pure, nhận MasteryStore
+ * dạng Record. Dữ liệu cũ thiếu field → durable=false → đếm 0 (an toàn, không
+ * tự mở khóa; user ôn thêm sẽ đạt).
+ */
+export function countDurableMastered(
+  skillsData: Record<string, SkillMastery>
+): number {
+  return ALL_SKILLS.filter((s) => isDurableMastered(skillsData[s.id] ?? emptySkill())).length;
 }
 
 /** Đọc mastery của 1 skill (mặc định rỗng nếu chưa làm). */

@@ -48,6 +48,85 @@ function entryId(moduleType: string, data: unknown): string {
   return crypto.createHash('sha256').update(core, 'utf-8').digest('hex').slice(0, 16);
 }
 
+const VALID_DIFFICULTIES = new Set(['Easy', 'Medium', 'Hard']);
+
+/**
+ * Validator câu AI TRƯỚC khi lưu vào bank chung (Content Quality — roadmap pre-deploy).
+ * PURE (không I/O), unit-test được. Chặn câu lỗi/kém chuẩn lọt vào nguồn dùng chung
+ * cho mọi user, tránh độc hại học (đáp án sai, choices lệch, analysis sai is_correct).
+ *
+ * Quy tắc:
+ *  - choices là mảng >=4 chuỗi không rỗng.
+ *  - correct_choice là chuỗi KHÔNG rỗng VÀ phải khớp 1 phần tử trong choices
+ *    (so bằng — câu thô vd "x = 2"; không khớp ký tự đầu để tránh multiple match).
+ *  - difficulty trong Easy/Medium/Hard.
+ *  - trapRate là số 0..100 (nếu có).
+ *  - choice_analysis (nếu có): mảng đúng số lượng choices, đúng 1 phần tử is_correct=true,
+ *    choice_letter khớp nhãn A/B/C/D theo index.
+ *
+ * Trả về true nếu hợp lệ; false + lý do (log) nếu lệch. Route gọi fire-and-forget,
+ * câu fail validation sẽ KHÔNG vào bank (chỉ phục vụ phiên hiện tại).
+ */
+export function validateBankEntry(data: unknown): { ok: boolean; reason?: string } {
+  const d = data as Record<string, unknown>;
+  if (!d || typeof d !== 'object') return { ok: false, reason: 'data không phải object' };
+
+  const choices = d.choices;
+  if (!Array.isArray(choices) || choices.length < 4) {
+    return { ok: false, reason: 'choices phải có ít nhất 4 phần tử' };
+  }
+  if (!choices.every((c) => typeof c === 'string' && c.trim().length > 0)) {
+    return { ok: false, reason: 'choices chứa phần tử rỗng/không phải chuỗi' };
+  }
+
+  const correct = d.correct_choice;
+  if (typeof correct !== 'string' || correct.trim().length === 0) {
+    return { ok: false, reason: 'correct_choice rỗng/không phải chuỗi' };
+  }
+  const matches = choices.filter((c) => c === correct);
+  if (matches.length !== 1) {
+    return { ok: false, reason: `correct_choice phải khớp đúng 1 choice (khớp ${matches.length})` };
+  }
+
+  const difficulty = d.difficulty;
+  if (typeof difficulty !== 'string' || !VALID_DIFFICULTIES.has(difficulty)) {
+    return { ok: false, reason: `difficulty không hợp lệ: ${String(difficulty)}` };
+  }
+
+  if (d.trapRate != null) {
+    const t = d.trapRate;
+    if (typeof t !== 'number' || !Number.isFinite(t) || t < 0 || t > 100) {
+      return { ok: false, reason: `trapRate không hợp lệ: ${String(t)}` };
+    }
+  }
+
+  const analysis = d.choice_analysis;
+  if (analysis !== undefined && analysis !== null) {
+    if (!Array.isArray(analysis)) {
+      return { ok: false, reason: 'choice_analysis phải là mảng' };
+    }
+    if (analysis.length !== choices.length) {
+      return { ok: false, reason: `choice_analysis lệch số lượng (${analysis.length} vs ${choices.length})` };
+    }
+    let correctCount = 0;
+    for (let i = 0; i < analysis.length; i++) {
+      const a = analysis[i] as Record<string, unknown>;
+      if (!a || typeof a !== 'object') return { ok: false, reason: `choice_analysis[${i}] không hợp lệ` };
+      if (typeof a.is_correct !== 'boolean') return { ok: false, reason: `choice_analysis[${i}].is_correct không phải boolean` };
+      if (a.is_correct) correctCount++;
+      const expectedLetter = String.fromCharCode(65 + i);
+      if (typeof a.choice_letter !== 'string' || a.choice_letter.trim().toUpperCase() !== expectedLetter) {
+        return { ok: false, reason: `choice_analysis[${i}].choice_letter phải là "${expectedLetter}"` };
+      }
+    }
+    if (correctCount !== 1) {
+      return { ok: false, reason: `choice_analysis phải có đúng 1 is_correct=true (có ${correctCount})` };
+    }
+  }
+
+  return { ok: true };
+}
+
 /** 1 dòng chuẩn hóa để upsert vào bảng `questions`. */
 export interface BankRow {
   id: string;
@@ -178,6 +257,13 @@ export async function saveToBank(
   skillId?: string
 ): Promise<boolean> {
   try {
+    const validation = validateBankEntry(data);
+    if (!validation.ok) {
+      // Chặn câu lỗi/kém chuẩn vào bank chung (lộ đáp án sai / analysis lệch). Vẫn
+      // trả về false (route fire-and-forget) — câu hiện tại đã trả cho user phiên này.
+      console.warn('saveToBank: câu fail validation, bỏ qua —', validation.reason);
+      return false;
+    }
     const row = buildBankRow(moduleType, topic, data, skillId);
     const supabase = await createClient();
     const { error } = await supabase

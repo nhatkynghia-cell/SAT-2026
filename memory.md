@@ -5,6 +5,32 @@ Tài liệu này ghi nhớ cấu trúc, mục tiêu dự án và quy tắc phát
 ---
 
 > [!IMPORTANT]
+> ### 🔧 AUDIT 2026-07-20 — MULTI-AGENT RÀ TOÀN APP + VÁ 15 FINDING (đọc block này)
+> **Bối cảnh:** user yêu cầu "huy động các agent test kỹ các tính năng xem có vấn đề gì lỗi/phi logic nữa không, rà soát cẩn thận toàn bộ dự án". Chạy workflow `sat-prep-full-audit` (31 agent, 6 hướng: route/API · practice+diagnostic · gamification/shop/paywall · security/privacy · mobile/a11y/UX · test coverage) + workflow `sat-post-audit-fix-verify` (2 agent kiểm lại sau vá).
+>
+> **Kết quả:** 24 candidate → **15 finding verify-true** đã vá hết phần Claude làm được. Verify cuối: **test 513/513 · lint 0 · build 79 pages · tsc sạch**.
+>
+> **Đã vá (code-side):**
+> - `payment-momo.ts`: success yêu cầu cả `res.ok` lẫn `resultCode===0` (HTTP lỗi không còn coi là success).
+> - `api/admin/redemptions/route.ts`: parse JSON riêng, JSON lỗi trả 400 thay 500.
+> - `components/AITutoring.tsx`: bỏ blank state, thêm load/submit error, grade fail không khóa câu, nút "Lưu vào thư viện" disabled "sắp có".
+> - `api/auth/session/route.ts`: POST stub fail-closed ngoài E2E (chống client chọn `sat_user_id` tùy ý = impersonation).
+> - `api/grade/route.ts`: KHÔNG tin `streak` client gửi để nhân combo (streak=0 server chờ streak server-authoritative); test `grade.test.mjs` cập nhật theo.
+> - `api/diagnostic/route.ts` + `issued-questions.ts`: `complete` yêu cầu đủ số câu diagnostic đã trả lời (`src='diagnostic'` answered) → 409 nếu chưa.
+> - `components/MistakeNotebook.tsx`: PATCH SRS kiểm `res.ok`, lỗi giữ card + hiện retry (không xóa card dù persist fail).
+> - `api/generate-practice/route.ts` + `api/gate-exam/route.ts`: gắn `src='gate'`, trả 503 khi `issueQuestion` fail (không trả câu không chấm được).
+> - `api/gate-exam/route.ts` POST: ràng buộc đúng `GATE_QUESTIONS` câu, chỉ đếm đúng trong bộ `questionIds` + `src='gate'` (chặn dùng câu gate cũ pass attempt mới). Helper mới `countCorrectAmongIds`.
+> - `api/questions/route.ts` (golden_hour) + `AITutoring.tsx`: issue `explanation` vào context server-side, strip khỏi payload, chỉ lộ qua `/api/grade` sau nộp (đồng bộ library/generate-practice).
+>
+> **Còn khóa user/credential (KHÔNG Claude):** Stripe env + `migration_stripe_gateway.sql`; RLS `ai_chat_cache`; RPC atomic spin/economy (chạy migration SQL); rate-limit store bền vững (Redis/edge-config/DB); ROOT E `p_user_id` guard; rotate `SAT_PREP_SECRET`/GitHub PAT/Vercel token (OpenAI+DB password đã xong); test sandbox MoMo thật (field-order chữ ký IPN).
+>
+> **Tài liệu/dashboard thêm:** `docs/pre-deploy-strategy-dashboard.html` (pricing/funnel/blockers/quick wins/dependencies/metrics/credential-locked/checklist/decision log) · `KhoiDong-App.bat` + `KhoiDong-ChienLuoc.bat` (root) · memory Claude `full-audit-fix-2026-07-20`.
+>
+> **Account test:** `truongsonht.xd@gmail.com` / `Nghia@123` (có thể đã đổi → "Quên mật khẩu" trên /login). Chưa login → `/` redirect 307 về `/login` (đúng auth-gate).
+
+---
+
+> [!IMPORTANT]
 > ### 🔧 BÀN GIAO PHIÊN TINH CHỈNH (2026-07-06, cuối phiên) — ĐỌC ĐẦU TIÊN
 > **Bối cảnh:** phiên này làm 2 việc — (1) admin fulfillment + empty-state (đầu phiên, xem block dưới); (2) khi user hỏi "tinh chỉnh app trước khi chốt giá vì giá gắn cấu trúc" → chạy **AUDIT read-only 4 chiều** (workflow 4 Explore agent) → lưu backlog **`CLtinhchinh.md`** (project root). ⚠️ Phát hiện có **phiên Claude song song** đã làm định giá (giá Premium-elite + Wave1 gating + hệ số xu + adaptive-exam) — user xác nhận **giá CHƯA chốt** (số trong code chỉ là đề xuất) + dặn **TRÁNH mảng monetization** phiên này.
 >

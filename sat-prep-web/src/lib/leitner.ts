@@ -13,9 +13,29 @@
  * ============================================================================
  */
 
-/** Khoảng cách ôn lại (số ngày) theo từng box. */
+/**
+ * Khoảng cách ôn lại (số ngày) theo từng box. Mặc định (Leitner cổ điển).
+ */
 export const BOX_INTERVALS: Record<number, number> = { 1: 1, 2: 2, 3: 4, 4: 7, 5: 14 };
 export const MAX_BOX = 5;
+
+/**
+ * Số lần trượt tối đa để nới khoảng ôn (interval tăng thêm khi nhớ nhiều lần liên
+ * tiếp → ôn thưa hơn). Mỗi lapse làm ngắn lại (về box 1) nên chỉ đếm trượt liên
+ * tiếp từ lần đúng gần nhất. Thuần — caller truyền `consecutiveCorrect`.
+ *
+ * Khoảng ôn THÍCH ỨNG = BOX_INTERVALS[box] + bonus(consecutiveCorrect):
+ *   • 0-2 đúng liên tiếp → +0 (mặc định).
+ *   • 3-5 → +1 ngày (ôm chắc hơn → thưa dần).
+ *   • 6+ → +2 ngày.
+ * Kẹp dưới MAX để không vô hạn. Trả về số ngày (thuần).
+ */
+export function adaptiveInterval(box: number, consecutiveCorrect = 0): number {
+  const base = BOX_INTERVALS[box] ?? 1;
+  if (consecutiveCorrect >= 6) return base + 2;
+  if (consecutiveCorrect >= 3) return base + 1;
+  return base;
+}
 
 /**
  * Lệch giờ VN (UTC+7, không DST) — KHỚP todayVN() (daily-snapshot-store.ts) +
@@ -43,10 +63,19 @@ export function promote(box: number, remembered: boolean): number {
  * Ngày ôn lại kế tiếp = hôm nay (GIỜ VN) + số ngày của box. Cộng ngày trên trục
  * VN (setUTCDate của mốc đã +7h) rồi trả về date-string → khớp ranh giới ngày VN
  * của todayStr/isDue. `nowMs` tiêm được để test tất định.
+ *
+ * Tùy chọn `consecutiveCorrect` (≥0): nới khoảng ôn theo số lần nhớ liên tiếp
+ * (adaptiveInterval) — ôm chắc → ôn thưa hơn. Mặc định undefined → khoảng mặc
+ * định (giữ tương thích callers hiện có).
  */
-export function nextReview(box: number, nowMs: number = Date.now()): string {
+export function nextReview(
+  box: number,
+  nowMs: number = Date.now(),
+  consecutiveCorrect?: number
+): string {
   const d = new Date(nowMs + VN_OFFSET_MS);
-  d.setUTCDate(d.getUTCDate() + (BOX_INTERVALS[box] ?? 1));
+  const days = consecutiveCorrect !== undefined ? adaptiveInterval(box, consecutiveCorrect) : (BOX_INTERVALS[box] ?? 1);
+  d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().split('T')[0];
 }
 

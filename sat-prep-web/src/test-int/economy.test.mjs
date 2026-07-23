@@ -16,6 +16,34 @@ function seedUser(id, patch = {}) {
   });
 }
 
+/**
+ * Seed N câu ĐÚNG đã chấm HÔM NAY cho user (cho quest 'learning contract'
+ * answer-correct). created_at = now (nằm trong ngày VN hôm nay). Dùng để quest
+ * q1/q1b/q1c qua cổng completion server-side.
+ */
+function seedCorrectAnswersToday(userId, n) {
+  const nowIso = new Date().toISOString();
+  for (let i = 0; i < n; i++) {
+    seed('issued_questions', {
+      user_id: userId,
+      answered: true,
+      was_correct: true,
+      skill_id: 'algebra.linear_eq',
+      context: null,
+      created_at: nowIso,
+    });
+  }
+}
+
+/**
+ * Seed counter hoạt động hôm nay (VN) cho quest 'vocab-reviewed'/'exam-completed'.
+ * kind = 'vocab_review' | 'exam_complete'. Ngày VN = UTC+7 (khớp todayVN()).
+ */
+function seedActivityToday(userId, kind, count) {
+  const dayVN = new Date(Date.now() + 7 * 3600_000).toISOString().slice(0, 10);
+  seed('user_daily_activity', { user_id: userId, activity_date: dayVN, kind, count });
+}
+
 /** Seed mastery đủ cao để qua cổng năng lực PvP (basePower lớn). */
 function seedStrongMastery(id) {
   seed('user_mastery', {
@@ -34,6 +62,15 @@ async function withRng(value, fn) {
   Math.random = () => value;
   try { return await fn(); } finally { Math.random = orig; }
 }
+
+test('economy GET/POST: chưa đăng nhập → 401, KHÔNG đụng ví mặc định', async () => {
+  resetDb(); setCurrentUser(null);
+  const get = await readRes(await GET());
+  assert.equal(get.status, 401);
+  const post = await readRes(await POST(postJson({ action: 'dailyLogin' })));
+  assert.equal(post.status, 401);
+  assert.equal(getRows('user_economy').length, 0);
+});
 
 test('economy GET: trả trạng thái hiện tại', async () => {
   resetDb(); setCurrentUser({ id: 'e-get' }); seedUser('e-get', { coins: 250, xp: 40 });
@@ -57,21 +94,105 @@ test("economy: action 'exam' ĐÃ GỠ → 400", async () => {
   assert.equal(getRows('user_economy')[0].coins, 100);
 });
 
-test('economy quest: q1 → +10/+50 server-quyết, ghi claim', async () => {
+test('economy quest: q1 (answer-correct) đủ câu đúng hôm nay → +10/+50 server-quyết, ghi claim', async () => {
   resetDb(); setCurrentUser({ id: 'e-q1' }); seedUser('e-q1');
+  seedCorrectAnswersToday('e-q1', 5); // q1 target 5
   const { status, body } = await readRes(await POST(postJson({ action: 'quest', questId: 'q1' })));
   assert.equal(status, 200);
   assert.deepEqual(body.granted, { coins: 10, xp: 50 });
   assert.equal(getRows('user_economy')[0].coins, 110);
 });
 
+test('economy quest: q1 CHƯA đủ câu đúng hôm nay → 403 QUEST_NOT_COMPLETE, KHÔNG cấp thưởng', async () => {
+  resetDb(); setCurrentUser({ id: 'e-q1-nope' }); seedUser('e-q1-nope');
+  seedCorrectAnswersToday('e-q1-nope', 2); // < target 5 → chưa hoàn thành
+  const { status, body } = await readRes(await POST(postJson({ action: 'quest', questId: 'q1' })));
+  assert.equal(status, 403);
+  assert.equal(body.code, 'QUEST_NOT_COMPLETE');
+  assert.equal(getRows('user_economy')[0].coins, 100, 'không cấp thưởng khi chưa hoàn thành');
+});
+
 test('economy quest: double-claim cùng ngày → 409, không cộng lần 2', async () => {
   resetDb(); setCurrentUser({ id: 'e-qdup' }); seedUser('e-qdup');
+  seedActivityToday('e-qdup', 'exam_complete', 1); // q3 target 1 → đủ hoàn thành
   await readRes(await POST(postJson({ action: 'quest', questId: 'q3' }))); // +100
   assert.equal(getRows('user_economy')[0].coins, 200);
   const r2 = await readRes(await POST(postJson({ action: 'quest', questId: 'q3' })));
   assert.equal(r2.status, 409);
   assert.equal(getRows('user_economy')[0].coins, 200, 'không cộng lần 2');
+});
+
+test('economy quest: q2 (vocab-reviewed) đủ từ ôn hôm nay → cấp thưởng', async () => {
+  resetDb(); setCurrentUser({ id: 'e-q2' }); seedUser('e-q2');
+  seedActivityToday('e-q2', 'vocab_review', 10); // q2 target 10
+  const { status, body } = await readRes(await POST(postJson({ action: 'quest', questId: 'q2' })));
+  assert.equal(status, 200);
+  assert.deepEqual(body.granted, { coins: 20, xp: 100 });
+  assert.equal(getRows('user_economy')[0].coins, 120);
+});
+
+test('economy quest: q2 CHƯA đủ từ ôn → 403 QUEST_NOT_COMPLETE', async () => {
+  resetDb(); setCurrentUser({ id: 'e-q2-nope' }); seedUser('e-q2-nope');
+  seedActivityToday('e-q2-nope', 'vocab_review', 3); // < target 10
+  const { status, body } = await readRes(await POST(postJson({ action: 'quest', questId: 'q2' })));
+  assert.equal(status, 403);
+  assert.equal(body.code, 'QUEST_NOT_COMPLETE');
+  assert.equal(getRows('user_economy')[0].coins, 100);
+});
+
+test('economy quest: q3 (exam-completed) chưa thi xong → 403', async () => {
+  resetDb(); setCurrentUser({ id: 'e-q3-nope' }); seedUser('e-q3-nope');
+  // KHÔNG seed activity → count=0 < target 1 → chưa hoàn thành.
+  const { status, body } = await readRes(await POST(postJson({ action: 'quest', questId: 'q3' })));
+  assert.equal(status, 403);
+  assert.equal(body.code, 'QUEST_NOT_COMPLETE');
+  assert.equal(getRows('user_economy')[0].coins, 100);
+});
+
+// ── CHỐNG FAUCET MULTI-VARIANT (khóa claim theo TRACK) ───────────────────────
+// Mỗi track có 3 biến thể cùng reward+metric (q3/q3b/q3c). Trước fix, claim cả 3
+// = 3× thưởng trên 1 hoạt động. Sau fix (questClaimKey → 'qtrack:exam'): biến thể
+// thứ 2 trở đi trong CÙNG track → 409, KHÔNG cấp lần 2.
+test('economy quest: claim q3 rồi q3b (cùng track exam) → q3b 409, KHÔNG cấp 3× thưởng', async () => {
+  resetDb(); setCurrentUser({ id: 'e-multivar' }); seedUser('e-multivar');
+  seedActivityToday('e-multivar', 'exam_complete', 1); // đủ hoàn thành cho MỌI biến thể exam
+
+  const r1 = await readRes(await POST(postJson({ action: 'quest', questId: 'q3' })));
+  assert.equal(r1.status, 200);
+  assert.equal(getRows('user_economy')[0].coins, 200); // +100
+
+  // q3b: khác questId nhưng CÙNG track → claimKey 'qtrack:exam' đã nhận → 409.
+  const r2 = await readRes(await POST(postJson({ action: 'quest', questId: 'q3b' })));
+  assert.equal(r2.status, 409, 'biến thể cùng track đã nhận → 409');
+  assert.equal(getRows('user_economy')[0].coins, 200, 'KHÔNG cấp lần 2');
+
+  // q3c: cũng cùng track → 409.
+  const r3 = await readRes(await POST(postJson({ action: 'quest', questId: 'q3c' })));
+  assert.equal(r3.status, 409);
+  assert.equal(getRows('user_economy')[0].coins, 200, 'tổng vẫn chỉ +100 cho 1 track/ngày');
+});
+
+test('economy quest: track KHÁC nhau vẫn nhận độc lập (answer vs exam không đụng nhau)', async () => {
+  resetDb(); setCurrentUser({ id: 'e-multitrack' }); seedUser('e-multitrack');
+  seedCorrectAnswersToday('e-multitrack', 5);          // q1 answer target 5
+  seedActivityToday('e-multitrack', 'exam_complete', 1); // q3 exam target 1
+
+  const rA = await readRes(await POST(postJson({ action: 'quest', questId: 'q1' })));
+  assert.equal(rA.status, 200);
+  const rB = await readRes(await POST(postJson({ action: 'quest', questId: 'q3' })));
+  assert.equal(rB.status, 200, 'track khác → nhận độc lập');
+  // 100 + 10 (q1) + 100 (q3) = 210.
+  assert.equal(getRows('user_economy')[0].coins, 210);
+});
+
+test('economy quest: q2 bảng activity CHƯA migrate → FAIL-OPEN (cấp thưởng như cũ)', async () => {
+  resetDb(); setCurrentUser({ id: 'e-q2-premig' }); seedUser('e-q2-premig');
+  // KHÔNG seed user_daily_activity + đánh dấu bảng thiếu → countDailyActivity trả null
+  // → metricValue undefined → checkQuestCompletion 'unknown' → fail-open (cấp).
+  markMissingColumns('user_daily_activity', ['count']);
+  const { status, body } = await readRes(await POST(postJson({ action: 'quest', questId: 'q2' })));
+  assert.equal(status, 200, 'pre-migration → fail-open, không chặn');
+  assert.deepEqual(body.granted, { coins: 20, xp: 100 });
 });
 
 test('economy quest: questId lạ → granted 0 (không bơm tùy ý)', async () => {

@@ -32,7 +32,10 @@ function preview(text: string, max = 90): string {
 }
 
 export async function GET() {
-  await getCurrentUser(); // yêu cầu đăng nhập (ném nếu chưa auth)
+  const user = await getCurrentUser();
+  if (!user.isAuthenticated) {
+    return NextResponse.json({ error: 'Bạn cần đăng nhập để mở thư viện đề.' }, { status: 401 });
+  }
 
   const cards: Array<{
     id: string;

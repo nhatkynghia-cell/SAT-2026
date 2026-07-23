@@ -67,3 +67,24 @@ export function computeStats(summary: MasterySummary, equipmentBonus = 0): Chara
     totalPower: basePower + bonus,
   };
 }
+
+/**
+ * Lực chiến NỀN theo 1 DOMAIN cụ thể (boss theo domain — RPG 60/40 đối kháng gắn
+ * học thật). Lọc summary.skills về đúng domainId rồi tính cùng công thức
+ * computeStats (KHÔNG trang bị). Boss mỗi rank map 1 domain → muốn thắng phải
+ * GIỎI đúng domain đó, không thể mạnh tổng thể mà bỏ qua điểm yếu.
+ *
+ * ⚠️ THUẦN. Domain không có skill (id sai) → basePower 0 (không đủ lực → gate chặn).
+ */
+export function computeDomainStats(summary: MasterySummary, domainId: string): CharacterStats {
+  const domainSkills = summary.skills.filter((s) => s.domainId === domainId);
+  const subSummary: MasterySummary = {
+    ...summary,
+    skills: domainSkills,
+    // overall của domain = trung bình mastery các skill trong domain (0 nếu rỗng).
+    overall: domainSkills.length
+      ? Math.round(domainSkills.reduce((sum, s) => sum + s.score, 0) / domainSkills.length)
+      : 0,
+  };
+  return computeStats(subSummary, 0);
+}

@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildBankRow, MIN_POOL } from './question-bank.ts';
+import { buildBankRow, validateBankEntry, MIN_POOL } from './question-bank.ts';
 
 describe('question-bank — buildBankRow (chuẩn hóa schema, Bước 0)', () => {
   const sampleData = {
@@ -83,5 +83,69 @@ describe('question-bank — buildBankRow (chuẩn hóa schema, Bước 0)', () =
 
   test('MIN_POOL vẫn export (không đổi hợp đồng)', () => {
     assert.equal(typeof MIN_POOL, 'number');
+  });
+});
+
+describe('question-bank — validateBankEntry (Content Quality, chặn câu lỗi vào bank chung)', () => {
+  const base = {
+    practice_question: 'What is 2+2?',
+    choices: ['3', '4', '5', '6'],
+    correct_choice: '4',
+    difficulty: 'Easy',
+    trapRate: 20,
+    choice_analysis: [
+      { choice_letter: 'A', is_correct: false, analysis: 'sai' },
+      { choice_letter: 'B', is_correct: true, analysis: 'đúng' },
+      { choice_letter: 'C', is_correct: false, analysis: 'sai' },
+      { choice_letter: 'D', is_correct: false, analysis: 'sai' },
+    ],
+  };
+
+  test('câu hợp lệ → ok', () => {
+    assert.equal(validateBankEntry(base).ok, true);
+  });
+
+  test('choices < 4 → fail', () => {
+    assert.equal(validateBankEntry({ ...base, choices: ['1', '2'] }).ok, false);
+  });
+
+  test('correct_choice không khớp choice → fail', () => {
+    assert.equal(validateBankEntry({ ...base, correct_choice: '99' }).ok, false);
+  });
+
+  test('correct_choice khớp 2 choice → fail (tránh multiple match)', () => {
+    assert.equal(validateBankEntry({ ...base, choices: ['4', '4', '5', '6'] }).ok, false);
+  });
+
+  test('difficulty sai → fail', () => {
+    assert.equal(validateBankEntry({ ...base, difficulty: 'Brutal' }).ok, false);
+  });
+
+  test('trapRate ngoài 0..100 → fail', () => {
+    assert.equal(validateBankEntry({ ...base, trapRate: 150 }).ok, false);
+  });
+
+  test('choice_analysis lệch số lượng → fail', () => {
+    assert.equal(validateBankEntry({ ...base, choice_analysis: base.choice_analysis.slice(0, 3) }).ok, false);
+  });
+
+  test('choice_analysis đúng 2 is_correct → fail', () => {
+    const ca = base.choice_analysis.map((c, i) => (i === 2 ? { ...c, is_correct: true } : c));
+    assert.equal(validateBankEntry({ ...base, choice_analysis: ca }).ok, false);
+  });
+
+  test('choice_analysis choice_letter sai vị trí → fail', () => {
+    const ca = base.choice_analysis.map((c, i) => (i === 1 ? { ...c, choice_letter: 'Z' } : c));
+    assert.equal(validateBankEntry({ ...base, choice_analysis: ca }).ok, false);
+  });
+
+  test('không có choice_analysis vẫn ok (câu bank cũ/tĩnh)', () => {
+    const { choice_analysis, ...noCa } = base;
+    void choice_analysis;
+    assert.equal(validateBankEntry(noCa).ok, true);
+  });
+
+  test('data không phải object → fail', () => {
+    assert.equal(validateBankEntry(null).ok, false);
   });
 });

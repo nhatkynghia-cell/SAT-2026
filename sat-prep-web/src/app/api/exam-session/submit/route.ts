@@ -9,6 +9,7 @@ import { TIER_COIN_MULTIPLIER } from '@/lib/subscription';
 import { generateModule } from '@/lib/exam-generator';
 import { determineAdaptivePath } from '@/lib/exam-scoring';
 import { isE2E, e2eModule, e2eGrade, E2E_ECONOMY } from '@/lib/e2e';
+import { bumpDailyActivity } from '@/lib/daily-activity-store';
 
 /**
  * NỘP 1 MODULE THI ADAPTIVE — server chấm + thưởng, và (nếu Module 1) sinh Module 2.
@@ -202,7 +203,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Module 2 → section kết thúc.
+    // Module 2 → section kết thúc. Math M2 = module CUỐI của bài thi (thứ tự SAT
+    // chuẩn RW→Math) → đếm 1 "bài thi hoàn thành" hôm nay (quest 'exam-completed'
+    // đối chiếu server). Chỉ math M2 → đúng 1 bump/bài (RW M2 không tính).
+    // Fire-and-forget (nuốt lỗi, không chặn phản hồi).
+    if (section === 'math') {
+      await bumpDailyActivity(user.id, 'exam_complete'); // await: tránh drop RPC khi serverless freeze
+    }
     return NextResponse.json({
       moduleResult: { correct, total: gradedTotal },
       granted,

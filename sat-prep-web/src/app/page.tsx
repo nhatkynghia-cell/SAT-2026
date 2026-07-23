@@ -1,12 +1,30 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useGamification } from '@/context/GamificationContext';
 import { useToast } from '@/context/ToastContext';
+import { getSkill } from '@/lib/skill-taxonomy';
 import { BadgeSystem } from '@/components/BadgeSystem';
 import { AITutoring } from '@/components/AITutoring';
 import { MistakeNotebook } from '@/components/MistakeNotebook';
 import { DiagnosticBanner } from '@/components/DiagnosticBanner';
+
+interface ScorePrediction {
+  total: number;
+  confidence: 'low' | 'medium' | 'high';
+  totalAttempts: number;
+  focusSkills: Array<{ id: string; label: string; score: number; subject?: string }>;
+  detailLocked?: boolean;
+}
+
+function practiceRouteForSkill(skillId: string): string {
+  const moduleType = getSkill(skillId)?.moduleType;
+  if (moduleType === 'vocab') return '/vocab';
+  if (moduleType === 'literature') return '/literature';
+  if (moduleType === 'desmos') return '/desmos';
+  return '/math';
+}
 
 export default function Home() {
   const {
@@ -15,16 +33,24 @@ export default function Home() {
     soundEnabled, setSoundEnabled,
     focusMode, setFocusMode,
     hideBanner, setHideBanner,
-    learningMode
+    learningMode,
+    onboardingCompleted,
+    gamificationLoaded
   } = useGamification();
 
   const { showToast } = useToast();
+
+  const [todayPlan, setTodayPlan] = useState<ScorePrediction | null>(null);
+  const [planLoading, setPlanLoading] = useState(true);
+  const [todayItems, setTodayItems] = useState<Array<{ kind: string; title: string; href: string; rationale: string }>>([]);
+  const [weeklyDelta, setWeeklyDelta] = useState<number | null>(null);
 
   // 🔥 Đồng bộ chuỗi ngày học 1 lần khi vào trang chủ. Đây là nơi DUY NHẤT gọi
   // (trong ToastProvider) → cập nhật số + hiện toast ăn mừng khi vừa đạt mốc.
   // Server grant xu mốc idempotent nên gọi lại các lần sau chỉ cập nhật số, 0 xu.
   const streakSyncedRef = useRef(false);
   useEffect(() => {
+    if (!gamificationLoaded) return;
     if (streakSyncedRef.current) return;
     streakSyncedRef.current = true;
     async function sync() {
@@ -40,12 +66,53 @@ export default function Home() {
       }
     }
     sync();
-  }, [syncDayStreak, claimDailyLogin, showToast]);
+  }, [syncDayStreak, claimDailyLogin, showToast, gamificationLoaded]);
+  useEffect(() => {
+    let cancelled = false;
+    async function loadTodayPlan() {
+      try {
+        const res = await fetch('/api/score');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setTodayPlan(data);
+      } catch (e) {
+        console.error('Không tải được kế hoạch hôm nay', e);
+      } finally {
+        if (!cancelled) setPlanLoading(false);
+      }
+    }
+    loadTodayPlan();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Kế hoạch hôm nay 3 mục (due SRS + skill yếu nhất + stamina) + mastery delta tuần,
+  // từ /api/today (core loop miễn phí). Lỗi → giữ rỗng, không vỡ trang chủ.
+  useEffect(() => {
+    let cancelled = false;
+    async function loadToday() {
+      try {
+        const res = await fetch('/api/today');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        if (Array.isArray(data?.plan?.items)) setTodayItems(data.plan.items);
+        if (typeof data?.weeklyDelta === 'number') setWeeklyDelta(data.weeklyDelta);
+      } catch (e) {
+        console.error('Không tải được /api/today', e);
+      }
+    }
+    loadToday();
+    return () => { cancelled = true; };
+  }, []);
 
 
   // Thanh tiến trình giờ phản ánh ĐỘ PHỦ KỸ NĂNG (số skill đã tinh thông),
   // KHÔNG còn XP phẳng (§10 — bỏ Level phẳng).
   const masteryPercent = totalNodes > 0 ? Math.min(100, (masteredCount / totalNodes) * 100) : 0;
+  const planFocusSkill = todayPlan?.focusSkills?.[0];
+  const hasPracticeData = (todayPlan?.totalAttempts ?? 0) > 0;
+  const primaryPlanHref = planFocusSkill ? practiceRouteForSkill(planFocusSkill.id) : onboardingCompleted ? '/math' : '/diagnostic';
+  const primaryPlanLabel = planFocusSkill ? `Luyện ngay: ${planFocusSkill.label}` : onboardingCompleted ? 'Bắt đầu luyện 10 câu' : 'Làm diagnostic 5 phút';
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 relative">
@@ -140,6 +207,76 @@ export default function Home() {
       
       {/* Streamlit Divider */}
       <hr className="border-[#262730] my-6" />
+
+      {!focusMode && (
+        <section className="bg-gradient-to-br from-[#10233a] to-[#111827] border border-blue-500/30 rounded-2xl p-6 shadow-[0_0_30px_rgba(59,130,246,0.12)]">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+            <div className="space-y-2">
+              <div className="text-xs font-bold uppercase tracking-[0.18em] text-blue-300">Kế hoạch hôm nay</div>
+              <h2 className="text-2xl font-black text-white">
+                {planLoading ? 'Đang dựng lộ trình cá nhân...' : planFocusSkill ? 'Tập trung 1 kỹ năng yếu nhất' : onboardingCompleted ? 'Giữ nhịp luyện tập hôm nay' : 'Bắt đầu bằng diagnostic 5 phút'}
+              </h2>
+              <p className="text-sm text-[#cbd5e1] max-w-2xl">
+                {planFocusSkill
+                  ? `Ưu tiên ${planFocusSkill.label} (mastery ${planFocusSkill.score}/100). Làm một phiên ngắn rồi quay lại xem mastery delta.`
+                  : onboardingCompleted
+                    ? 'Bạn đã có nền tảng ban đầu. Làm 10 câu luyện tập để app cập nhật điểm dự đoán và gợi ý skill kế tiếp.'
+                    : 'Hoàn thành bài xếp lớp để app biết điểm mạnh/yếu, dự đoán điểm SAT và tạo lộ trình luyện phù hợp.'}
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 lg:items-center">
+              <Link href={primaryPlanHref} className="text-center bg-gradient-to-r from-yellow-300 to-amber-500 hover:from-yellow-200 hover:to-amber-400 text-[#78350f] font-black px-6 py-3 rounded-xl shadow-lg">
+                🎯 {primaryPlanLabel}
+              </Link>
+              <Link href="/dashboard" className="text-center bg-[#0f172a] hover:bg-[#1e293b] text-blue-200 border border-blue-500/30 font-bold px-5 py-3 rounded-xl">
+                📊 Xem tiến bộ
+              </Link>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-5">
+            <div className="bg-[#0f172a]/80 border border-[#334155] rounded-xl p-4">
+              <div className="text-xs text-gray-400">Bước 1</div>
+              <div className="font-bold text-white">{onboardingCompleted ? 'Đã xếp lớp' : 'Diagnostic'}</div>
+              <div className="text-xs text-gray-500 mt-1">{onboardingCompleted ? 'Dữ liệu đầu vào đã sẵn sàng.' : '5–10 phút để cá nhân hóa lộ trình.'}</div>
+            </div>
+            <div className="bg-[#0f172a]/80 border border-[#334155] rounded-xl p-4">
+              <div className="text-xs text-gray-400">Bước 2</div>
+              <div className="font-bold text-white">Practice đúng skill</div>
+              <div className="text-xs text-gray-500 mt-1">{planFocusSkill ? planFocusSkill.label : 'Luyện Toán / Đọc-Viết để mở gợi ý.'}</div>
+            </div>
+            <div className="bg-[#0f172a]/80 border border-[#334155] rounded-xl p-4">
+              <div className="text-xs text-gray-400">Bước 3</div>
+              <div className="font-bold text-white">Mastery delta</div>
+              <div className="text-xs text-gray-500 mt-1">
+                {weeklyDelta !== null
+                  ? `Tiến độ tuần: ${weeklyDelta >= 0 ? '+' : ''}${weeklyDelta} điểm SAT so với 7 ngày trước.`
+                  : hasPracticeData
+                    ? `Điểm dự đoán hiện tại: ${todayPlan?.total ?? '—'}`
+                    : 'Dashboard sẽ hiện khi có câu trả lời đầu tiên.'}
+              </div>
+            </div>
+          </div>
+
+          {/* Kế hoạch hôm nay — 3 mục học (due SRS + skill yếu + stamina) từ /api/today */}
+          {todayItems.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+              {todayItems.map((it, i) => (
+                <Link
+                  key={`${it.kind}-${i}`}
+                  href={it.href}
+                  className="block bg-[#0f172a]/80 hover:bg-[#111c30] border border-[#334155] hover:border-[#3b82f6]/60 rounded-xl p-4 transition-colors"
+                >
+                  <div className="text-xs text-blue-300 font-bold">
+                    {it.kind === 'due' ? '🔁 Ôn đến hạn' : it.kind === 'weakness' ? '🎯 Luyện điểm yếu' : '⚡ Stamina'}
+                  </div>
+                  <div className="font-bold text-white mt-1">{it.title}</div>
+                  <div className="text-xs text-gray-500 mt-1">{it.rationale}</div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* COMPONENT 1: Hộp Quà Huy Hiệu (Badges) */}
       {!focusMode && <BadgeSystem />}

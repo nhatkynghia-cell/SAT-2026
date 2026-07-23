@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { getCurrentUser, USER_COOKIE, USER_ID_PATTERN } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/auth';
+import { isE2E } from '@/lib/e2e';
 
 /**
  * Auth session endpoint (implementation_plan.md §9.3, task #1).
@@ -18,34 +18,19 @@ export async function GET() {
   return NextResponse.json(user);
 }
 
-export async function POST(req: Request) {
-  let userId: string;
-  try {
-    ({ userId } = await req.json());
-  } catch {
-    return NextResponse.json({ error: 'Body JSON không hợp lệ' }, { status: 400 });
-  }
-
-  if (typeof userId !== 'string' || !USER_ID_PATTERN.test(userId)) {
+export async function POST() {
+  if (!isE2E()) {
     return NextResponse.json(
-      { error: 'userId không hợp lệ (chỉ chữ-số, _ , - , tối đa 64 ký tự)' },
-      { status: 400 }
+      { error: 'Dev stub session endpoint is disabled outside E2E test mode.' },
+      { status: 404 }
     );
   }
-
-  const cookieStore = await cookies();
-  cookieStore.set(USER_COOKIE, userId, {
-    httpOnly: true,
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30, // 30 ngày
-  });
-
-  return NextResponse.json({ id: userId, isAuthenticated: true });
+  return NextResponse.json({ error: 'Use the E2E auth helper cookie instead of arbitrary userId sessions.' }, { status: 410 });
 }
 
 export async function DELETE() {
-  const cookieStore = await cookies();
-  cookieStore.delete(USER_COOKIE);
+  if (!isE2E()) {
+    return NextResponse.json({ success: true });
+  }
   return NextResponse.json({ success: true });
 }

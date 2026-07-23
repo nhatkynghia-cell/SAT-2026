@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {
   QUEST_POOL,
   QUEST_REWARD_MAP,
+  QUEST_METRIC_MAP,
+  checkQuestCompletion,
   pickDailyQuests,
   resolveDailyQuests,
 } from './quests.ts';
@@ -96,4 +98,30 @@ test('QUEST_REWARD_MAP: cùng track → reward ĐỒNG NHẤT (xoay vòng không
     const rewards = QUEST_POOL[track].map((v) => `${v.coins}:${v.xp}`);
     assert.equal(new Set(rewards).size, 1, `mọi biến thể track ${track} phải cùng reward`);
   }
+});
+
+// ── QUEST_METRIC_MAP + checkQuestCompletion (learning contract) ──────────────
+
+test('QUEST_METRIC_MAP: mọi biến thể answer → answer-correct, vocab → vocab-reviewed, exam → exam-completed', () => {
+  for (const v of QUEST_POOL.answer) assert.equal(QUEST_METRIC_MAP[v.id], 'answer-correct');
+  for (const v of QUEST_POOL.vocab) assert.equal(QUEST_METRIC_MAP[v.id], 'vocab-reviewed');
+  for (const v of QUEST_POOL.exam) assert.equal(QUEST_METRIC_MAP[v.id], 'exam-completed');
+});
+
+test('checkQuestCompletion: đủ metric → done', () => {
+  assert.equal(checkQuestCompletion('q1', 5), 'done'); // q1 target 5
+  assert.equal(checkQuestCompletion('q1', 6), 'done');
+});
+
+test('checkQuestCompletion: thiếu metric → not-done', () => {
+  assert.equal(checkQuestCompletion('q1', 4), 'not-done');
+  assert.equal(checkQuestCompletion('q1', 0), 'not-done');
+});
+
+test('checkQuestCompletion: questId lạ → unknown (fail-open giữ hành vi cũ)', () => {
+  assert.equal(checkQuestCompletion('q999', 100), 'unknown');
+});
+
+test('checkQuestCompletion: metricValue undefined → unknown (server chưa đếm được)', () => {
+  assert.equal(checkQuestCompletion('q1', undefined), 'unknown');
 });

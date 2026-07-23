@@ -18,6 +18,16 @@
 /** Loại hook tiến độ client theo dõi được (khớp updateQuestProgress call-sites). */
 export type QuestTrack = 'answer' | 'vocab' | 'exam';
 
+/**
+ * Loại HOÀN THÀNH server-side cho "learning contract" quest (RPG 60/40):
+ * thay vì tin progress client, server đối chiếu SỰ KIỆN HỌC THẬT.
+ *   • 'answer-correct'  : đếm câu ĐÚNG hôm nay (issued_questions was_correct + ngày).
+ *   • 'vocab-reviewed'  : đếm từ vựng ôn hôm nay (vocab SRS advance).
+ *   • 'exam-completed'  : đếm bài thi hoàn thành hôm nay.
+ * Mỗi track gắn 1 metric + target. Pure: nhận metricValue + target → done?
+ */
+export type QuestCompletionMetric = 'answer-correct' | 'vocab-reviewed' | 'exam-completed';
+
 export interface QuestVariant {
   id: string;
   track: QuestTrack;
@@ -26,6 +36,12 @@ export interface QuestVariant {
   target: number;
   xp: number;
   coins: number;
+  /**
+   * Metric server-side đối chiếu hoàn thành (learning contract). Optional:
+   * quest cũ (q1/q2/q3...) không có → vẫn dùng progress client (tương thích).
+   * Quest mới có metric → route quest kiểm metric THẬT trước khi cấp thưởng.
+   */
+  metric?: QuestCompletionMetric;
 }
 
 /**
@@ -34,19 +50,19 @@ export interface QuestVariant {
  */
 export const QUEST_POOL: Record<QuestTrack, QuestVariant[]> = {
   answer: [
-    { id: 'q1', track: 'answer', name: 'Khởi động ngày mới', desc: 'Làm đúng 5 câu hỏi', target: 5, xp: 50, coins: 10 },
-    { id: 'q1b', track: 'answer', name: 'Chiến binh chăm chỉ', desc: 'Làm đúng 8 câu hỏi', target: 8, xp: 50, coins: 10 },
-    { id: 'q1c', track: 'answer', name: 'Bứt tốc trí tuệ', desc: 'Làm đúng 6 câu hỏi liên tục', target: 6, xp: 50, coins: 10 },
+    { id: 'q1', track: 'answer', name: 'Khởi động ngày mới', desc: 'Làm đúng 5 câu hỏi', target: 5, xp: 50, coins: 10, metric: 'answer-correct' },
+    { id: 'q1b', track: 'answer', name: 'Chiến binh chăm chỉ', desc: 'Làm đúng 8 câu hỏi', target: 8, xp: 50, coins: 10, metric: 'answer-correct' },
+    { id: 'q1c', track: 'answer', name: 'Bứt tốc trí tuệ', desc: 'Làm đúng 6 câu hỏi liên tục', target: 6, xp: 50, coins: 10, metric: 'answer-correct' },
   ],
   vocab: [
-    { id: 'q2', track: 'vocab', name: 'Chúa tể ngôn từ', desc: 'Học 10 từ vựng mới', target: 10, xp: 100, coins: 20 },
-    { id: 'q2b', track: 'vocab', name: 'Thợ săn từ vựng', desc: 'Học 15 từ vựng mới', target: 15, xp: 100, coins: 20 },
-    { id: 'q2c', track: 'vocab', name: 'Nhà sưu tầm chữ nghĩa', desc: 'Học 8 từ vựng mới', target: 8, xp: 100, coins: 20 },
+    { id: 'q2', track: 'vocab', name: 'Chúa tể ngôn từ', desc: 'Học 10 từ vựng mới', target: 10, xp: 100, coins: 20, metric: 'vocab-reviewed' },
+    { id: 'q2b', track: 'vocab', name: 'Thợ săn từ vựng', desc: 'Học 15 từ vựng mới', target: 15, xp: 100, coins: 20, metric: 'vocab-reviewed' },
+    { id: 'q2c', track: 'vocab', name: 'Nhà sưu tầm chữ nghĩa', desc: 'Học 8 từ vựng mới', target: 8, xp: 100, coins: 20, metric: 'vocab-reviewed' },
   ],
   exam: [
-    { id: 'q3', track: 'exam', name: 'Kẻ hủy diệt Practice Test', desc: 'Hoàn thành 1 bài thi thử', target: 1, xp: 500, coins: 100 },
-    { id: 'q3b', track: 'exam', name: 'Thử thách bản lĩnh', desc: 'Hoàn thành 1 bài thi thử', target: 1, xp: 500, coins: 100 },
-    { id: 'q3c', track: 'exam', name: 'Vượt vũ môn', desc: 'Hoàn thành 1 bài thi thử', target: 1, xp: 500, coins: 100 },
+    { id: 'q3', track: 'exam', name: 'Kẻ hủy diệt Practice Test', desc: 'Hoàn thành 1 bài thi thử', target: 1, xp: 500, coins: 100, metric: 'exam-completed' },
+    { id: 'q3b', track: 'exam', name: 'Thử thách bản lĩnh', desc: 'Hoàn thành 1 bài thi thử', target: 1, xp: 500, coins: 100, metric: 'exam-completed' },
+    { id: 'q3c', track: 'exam', name: 'Vượt vũ môn', desc: 'Hoàn thành 1 bài thi thử', target: 1, xp: 500, coins: 100, metric: 'exam-completed' },
   ],
 };
 
@@ -56,6 +72,50 @@ const TRACK_ORDER: QuestTrack[] = ['answer', 'vocab', 'exam'];
 export const QUEST_REWARD_MAP: Record<string, { coins: number; xp: number }> = Object.fromEntries(
   TRACK_ORDER.flatMap((t) => QUEST_POOL[t]).map((q) => [q.id, { coins: q.coins, xp: q.xp }])
 );
+
+/** Bảng metric theo questId — server tra để đối chiếu hoàn thành học thật. */
+export const QUEST_METRIC_MAP: Record<string, QuestCompletionMetric | undefined> = Object.fromEntries(
+  TRACK_ORDER.flatMap((t) => QUEST_POOL[t]).map((q) => [q.id, q.metric])
+);
+
+/** Bảng track theo questId — dùng dẫn xuất KHÓA CLAIM theo track (chống multi-variant). */
+export const QUEST_TRACK_MAP: Record<string, QuestTrack> = Object.fromEntries(
+  TRACK_ORDER.flatMap((t) => QUEST_POOL[t]).map((q) => [q.id, q.track])
+);
+
+/**
+ * KHÓA CLAIM cho quest — theo TRACK, KHÔNG theo questId. Mỗi track (answer/vocab/
+ * exam) chỉ phát 1 biến thể/ngày (pickDailyQuests) và mọi biến thể cùng track có
+ * CÙNG reward + CÙNG metric → nếu khóa theo questId thì client script claim cả 3
+ * biến thể (q3/q3b/q3c) trên 1 hoạt động thật → 3× thưởng (faucet, adversarial
+ * review 2026-07-23). Khóa theo track → track đã nhận hôm nay thì mọi biến thể
+ * khác 409. Prefix 'qtrack:' tránh đụng các sentinel bucket khác trong quest_claims.
+ * questId lạ (không thuộc track nào) → trả chính questId (giữ hành vi cũ, an toàn
+ * vì applyQuestReward đã chặn reward 0 cho questId lạ trước khi tới đây).
+ */
+export function questClaimKey(questId: string): string {
+  const track = QUEST_TRACK_MAP[questId];
+  return track ? `qtrack:${track}` : questId;
+}
+
+/**
+ * Kiểm "learning contract" hoàn thành THUẦN: quest có metric → so metricValue
+ * (server đếm hôm nay) với target. Quest KHÔNG có metric (dữ liệu cũ/quest lạ)
+ * → trả 'unknown' để route GIỮ hành vi cũ (tin progress client / cấp như cũ),
+ * KHÔNG chặn (0 regression). Trả 'done' | 'not-done' | 'unknown'.
+ */
+export function checkQuestCompletion(
+  questId: string,
+  metricValue: number | undefined
+): 'done' | 'not-done' | 'unknown' {
+  const metric = QUEST_METRIC_MAP[questId];
+  if (!metric) return 'unknown';
+  // Tìm quest variant để lấy target (mọi biến thể cùng track cùng target tầm).
+  const variant = TRACK_ORDER.flatMap((t) => QUEST_POOL[t]).find((q) => q.id === questId);
+  if (!variant) return 'unknown';
+  if (typeof metricValue !== 'number' || Number.isNaN(metricValue)) return 'unknown';
+  return metricValue >= variant.target ? 'done' : 'not-done';
+}
 
 /** Băm chuỗi → uint32 (djb2). Deterministic, không phụ thuộc thời điểm chạy. */
 function hashStr(s: string): number {

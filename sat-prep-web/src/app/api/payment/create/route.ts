@@ -11,7 +11,8 @@ import {
 } from '@/lib/payment';
 import { createTransaction } from '@/lib/payment-store';
 import { buildVnpayPaymentUrl, isVnpayConfigured } from '@/lib/payment-vnpay';
-import { createMomoPayment } from '@/lib/payment-momo';
+import { createMomoPayment, isMomoConfigured } from '@/lib/payment-momo';
+import { createPayosPayment, isPayosConfigured, generatePayosOrderCode } from '@/lib/payment-payos';
 import { createStripeCheckout, isStripeConfigured } from '@/lib/payment-stripe';
 
 /**
@@ -26,14 +27,15 @@ import { createStripeCheckout, isStripeConfigured } from '@/lib/payment-stripe';
  * ============================================================================
  */
 
-/** Dựng URL gốc để cổng gọi return/ipn về. Ưu tiên APP_BASE_URL, fallback origin. */
-function baseUrl(req: Request): string {
+/** Dựng URL gốc để cổng gọi return/ipn về. Production bắt buộc cấu hình APP_BASE_URL. */
+function baseUrl(req: Request): string | null {
   const env = process.env.APP_BASE_URL;
   if (env) return env.replace(/\/$/, '');
+  if (process.env.NODE_ENV === 'production') return null;
   try {
     return new URL(req.url).origin;
   } catch {
-    return '';
+    return null;
   }
 }
 
@@ -74,12 +76,80 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Gói không tồn tại.' }, { status: 400 });
     }
 
-    const orderId = generateOrderId();
-    const orderInfo = buildOrderInfo(tier, period);
     const base = baseUrl(req);
+    if (!base) {
+      return NextResponse.json(
+        { success: false, error: 'Thiếu APP_BASE_URL cho cổng thanh toán.', code: 'APP_BASE_URL_REQUIRED' },
+        { status: 503 }
+      );
+    }
     const returnUrl = `${base}/api/payment/return`;
 
-    // Ghi giao dịch 'pending' TRƯỚC khi gửi cổng (để IPN đối chiếu order_id + amount).
+    // payOS yêu cầu orderCode là SỐ → tách nhánh sớm (order_id = String(orderCode)),
+    // KHÔNG dùng orderId UUID chung ở dưới (tránh ghi 2 row).
+    if (gateway === 'payos') {
+      if (!isPayosConfigured()) {
+        return NextResponse.json(
+          { success: false, error: 'Cổng payOS đang được cấu hình. Vui lòng thử lại sau!', code: 'GATEWAY_UNCONFIGURED' },
+          { status: 503 }
+        );
+      }
+      const orderCode = generatePayosOrderCode();
+      const orderId = String(orderCode);
+      const orderInfoPayos = buildOrderInfo(tier, period);
+      const createdPayos = await createTransaction({
+        userId: user.id,
+        orderId,
+        gateway,
+        tier,
+        period,
+        amountVnd: plan.priceVnd,
+        durationDays: plan.durationDays,
+      });
+      if (!createdPayos) {
+        return NextResponse.json({ success: false, error: 'Không thể khởi tạo giao dịch. Thử lại sau.' }, { status: 500 });
+      }
+      const payosRes = await createPayosPayment({
+        amountVnd: plan.priceVnd,
+        orderCode,
+        description: orderInfoPayos,
+        returnUrl: `${returnUrl}?orderId=${orderId}`,
+        cancelUrl: `${base}/upgrade?status=unknown&order=${orderId}`,
+      });
+      if (!payosRes.ok || !payosRes.payUrl) {
+        return NextResponse.json(
+          { success: false, error: payosRes.message ?? 'Không tạo được phiên thanh toán payOS.', code: 'GATEWAY_UNCONFIGURED' },
+          { status: 503 }
+        );
+      }
+      return NextResponse.json({ success: true, payUrl: payosRes.payUrl, orderId });
+    }
+
+    const orderId = generateOrderId();
+    const orderInfo = buildOrderInfo(tier, period);
+
+    if (gateway === 'stripe' && !isStripeConfigured()) {
+      return NextResponse.json(
+        { success: false, error: 'Cổng Stripe đang được cấu hình. Vui lòng thử lại sau!', code: 'GATEWAY_UNCONFIGURED' },
+        { status: 503 }
+      );
+    }
+    if (gateway === 'vnpay' && !isVnpayConfigured()) {
+      return NextResponse.json(
+        { success: false, error: 'Cổng VNPay đang được cấu hình. Vui lòng thử lại sau!', code: 'GATEWAY_UNCONFIGURED' },
+        { status: 503 }
+      );
+    }
+    if (gateway === 'momo' && !isMomoConfigured()) {
+      return NextResponse.json(
+        { success: false, error: 'Cổng MoMo đang được cấu hình. Vui lòng thử lại sau!', code: 'GATEWAY_UNCONFIGURED' },
+        { status: 503 }
+      );
+    }
+
+    // Ghi giao dịch 'pending' SAU khi biết cổng đã cấu hình, để không tạo orphan
+    // pending rows khi user bấm nhầm gateway chưa có creds. IPN sau này đối chiếu
+    // order_id + amount_vnd đã ghi ở đây.
     const created = await createTransaction({
       userId: user.id,
       orderId,
@@ -95,12 +165,6 @@ export async function POST(req: Request) {
     }
 
     if (gateway === 'stripe') {
-      if (!isStripeConfigured()) {
-        return NextResponse.json(
-          { success: false, error: 'Cổng Stripe đang được cấu hình. Vui lòng thử lại sau!', code: 'GATEWAY_UNCONFIGURED' },
-          { status: 503 }
-        );
-      }
       const stripeRes = await createStripeCheckout({
         orderId,
         amountVnd: plan.priceVnd,
@@ -121,12 +185,6 @@ export async function POST(req: Request) {
     }
 
     if (gateway === 'vnpay') {
-      if (!isVnpayConfigured()) {
-        return NextResponse.json(
-          { success: false, error: 'Cổng VNPay đang được cấu hình. Vui lòng thử lại sau!', code: 'GATEWAY_UNCONFIGURED' },
-          { status: 503 }
-        );
-      }
       const payUrl = buildVnpayPaymentUrl({
         orderId,
         amountVnd: plan.priceVnd,

@@ -1,6 +1,6 @@
 # ▶️ CÂU LỆNH KHỞI ĐỘNG PHIÊN SAU
 
-> Cập nhật 2026-07-05 (phiên integration test 9.8). HEAD `origin/main` = **8c791e8**. Baseline: tsc sạch · test **239/239** (178 unit + 61 integration) · lint 0/0 · build **60 pages**.
+> Cập nhật 2026-07-20 (sau multi-agent audit + vá 15 finding verify-true). Baseline mới: tsc sạch · test **513/513** · lint 0/0 · build **79 pages**. Code-side audit blockers đã đóng; còn credential/SQL blocker cho user.
 
 Copy nguyên khối dưới đây, dán vào ô chat để mở phiên mới:
 
@@ -9,41 +9,42 @@ Copy nguyên khối dưới đây, dán vào ô chat để mở phiên mới:
 ```
 Đọc memory.md + master_task_list.md trong
 C:/Users/DELL/Desktop/SAT_Rescue 17.7/SAT_Rescue/0.SAT.Guru 2026/10.SAT_Prep_App 30.6/10.SAT_Prep_App 30.6/10.SAT_Prep_App/10.SAT_Prep_App/
-rồi tiếp tục dự án. Đọc kỹ 2 block "ĐỌC ĐẦU TIÊN" đầu memory.md (PARENT DASHBOARD +
-DIAGNOSTIC ONBOARDING). Trả lời tiếng Việt.
+rồi tiếp tục dự án. Trả lời tiếng Việt. Code/comment mới bằng tiếng Việt, không viết chữ Hán.
 
-Trước khi làm gì: export PATH="$PATH:/c/Program Files/nodejs" rồi verify môi trường
-(tsc + test + build + lint) trong sat-prep-web/. Baseline mong đợi:
-tsc sạch · test 239/239 · lint 0/0 · build 60 pages. origin/main = 8c791e8.
+Trước khi làm gì: verify môi trường (tsc + test + build + lint) trong sat-prep-web/.
+Baseline mong đợi: tsc sạch · test 513/513 · lint 0/0 · build 79 pages.
+
+Khởi động app: bấm đúp KhoiDong-App.bat (root SAT_Rescue 17.7/) → http://localhost:3000.
+App chiến lược: bấm đúp KhoiDong-ChienLuoc.bat → mở app_chien_luoc.html.
+Dashboard HTML chiến lược: docs/pre-deploy-strategy-dashboard.html (trong sat-prep-web/).
 
 Token đã lưu: ~/.gitcreds-sat2026 (git push — format file = "https://user:token@github.com",
 push phải GHÉP "/nhatkynghia-cell/SAT-2026.git" vào cuối) + ~/.vercel-token (Vercel API).
 Team Vercel: sat-2027 | project: sat-2026 | app prod: https://sat-2026.vercel.app
-Repo: github.com/nhatkynghia-cell/SAT-2026 (main). Account test: truongsonht.xd@gmail.com / Nghia@123 (UUID c43f015e-...).
+Repo: github.com/nhatkynghia-cell/SAT-2026 (main). Account test: truongsonht.xd@gmail.com / Nghia@123 (UUID c43f015e-...; có thể đã đổi → "Quên mật khẩu" trên /login).
 DB direct: postgresql://postgres:SatPrep2026@db.yynszcfqcvbnuvguwtfy.supabase.co:5432/postgres
 Service-role: trong .env.local + Vercel (sensitive) — KHÔNG ghi vào git.
 Cài SQL/verify: npm i pg --no-save --legacy-peer-deps (đặt script TRONG sat-prep-web/, KHÔNG /tmp).
 
-✅ ĐÃ ĐÓNG HẾT BLOCKER BẢO MẬT (ROOT A–E + rate-limit + ROOT E step2 revoke). KHÔNG còn nợ bảo mật.
-✅ PHIÊN TRƯỚC (2026-07-05) đã làm: integration test 9.8 (61 test/8 file, fake Supabase in-memory,
-   phủ mọi bề mặt tiền, qua audit đối kháng + mutation spike) + khoá route legacy /api/migrate-data
-   (4 lớp: env-flag mặc-định-tắt/auth/rate-limit/no-overwrite). Chi tiết: block "ĐỌC ĐẦU TIÊN" memory.md.
+✅ PHIÊN 2026-07-20 ĐÃ LÀM: multi-agent audit (31 agent) → 15 finding verify-true đã vá:
+   MoMo HTTP-check, admin JSON 400, AITutoring error states, auth-session stub fail-closed,
+   grade không tin streak client, diagnostic complete yêu cầu đủ câu, MistakeNotebook retry,
+   generate-practice/gate gắn src=gate + 503 khi issue fail, gate-exam ràng buộc questionIds,
+   golden_hour/AITutoring giấu explanation đến sau nộp. Verify: test 513/513 + lint + build pass.
+   Chi tiết: memory Claude `full-audit-fix-2026-07-20` + block "AUDIT 2026-07-20" memory.md.
 
 SECRET chưa rotate (HỎI tôi đã đổi chưa rồi TICK):
-[ ] GitHub PAT ghp_...HETIG (lộ ảnh)  [ ] Vercel token (lộ chat)  [ ] OpenAI key  [x] DB password (đã đổi)
+[ ] GitHub PAT ghp_...HETIG (lộ ảnh)  [ ] Vercel token (lộ chat)  [x] OpenAI key  [x] DB password
 Nếu đã đổi git/vercel token → token cũ HẾT hiệu lực → xin token MỚI lưu lại.
 
-VIỆC PHIÊN SAU — theo THỨ TỰ (chi tiết từng việc ở NEXT_SESSION.md mục dưới):
-1. 🟡 CỔNG THANH TOÁN (khung xong 55ff53b) — CẦN TÔI: (a) chốt giá 4 gói
-   (placeholder 99k/990k/199k/1990k), (b) creds sandbox VNPay (TMN_CODE+HASH_SECRET) +
-   MoMo (PARTNER_CODE+ACCESS_KEY+SECRET_KEY). Có → verify roundtrip LIVE + đối chiếu
-   field-order chữ ký IPN MoMo (điểm dễ sai nhất, chưa có sample thật).
-2. 🟢 ADMIN FULFILLMENT (phiếu quà pending→fulfilled) — TÔI chọn: (a) shared-secret env
-   nhẹ (Claude làm NGAY, không cần gì thêm) hay (b) role system đầy đủ. Gợi ý: pattern
-   service-role cross-user của Parent Dashboard tái dụng được.
-3. ⏳ Beta 100 users (pháp lý trẻ vị thành niên + tuyển).
+VIỆC PHIÊN SAU — theo THỨ TỰ (chi tiết ở TODO_USER.md + NEXT_SESSION.md mục dưới):
+1. 🔴 STRIPE lên prod (chặn bán gói): push nhánh feat/stripe-payment-migration + cấp Stripe test keys
+   (sk_test_/pk_test_/whsec_) + chạy migration_stripe_gateway.sql (CHECK gateway thêm 'stripe').
+2. 🟡 SQL/RLS: RLS ai_chat_cache + RPC atomic spin/economy + rate-limit store bền vững + ROOT E p_user_id guard.
+3. 🟡 Rotate SAT_PREP_SECRET (lộ ảnh) + re-ký HMAC streak dữ liệu cũ.
+4. ⏳ Beta 100 users (pháp lý trẻ vị thành niên + tuyển).
 
-Việc user-side tôi đã làm trước phiên: [điền: chốt giá? / cấp creds? / chọn hướng admin (a/b)? / rotate secret nào?]
+Việc user-side tôi đã làm trước phiên: [điền: đã rotate secret nào? / cấp Stripe keys? / chạy migration nào?]
 ```
 
 ---

@@ -8,13 +8,15 @@ import {
   buildOrderInfo,
 } from './payment.ts';
 
-test('isValidGateway: chỉ chấp nhận stripe (vnpay/momo đã disable, chờ creds doanh nghiệp)', () => {
+test('isValidGateway: chấp nhận stripe/payos/vnpay/momo (đã bật cả 4; cổng chưa có key → route trả 503)', () => {
   assert.equal(isValidGateway('stripe'), true);
-  assert.equal(isValidGateway('vnpay'), false); // disable ở tầng app (code còn nguyên)
-  assert.equal(isValidGateway('momo'), false);
+  assert.equal(isValidGateway('payos'), true);
+  assert.equal(isValidGateway('vnpay'), true);
+  assert.equal(isValidGateway('momo'), true);
   assert.equal(isValidGateway(''), false);
   assert.equal(isValidGateway(undefined), false);
   assert.equal(isValidGateway(123), false);
+  assert.equal(isValidGateway('paypal'), false);
 });
 
 test('isValidTier: chỉ premium/ultimate (không free, không rác)', () => {

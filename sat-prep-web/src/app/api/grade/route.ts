@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { gradeAnswer } from '@/lib/issued-questions';
 import { rateLimit } from '@/lib/rate-limit';
-import { loadEconomy, saveEconomy } from '@/lib/economy-store';
+import { loadEconomy, saveEconomy, tryBumpAnswerStreakAtomic } from '@/lib/economy-store';
 import { applyAnswerReward, type Difficulty } from '@/lib/economy';
 import { recordAnswer } from '@/lib/mastery';
 import { isValidSkill } from '@/lib/skill-taxonomy';
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Quá nhiều request.', retryAfterMs: rl.retryAfterMs }, { status: 429 });
     }
 
-    const { questionId, answer, streak: streakRaw } = await req.json();
+    const { questionId, answer } = await req.json();
 
     if (typeof questionId !== 'string' || !questionId) {
       return NextResponse.json({ error: 'questionId bắt buộc' }, { status: 400 });
@@ -58,33 +58,57 @@ export async function POST(req: Request) {
     const difficulty: Difficulty = VALID_DIFFICULTY.includes(result.difficulty as Difficulty)
       ? (result.difficulty as Difficulty)
       : 'Medium';
-    const streak = Number.isInteger(streakRaw) && streakRaw >= 0 ? streakRaw : 0;
-
     // 🔴 ROOT A: câu DIAGNOSTIC (test xếp lớp) KHÔNG trao xu/XP. Bài diagnostic
     // có thể phát lại (re-issue) khi user chưa 'complete' → nếu thưởng thì gọi
     // lại 'start' rồi grade = faucet xu vô hạn trên bộ câu cố định. Diagnostic chỉ
     // GIEO mastery (mục đích xếp lớp), không phải bề mặt kiếm xu. Câu luyện thường
     // (src ai/bank/null) vẫn thưởng như cũ.
     const isDiagnostic = result.src === 'diagnostic';
+
+    // 🔴 COMBO SERVER-AUTHORITATIVE: streak chuỗi câu ĐÚNG liên tiếp do SERVER giữ
+    // (bảng user_answer_streak, RPC atomic) — KHÔNG tin streak client (POST streak
+    // lớn để nhân xu). Chỉ bump cho câu LUYỆN THƯỜNG (diagnostic không vào combo,
+    // và không reward nên bump vô nghĩa). gradeAnswer đã CAS answered:false→true ở
+    // trên nên mỗi câu chỉ bump 1 lần → combo không farm được. Pre-migration
+    // (RPC chưa có) → null → streak=0 → combo tắt (đúng hành vi cũ, 0 regression).
+    let streak = 0;
+    if (!isDiagnostic) {
+      const bumped = await tryBumpAnswerStreakAtomic(user.id, result.correct);
+      if (typeof bumped === 'number') streak = bumped;
+    }
     const [economy, tier] = await Promise.all([loadEconomy(user.id), getUserTier(user.id)]);
     const coinMult = TIER_COIN_MULTIPLIER[tier];
-    const { state: nextEconomy, granted } = isDiagnostic
+    const { state: nextEconomy, granted: plannedGrant } = isDiagnostic
       ? { state: economy, granted: { coins: 0, xp: 0 } }
       : applyAnswerReward(economy, result.correct, difficulty, streak, coinMult);
-    if (granted.coins > 0 || granted.xp > 0) {
-      await saveEconomy(user.id, nextEconomy);
-    }
+    let granted = plannedGrant;
+    let responseEconomy = nextEconomy;
+    let persistenceError: string | null = null;
 
-    // Ghi mastery (server quyết từ result.correct, không tin client). Chỉ khi câu
-    // có skillId hợp lệ. Không chặn response nếu ghi lỗi.
+    // Ghi mastery (server quyết từ result.correct, không tin client). Route học tập
+    // cốt lõi KHÔNG được báo success nếu ghi mastery fail: nếu không lưu được thì UI
+    // sẽ tưởng năng lực đã cập nhật trong khi dashboard/score prediction không đổi.
     if (result.skillId && isValidSkill(result.skillId)) {
       try {
         await recordAnswer(user.id, result.skillId, result.correct, difficulty);
-        // Ghi ảnh chụp tiến độ hôm nay (time-series cho báo cáo tuần phụ huynh).
-        // Fire-and-forget: KHÔNG await/chặn response, KHÔNG throw (store tự nuốt lỗi).
+        // Snapshot phụ trợ: không chặn response vì mastery đã là nguồn sự thật chính.
         void recordDailySnapshot(user.id);
       } catch (e) {
         console.error('Grade: recordAnswer failed', e);
+        persistenceError = 'Không thể lưu mastery. Đáp án vẫn đã được chấm; vui lòng thử câu khác sau khi kết nối ổn định.';
+        granted = { coins: 0, xp: 0 };
+        responseEconomy = economy;
+      }
+    }
+
+    if (!persistenceError && (granted.coins > 0 || granted.xp > 0)) {
+      try {
+        await saveEconomy(user.id, nextEconomy);
+      } catch (e) {
+        console.error('Grade: saveEconomy failed', e);
+        persistenceError = 'Không thể lưu phần thưởng. Đáp án vẫn đã được chấm; xu/XP chưa được cộng.';
+        granted = { coins: 0, xp: 0 };
+        responseEconomy = economy;
       }
     }
 
@@ -96,7 +120,8 @@ export async function POST(req: Request) {
       choice_analysis: result.choiceAnalysis, // lộ SAU khi nộp (render block "vì sao đáp án kia sai")
       explanation: result.explanation, // lộ SAU khi nộp (câu có lời giải tĩnh, vd đề thư viện)
       granted,
-      economy: nextEconomy,
+      economy: responseEconomy,
+      persistenceError,
     });
   } catch (error) {
     console.error('Grade error:', error);

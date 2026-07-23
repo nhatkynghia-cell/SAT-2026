@@ -46,3 +46,30 @@ export const getPvpRankName = (rank: number): string => {
 
 // (đã gỡ calculateFightResult — dead code client-side, không caller. Kết quả PvP
 //  do SERVER quyết trong resolvePvpFight (@/lib/economy) dựa lực chiến từ mastery.)
+
+/**
+ * BOSS THEO DOMAIN (RPG 60/40 — đối kháng gắn học thật): mỗi rank PvP map 1 domain
+ * SAT. Cổng năng lực của trận dùng basePower CỦA DOMAIN đó (computeDomainStats)
+ * thay vì tổng thể → muốn leo rank phải GIỎI đúng domain của boss, không thể mạnh
+ * tổng thể mà bỏ điểm yếu. domainId khớp SKILL_TREE (skill-taxonomy.ts): 5 domain
+ * (algebra, advanced_math, data_analysis, geometry, reading_writing).
+ *
+ * Rank 10→1 (dễ→khó) xoay vòng qua 5 domain; rank cao lặp lại domain nền tảng
+ * (đòi mastery cao hơn vì luc_chien đối thủ lớn hơn). rank ngoài bảng (>10 tân
+ * binh) → null → economy route fallback dùng basePower tổng thể (tương thích).
+ */
+export const PVP_RANK_DOMAIN: Record<number, string> = {
+  10: 'algebra',
+  9: 'advanced_math',
+  8: 'data_analysis',
+  7: 'geometry',
+  6: 'reading_writing',
+  5: 'algebra',
+  4: 'advanced_math',
+  3: 'data_analysis',
+  2: 'geometry',
+  1: 'reading_writing',
+};
+
+/** Domain của boss ở rank cho trước (null nếu rank ngoài bảng). */
+export const getPvpRankDomain = (rank: number): string | null => PVP_RANK_DOMAIN[rank] ?? null;

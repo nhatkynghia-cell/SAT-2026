@@ -14,8 +14,14 @@ import { getTransaction } from '@/lib/payment-store';
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  // VNPay dùng vnp_TxnRef; MoMo dùng orderId.
-  const orderId = url.searchParams.get('vnp_TxnRef') || url.searchParams.get('orderId') || '';
+  // VNPay dùng vnp_TxnRef; MoMo dùng orderId; payOS dùng orderCode (số) hoặc orderId
+  // mình tự gắn ở returnUrl. Đọc theo thứ tự rồi chuẩn hóa về chuỗi order_id.
+  const rawOrderId =
+    url.searchParams.get('vnp_TxnRef') ||
+    url.searchParams.get('orderId') ||
+    url.searchParams.get('orderCode') ||
+    '';
+  const orderId = String(rawOrderId);
 
   const origin = process.env.APP_BASE_URL?.replace(/\/$/, '') || url.origin;
 

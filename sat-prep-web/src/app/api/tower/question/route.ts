@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { getMasterySummary } from '@/lib/mastery';
 import { pickTowerSkill } from '@/lib/adaptive';
+import { getUserTier } from '@/lib/subscription-store';
+import { TIER_TOWER_CAP_PER_DAY } from '@/lib/subscription';
 
 /**
  * TOWER QUESTION API — Tháp Vô Tận adaptive (V1, kế thừa engine task #12).
@@ -10,6 +12,11 @@ import { pickTowerSkill } from '@/lib/adaptive';
  * (server-authoritative), rồi sinh câu qua /api/generate-practice. Câu trả về
  * mang skillId THẬT nên CorePracticeUI ghi mastery đúng skill (trước đây Tower
  * gửi topic tự do → mọi câu quy nhầm về algebra.linear_eq).
+ *
+ * Cap theo GÓI (Wave 2): free tối đa TIER_TOWER_CAP_PER_DAY.free tầng/ngày, premium/
+ * ultimate cao hơn. Hiện chưa có cột DB tower_floors_today → gate tạm theo "floor
+ * yêu cầu không vượt cap/ngày" (chống nhảy tầng). Khi có cột sẽ enforce theo số
+ * tầng thật đã leo hôm nay.
  *
  * Vì sao server-side: client KHÔNG được tự chọn skill/độ khó (chống chơi xấu),
  * và mastery chỉ đọc/ghi ở server (§9.1). Mirror pattern /api/gate-exam.
@@ -21,6 +28,20 @@ export async function GET(request: NextRequest) {
   const floor = Number(floorParam);
   if (!Number.isInteger(floor) || floor < 1) {
     return NextResponse.json({ error: 'floor phải là số nguyên >= 1' }, { status: 400 });
+  }
+
+  // Cap theo gói: floor yêu cầu không được vượt cap/ngày. Free 5, premium 20, ultimate 50.
+  const tier = await getUserTier(user.id);
+  const towerCap = TIER_TOWER_CAP_PER_DAY[tier];
+  if (floor > towerCap) {
+    return NextResponse.json(
+      {
+        error: `Gói ${tier} chỉ được leo tối đa ${towerCap} tầng/ngày. Nâng cấp để leo cao hơn!`,
+        tierLocked: tier === 'free',
+        towerCap,
+      },
+      { status: 403 }
+    );
   }
 
   const summary = await getMasterySummary(user.id);

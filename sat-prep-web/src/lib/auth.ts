@@ -6,19 +6,17 @@ import { isE2E, E2E_USER_ID } from '@/lib/e2e';
  *  AUTH ABSTRACTION — ĐIỂM SWAP DUY NHẤT (single swap point)
  * ============================================================================
  *  Mục tiêu (implementation_plan.md §9.3, task #1): mọi API route nhận biết
- *  "người dùng hiện tại" NGAY TỪ ĐẦU, kể cả khi chưa có Supabase.
+ *  "người dùng hiện tại" NGAY TỪ ĐẦU.
  *
- *  Khi tích hợp Supabase Auth thật, CHỈ cần sửa thân hàm getCurrentUser()
- *  bên dưới (đọc session từ Supabase thay vì cookie stub). Toàn bộ các route
- *  và helper user-data KHÔNG phải đụng lại.
+ *  ✅ ĐÃ tích hợp Supabase Auth thật: getCurrentUser() đọc session qua
+ *  supabase.auth.getUser(). Chưa login → trả { id: DEFAULT_USER_ID,
+ *  isAuthenticated: false } (fail-safe, không ném) → các route tự gate 401.
+ *  E2E_TEST_MODE=1 (chỉ máy test) → trả user test cố định, không gọi Supabase.
  * ============================================================================
  */
 
-/** User mặc định khi chưa đăng nhập (chế độ local/stub). */
+/** User mặc định khi chưa đăng nhập (getCurrentUser trả về khi Supabase chưa có session). */
 export const DEFAULT_USER_ID = 'local-default-user';
-
-/** Tên cookie giữ user id ở bản stub. Supabase sau này dùng cookie session riêng. */
-export const USER_COOKIE = 'sat_user_id';
 
 /**
  * Quy tắc hợp lệ cho user id: chữ-số, gạch dưới, gạch ngang, tối đa 64 ký tự.

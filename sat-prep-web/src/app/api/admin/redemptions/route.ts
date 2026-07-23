@@ -30,18 +30,49 @@ function unauthorized() {
   return NextResponse.json({ success: false, error: 'Không có quyền truy cập.' }, { status: 403 });
 }
 
+/** IP client (x-forwarded-for đầu tiên) để rate-limit brute-force secret. */
+function clientIp(req: Request): string {
+  const xff = req.headers.get('x-forwarded-for');
+  if (xff) return xff.split(',')[0].trim();
+  return req.headers.get('x-real-ip') || '127.0.0.1';
+}
+
+/**
+ * Verify secret + chống brute-force: CHỈ rate-limit các lần thử THẤT BẠI theo IP
+ * (10 lần sai / phút). Secret ĐÚNG không bao giờ chạm limit → admin hợp lệ thao
+ * tác thoải mái. Trước đây rate-limit đặt SAU verify (chỉ áp khi đã có secret
+ * đúng) nên đoán secret không bị chặn. Trả:
+ *   • {ok:true}          — secret đúng, cho qua.
+ *   • {ok:false, res}    — sai secret (403) hoặc vượt số lần thử (429).
+ */
+function verifyAdminOrLimit(req: Request): { ok: true } | { ok: false; res: NextResponse } {
+  if (verifyAdminSecret(req.headers.get('x-admin-secret'))) return { ok: true };
+  const rl = rateLimit(`admin-auth-fail:${clientIp(req)}`, 10, 60_000);
+  if (!rl.allowed) {
+    return {
+      ok: false,
+      res: NextResponse.json(
+        { success: false, error: 'Quá nhiều lần thử sai. Vui lòng thử lại sau.', retryAfterMs: rl.retryAfterMs },
+        { status: 429 }
+      ),
+    };
+  }
+  return { ok: false, res: unauthorized() };
+}
+
 export async function GET(req: Request) {
-  if (!verifyAdminSecret(req.headers.get('x-admin-secret'))) return unauthorized();
+  const auth = verifyAdminOrLimit(req);
+  if (!auth.ok) return auth.res;
   const redemptions = await listPendingRedemptions();
   return NextResponse.json({ success: true, redemptions });
 }
 
 export async function POST(req: Request) {
   try {
-    const secret = req.headers.get('x-admin-secret');
-    if (!verifyAdminSecret(secret)) return unauthorized();
+    const auth = verifyAdminOrLimit(req);
+    if (!auth.ok) return auth.res;
 
-    // Rate-limit theo secret (không có user id ở đường admin) — chống bấm dồn.
+    // Rate-limit thêm theo hành động (chống bấm dồn khi đã có secret đúng).
     const rl = rateLimit('admin-redemptions', 30, 60_000);
     if (!rl.allowed) {
       return NextResponse.json(
@@ -50,9 +81,18 @@ export async function POST(req: Request) {
       );
     }
 
-    const body = await req.json();
-    const redemptionId = typeof body?.redemptionId === 'string' ? body.redemptionId : '';
-    const action = body?.action === 'fulfill' || body?.action === 'cancel' ? body.action : '';
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'JSON không hợp lệ.' },
+        { status: 400 }
+      );
+    }
+    const redemptionId = typeof (body as { redemptionId?: unknown })?.redemptionId === 'string' ? (body as { redemptionId: string }).redemptionId : '';
+    const actionValue = (body as { action?: unknown })?.action;
+    const action = actionValue === 'fulfill' || actionValue === 'cancel' ? actionValue : '';
 
     if (!redemptionId || !action) {
       return NextResponse.json(

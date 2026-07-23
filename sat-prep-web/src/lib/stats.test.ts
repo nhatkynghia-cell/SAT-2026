@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeStats } from './stats.ts';
+import { computeStats, computeDomainStats } from './stats.ts';
 import type { MasterySummary } from './mastery.ts';
 
 // Dựng MasterySummary giả. overall tự tính = trung bình score (làm tròn).
@@ -78,6 +78,48 @@ test('basePower = 100 khi mọi chỉ số đạt tối đa', () => {
 
 test('equipmentBonus âm bị kẹp về 0 (không cho hack power âm/ảo)', () => {
   const s = computeStats(fakeSummary({ a: { score: 50, attempts: 5, correct: 3 } }), -999);
+  assert.equal(s.equipmentBonus, 0);
+  assert.equal(s.totalPower, s.basePower);
+});
+
+// ── computeDomainStats: boss theo domain (RPG 60/40 gắn học thật) ────────────
+
+/** Summary 2 domain: algebra mạnh, geometry yếu → boss theo domain phân biệt được. */
+function twoDomainSummary(): MasterySummary {
+  const mk = (id, domainId, score, attempts, correct) => ({
+    id, label: id, score, attempts, correct, reliable: attempts >= 5, mastered: false,
+    moduleType: 'math', subject: 'math', domainId, domainLabel: domainId,
+  });
+  const skills = [
+    mk('algebra.linear_eq', 'algebra', 100, 10, 10),
+    mk('algebra.systems', 'algebra', 100, 10, 10),
+    mk('geo.circles', 'geometry', 10, 10, 1),
+    mk('geo.trig', 'geometry', 10, 10, 1),
+  ];
+  return { skills, bySubject: { math: 55, reading: 0 }, overall: 55 } as MasterySummary;
+}
+
+test('computeDomainStats: basePower CAO cho domain giỏi (algebra)', () => {
+  const s = computeDomainStats(twoDomainSummary(), 'algebra');
+  assert.ok(s.basePower >= 90, `algebra basePower phải cao (được ${s.basePower})`);
+});
+
+test('computeDomainStats: basePower THẤP cho domain yếu (geometry) — boss chặn nếu chưa giỏi domain', () => {
+  const s = computeDomainStats(twoDomainSummary(), 'geometry');
+  const algebra = computeDomainStats(twoDomainSummary(), 'algebra');
+  // geometry yếu (score 10, accuracy 10%) → basePower thấp hơn NHIỀU so với algebra
+  // (coverage 100% vẫn nâng phần nào, nhưng intelligence+accuracy kéo xuống).
+  assert.ok(s.basePower < 45, `geometry basePower phải thấp (được ${s.basePower})`);
+  assert.ok(s.basePower < algebra.basePower - 40, 'geometry << algebra (boss phân biệt domain)');
+});
+
+test('computeDomainStats: domain KHÔNG có skill → basePower 0 (gate chặn)', () => {
+  const s = computeDomainStats(twoDomainSummary(), 'khong_ton_tai');
+  assert.equal(s.basePower, 0);
+});
+
+test('computeDomainStats: KHÔNG dính trang bị (equipmentBonus luôn 0)', () => {
+  const s = computeDomainStats(twoDomainSummary(), 'algebra');
   assert.equal(s.equipmentBonus, 0);
   assert.equal(s.totalPower, s.basePower);
 });

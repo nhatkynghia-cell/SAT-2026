@@ -5,7 +5,7 @@ import { SKILL_TREE } from '@/lib/skill-taxonomy';
 import { loadGates, saveGateResult } from '@/lib/gate-store';
 import { isGateEligible, evaluateGateResult, GATE_QUESTIONS } from '@/lib/gate-exam';
 import { DOMAIN_PREREQS } from '@/lib/skill-tree';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { countCorrectAmongIds } from '@/lib/issued-questions';
 import type { MasterySummary } from '@/lib/mastery';
 
 const VALID_DOMAINS = Object.keys(DOMAIN_PREREQS);
@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
           topic: skill.label,
           skillId: skill.id,
           difficulty,
+          source: 'gate',
         }),
       });
 
@@ -101,24 +102,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid domain' }, { status: 400 });
   }
 
-  // Server-side grading: ĐẾM số câu đúng TỪ issued_questions (was_correct do
-  // /api/grade set qua CAS). 🔴 ROOT A: KHÔNG có nhánh tin `body.correctCount`
-  // client gửi — trước đây POST {domain, correctCount:5} (bỏ questionIds) là vượt
-  // cổng không cần trả lời (cổng = mở khoá chương/Premium). Bắt buộc questionIds.
+  // Payload vẫn bắt buộc có đúng số lượng questionIds để client không bỏ qua bài thi,
+  // nhưng server KHÔNG tin danh sách đó để tính điểm; điểm lấy từ các câu `src=gate`
+  // đã issue/chấm cho đúng domain hiện tại.
   if (!Array.isArray(questionIds) || questionIds.length === 0) {
     return NextResponse.json(
       { error: 'Thiếu danh sách câu hỏi đã làm (questionIds).' },
       { status: 400 }
     );
   }
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from('issued_questions')
-    .select('was_correct')
-    .in('id', questionIds.slice(0, GATE_QUESTIONS))
-    .eq('user_id', user.id)
-    .eq('answered', true);
-  const correctCount = data?.filter((r: { was_correct: boolean }) => r.was_correct).length ?? 0;
+  // Ràng buộc đúng số lượng câu của 1 attempt gate. Server KHÔNG tin questionIds để
+  // "lấy điểm từ đó", nhưng CHỈ đếm câu đúng trong đúng bộ ID client nộp (đã được
+  // issue/chấm src=gate) → user không thể dùng câu gate CŨ của domain để pass attempt mới.
+  if (questionIds.length !== GATE_QUESTIONS) {
+    return NextResponse.json(
+      { error: `Cần nộp đúng ${GATE_QUESTIONS} câu của đề thi cổng.` },
+      { status: 400 }
+    );
+  }
+  const domainDef = SKILL_TREE.find((d) => d.id === domain);
+  if (!domainDef) {
+    return NextResponse.json({ error: 'Domain not found in taxonomy' }, { status: 400 });
+  }
+  const correctCount = await countCorrectAmongIds(user.id, questionIds, 'gate');
 
   // RE-CHECK eligibility server-side
   const [summary, gates] = await Promise.all([

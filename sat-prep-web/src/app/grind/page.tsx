@@ -115,7 +115,7 @@ export default function GrindPage() {
             Chế độ Khổ Luyện dồn toàn lực vào đúng kỹ năng yếu nhất của bạn, nhồi câu độ khó vừa tầm tới khi thành thạo. Đây là quyền lợi dành riêng cho gói Ultimate.
           </p>
           <Link
-            href="/upgrade"
+            href="/upgrade?from=grind&unlock=ultimate"
             className="inline-block bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-amber-950 font-black text-lg px-10 py-4 rounded-full shadow-lg transition-transform hover:scale-105"
           >
             Nâng cấp Ultimate

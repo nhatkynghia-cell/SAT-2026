@@ -60,6 +60,7 @@ export function MistakeNotebook() {
   const [variantQ, setVariantQ] = useState<PracticeQuestion | null>(null);
   const [variantLoading, setVariantLoading] = useState(false);
   const [variantError, setVariantError] = useState('');
+  const [reviewError, setReviewError] = useState('');
   const [variantScored, setVariantScored] = useState(false);
 
   const load = useCallback((m: Mode) => {
@@ -73,6 +74,7 @@ export function MistakeNotebook() {
         setRevealed(false);
         setVariantQ(null);
         setVariantError('');
+        setReviewError('');
         setVariantScored(false);
         setIsLoading(false);
       })
@@ -93,14 +95,22 @@ export function MistakeNotebook() {
   const handleReview = async (isRemembered: boolean) => {
     const m = mistakes[currentIndex];
     if (!m?.id) return;
+    setReviewError('');
     try {
-      await fetch('/api/cau-sai', {
+      const res = await fetch('/api/cau-sai', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mistakeId: m.id, isRemembered }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setReviewError(data?.error || 'Không lưu được kết quả ôn tập. Vui lòng thử lại.');
+        return;
+      }
     } catch (e) {
       console.error('Lỗi ghi kết quả ôn tập', e);
+      setReviewError('Lỗi kết nối khi lưu kết quả ôn tập. Vui lòng thử lại.');
+      return;
     }
     setReviewedCount(c => c + 1);
     // Câu vừa ôn rời khỏi danh sách đến hạn → bỏ nó khỏi mảng hiện tại.
@@ -109,6 +119,7 @@ export function MistakeNotebook() {
     setRevealed(false);
     setVariantQ(null);
     setVariantError('');
+    setReviewError('');
     setVariantScored(false);
   };
 
@@ -250,7 +261,12 @@ export function MistakeNotebook() {
               <h4 className="text-[#fbbf24] font-bold mb-2">💡 Giải thích:</h4>
               <div className="text-sm text-[#e2e8f0] leading-relaxed">{m.explanation}</div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
+              {reviewError && (
+                <div className="basis-full bg-[#450a0a] border border-[#ef4444] text-[#fca5a5] px-3 py-2 rounded text-sm">
+                  {reviewError}
+                </div>
+              )}
               <button
                 onClick={() => handleReview(false)}
                 className="flex-1 bg-[#ef4444] hover:bg-[#dc2626] text-white font-bold px-4 py-3 rounded transition-colors"

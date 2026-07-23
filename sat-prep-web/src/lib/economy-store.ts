@@ -414,3 +414,48 @@ export async function tryConsumePvpFightAtomic(
     fightsToday: typeof r.fightsToday === 'number' ? r.fightsToday : 0,
   };
 }
+
+/**
+ * ============================================================================
+ *  ANSWER STREAK — chuỗi câu ĐÚNG liên tiếp SERVER-AUTHORITATIVE (combo faucet-safe)
+ * ============================================================================
+ *  /api/grade trước đây hardcode streak=0 (combo tắt) vì không tin streak client.
+ *  RPC `bump_answer_streak` khóa dòng user_answer_streak (FOR UPDATE) rồi TRONG
+ *  CÙNG transaction: đúng → streak+1, sai → 0; trả streak MỚI. Nhờ đó combo tính
+ *  từ streak SERVER, mỗi câu chỉ bump 1 lần (grade CAS answered:false→true trước
+ *  khi gọi) → không farm được.
+ *
+ *  🔴 Chỉ ĐẾM chuỗi — KHÔNG đụng coins/xp. Route tính comboMultiplier từ streak
+ *  trả về rồi mới cộng thưởng. Tách bảng riêng để 0 ảnh hưởng money-path khi
+ *  migration chưa chạy.
+ *
+ *  Trả:
+ *    • số streak MỚI (>=0) — RPC chạy được.
+ *    • null — hàm CHƯA tồn tại (pre-migration 42883/PGRST202) → route dùng
+ *      streak=0 (combo tắt = hành vi hiện tại, 0 regression).
+ */
+export async function tryBumpAnswerStreakAtomic(
+  userId: string,
+  isCorrect: boolean
+): Promise<number | null> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc('bump_answer_streak', {
+    p_user_id: userId,
+    p_correct: isCorrect,
+  });
+
+  if (error) {
+    if (error.code === '42883' || error.code === 'PGRST202') {
+      return null; // pre-migration: combo tắt (streak=0), không vỡ đường tiền
+    }
+    // Lỗi khác (vd bảng lỗi tạm) → fail-SAFE: coi như không có combo (streak 0),
+    // KHÔNG chặn chấm điểm (combo là phần thưởng phụ, không phải nguồn sự thật).
+    console.error('bump_answer_streak RPC lỗi (fail-safe → combo tắt):', error.message);
+    return null;
+  }
+
+  // data là jsonb { streak } hoặc số thuần — chuẩn hoá về số >=0.
+  const raw = data && typeof data === 'object' ? (data as { streak?: unknown }).streak : data;
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+}

@@ -32,5 +32,8 @@ export async function saveGoal(userId: string, goal: GoalData): Promise<void> {
       { onConflict: 'user_id' }
     );
 
-  if (error) console.error('Lỗi khi lưu goal lên Supabase:', error);
+  if (error) {
+    console.error('Lỗi khi lưu goal lên Supabase:', error);
+    throw new Error('Không thể lưu mục tiêu điểm. Vui lòng thử lại.');
+  }
 }

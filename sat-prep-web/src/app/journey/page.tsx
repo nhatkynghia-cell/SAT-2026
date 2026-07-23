@@ -123,7 +123,7 @@ export default function JourneyPage() {
               <p className="text-sm text-emerald-300 mt-2">Ultimate phân tích toàn bộ kỹ năng của bạn, sắp thứ tự luyện tối ưu theo tuần và gợi ý số buổi cho từng kỹ năng để lên điểm nhanh nhất.</p>
             </div>
             <Link
-              href="/upgrade"
+              href="/upgrade?from=journey&unlock=ultimate"
               className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-amber-950 font-bold px-6 py-3 rounded-xl transition-all text-center whitespace-nowrap shadow-lg"
             >
               💎 Mở khóa Ultimate

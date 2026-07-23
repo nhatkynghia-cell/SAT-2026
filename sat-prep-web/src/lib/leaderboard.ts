@@ -24,6 +24,11 @@ export interface RankRow {
   userId: string;
   nickname: string;
   basePower: number;
+  /**
+   * Mức CẢI THIỆN trong kỳ (delta điểm/mastery, tuần) — cho bảng xếp theo TIẾN BỘ
+   * (RPG 60/40: người mới cũng có cửa top khi tiến bộ nhanh). Optional; vắng → 0.
+   */
+  deltaPower?: number;
   /** Khung viền danh vọng (theo tier) — trang trí, KHÔNG dùng để sắp xếp. */
   frame?: FrameCosmetic;
   /** Danh hiệu danh vọng (theo tier) — trang trí, KHÔNG dùng để sắp xếp. */
@@ -34,6 +39,8 @@ export interface LeaderboardEntry {
   rank: number; // 1-based
   nickname: string;
   basePower: number;
+  /** Delta cải thiện trong kỳ (chỉ có ở bảng xếp theo tiến bộ). */
+  deltaPower?: number;
   isMe: boolean;
   /** Khung viền danh vọng — CHỈ render, KHÔNG ảnh hưởng rank/basePower. */
   frame?: FrameCosmetic;
@@ -80,6 +87,54 @@ export function rankEntries(rows: RankRow[], myUserId: string, topN: number): Ra
         rank: mineFull.rank,
         nickname: mineFull.nickname,
         basePower: mineFull.basePower,
+        isMe: true,
+        frame: mineFull.frame,
+        title: mineFull.title,
+      }
+    : null;
+
+  return { top, me };
+}
+
+/**
+ * BẢNG XẾP THEO TIẾN BỘ (delta) — song song bảng power tuyệt đối (RPG 60/40:
+ * người mới/cải thiện nhanh có cửa top, so sánh xã hội lành mạnh). Xếp giảm dần
+ * theo deltaPower; tie-break basePower rồi nickname. deltaPower vắng → 0.
+ *
+ * 🔴 KHÔNG dùng cosmetic (frame/title) để sắp xếp (giữ anti-pay-to-win). Trả
+ * LeaderboardEntry kèm deltaPower cho UI hiện "+X tuần này".
+ */
+export function rankByDelta(rows: RankRow[], myUserId: string, topN: number): RankedResult {
+  const deltaOf = (r: RankRow) => (typeof r.deltaPower === 'number' ? r.deltaPower : 0);
+  const sorted = [...rows].sort((a, b) => {
+    const da = deltaOf(a);
+    const db = deltaOf(b);
+    if (db !== da) return db - da;
+    if (b.basePower !== a.basePower) return b.basePower - a.basePower;
+    return a.nickname.localeCompare(b.nickname);
+  });
+
+  const ranked: Array<LeaderboardEntry & { userId: string }> = sorted.map((r, i) => ({
+    userId: r.userId,
+    rank: i + 1,
+    nickname: r.nickname,
+    basePower: r.basePower,
+    deltaPower: deltaOf(r),
+    isMe: r.userId === myUserId,
+    frame: r.frame,
+    title: r.title,
+  }));
+
+  const limit = Number.isInteger(topN) && topN > 0 ? topN : 0;
+  const top: LeaderboardEntry[] = ranked.slice(0, limit).map(({ userId: _uid, ...e }) => e);
+
+  const mineFull = ranked.find((e) => e.userId === myUserId);
+  const me: LeaderboardEntry | null = mineFull
+    ? {
+        rank: mineFull.rank,
+        nickname: mineFull.nickname,
+        basePower: mineFull.basePower,
+        deltaPower: mineFull.deltaPower,
         isMe: true,
         frame: mineFull.frame,
         title: mineFull.title,

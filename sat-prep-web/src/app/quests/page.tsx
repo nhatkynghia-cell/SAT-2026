@@ -1,9 +1,20 @@
 'use client';
+import Link from 'next/link';
 import { useGamification } from '@/context/GamificationContext';
 import { EmptyState } from '@/components/EmptyState';
 
+type QuestTrack = 'answer' | 'vocab' | 'exam';
+type DailyQuest = { id: string; progress: number; target: number; name: string; desc: string; claimed?: boolean; xp: number; coins: number; track?: QuestTrack };
+
+function questActionHref(q: DailyQuest): string {
+  const track = q.track ?? (q.id.startsWith('q1') ? 'answer' : q.id.startsWith('q2') ? 'vocab' : q.id.startsWith('q3') ? 'exam' : 'answer');
+  if (track === 'vocab') return '/vocab';
+  if (track === 'exam') return '/mock-exams';
+  return '/';
+}
+
 export default function QuestsPage() {
-  const { quests, claimQuest } = useGamification();
+  const { quests, claimQuest, gamificationLoaded } = useGamification();
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20">
@@ -18,8 +29,12 @@ export default function QuestsPage() {
       </div>
       
       <div className="grid grid-cols-1 gap-4">
-        {quests && quests.daily && quests.daily.length > 0 ? (
-          quests.daily.map((q: { id: string; progress: number; target: number; name: string; desc: string; claimed?: boolean; xp: number; coins: number }, idx: number) => {
+        {!gamificationLoaded ? (
+          <div className="bg-[#1b2533] p-8 rounded-xl border border-[#262730] text-center text-gray-400">
+            Đang tải nhiệm vụ hôm nay...
+          </div>
+        ) : quests && quests.daily && quests.daily.length > 0 ? (
+          quests.daily.map((q: DailyQuest, idx: number) => {
             const isDone = q.progress >= q.target;
             return (
               <div key={q.id || idx} className="bg-[#1b2533] p-5 rounded-xl border border-[#262730] flex justify-between items-center shadow-lg transition-transform hover:scale-[1.01]">
@@ -42,9 +57,12 @@ export default function QuestsPage() {
                     Nhận {q.xp} XP & {q.coins} Xu
                   </button>
                 ) : (
-                  <button className="bg-[#334155] text-gray-400 px-6 py-2 rounded font-bold cursor-not-allowed">
-                    Chưa xong
-                  </button>
+                  <Link
+                    href={questActionHref(q)}
+                    className="bg-[#334155] hover:bg-[#475569] text-gray-200 px-6 py-2 rounded font-bold transition-colors text-center"
+                  >
+                    Đi làm ngay →
+                  </Link>
                 )}
               </div>
             );

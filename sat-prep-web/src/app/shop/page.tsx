@@ -124,7 +124,7 @@ export default function ShopPage() {
               </p>
               {tierLocked ? (
                 <Link
-                  href="/upgrade"
+                  href={`/upgrade?from=shop&unlock=${requiredTier}`}
                   className="w-full inline-flex justify-center items-center gap-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-amber-950 font-bold py-2 rounded transition-colors"
                 >
                   🔒 Mở khóa với {tierLabel}

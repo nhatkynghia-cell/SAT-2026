@@ -16,9 +16,10 @@ const { GET, POST } = await import('@/app/api/admin/redemptions/route.ts');
 
 const SECRET = 'test-admin-secret-xyz';
 
-function req(method, { secret, body } = {}) {
+function req(method, { secret, body, ip } = {}) {
   const headers = { 'content-type': 'application/json' };
   if (secret !== undefined) headers['x-admin-secret'] = secret;
+  if (ip) headers['x-forwarded-for'] = ip;
   return new Request('http://t/admin', {
     method,
     headers,
@@ -83,6 +84,31 @@ test('admin: POST KHÔNG secret → 403 (không consume rate-limit)', async () =
   resetDb();
   const { status } = await readRes(await POST(req('POST', { body: { redemptionId: 'x', action: 'fulfill' } })));
   assert.equal(status, 403);
+});
+
+test('admin: brute-force secret SAI → sau 10 lần sai/IP bị 429 (chống dò secret)', async () => {
+  resetDb();
+  const ip = '203.0.113.77'; // IP riêng để không đụng limit test khác
+  // 10 lần sai đầu → 403; lần 11 → 429 (rate-limit theo lần thử SAI).
+  let last403 = 0;
+  for (let i = 0; i < 10; i++) {
+    const { status } = await readRes(await GET(req('GET', { secret: 'wrong', ip })));
+    if (status === 403) last403++;
+  }
+  assert.equal(last403, 10, '10 lần sai đầu đều 403');
+  const { status } = await readRes(await GET(req('GET', { secret: 'wrong', ip })));
+  assert.equal(status, 429, 'lần thứ 11 sai → 429');
+});
+
+test('admin: secret ĐÚNG KHÔNG bị rate-limit dù gọi nhiều (limit chỉ áp lần SAI)', async () => {
+  resetDb();
+  const ip = '203.0.113.88';
+  seedPending('red-rl', 'u-rl', 50000);
+  // Gọi đúng secret 15 lần cùng IP → tất cả 200 (không chạm limit lần-sai).
+  for (let i = 0; i < 15; i++) {
+    const { status } = await readRes(await GET(req('GET', { secret: SECRET, ip })));
+    assert.equal(status, 200, `lần ${i + 1} đúng secret vẫn 200`);
+  }
 });
 
 test('admin: fulfill pending → 200 fulfilled, KHÔNG hoàn xu', async () => {

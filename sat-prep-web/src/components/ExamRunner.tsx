@@ -202,8 +202,16 @@ export default function ExamRunner({
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         if (res.status === 403 && err.reason === 'tier') {
-          setErrorMsg('Thi Thật QAS là quyền lợi Premium. Chuyển tới trang nâng cấp...');
+          // Server gate là tier !== 'ultimate' (api/exam-session/start + exams/start)
+          // → copy phải nói Ultimate, không phải Premium (Premium vẫn chưa đủ).
+          setErrorMsg('Thi Thật QAS là quyền lợi gói Ultimate. Đang chuyển tới trang nâng cấp...');
           setTimeout(() => { window.location.href = '/upgrade'; }, 1500);
+          setPhase('lobby');
+          return;
+        }
+        if (res.status === 403 && err.reason === 'capability') {
+          // Chưa đủ kỹ năng — nâng cấp không giải quyết được, KHÔNG redirect upgrade.
+          setErrorMsg(err.error || 'Cần tinh thông đủ kỹ năng để mở khóa đề thi thật.');
           setPhase('lobby');
           return;
         }

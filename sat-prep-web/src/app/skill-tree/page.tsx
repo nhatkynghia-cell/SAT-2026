@@ -195,7 +195,7 @@ export default function SkillTreePage() {
               <p className="text-xs text-indigo-300 mt-1">Premium phân tích kỹ năng yếu nhất của bạn và đề xuất đúng câu, đúng độ khó để lên điểm nhanh nhất.</p>
             </div>
             <Link
-              href="/upgrade"
+              href="/upgrade?from=skill-tree&unlock=premium"
               className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-amber-950 font-bold px-6 py-3 rounded-xl transition-all text-center whitespace-nowrap shadow-lg"
             >
               💎 Mở khóa
@@ -235,7 +235,7 @@ export default function SkillTreePage() {
                       Chương này ({domainNodes.length} kỹ năng) nằm trong lộ trình đầy đủ. Nâng cấp Premium để mở toàn bộ Cây Năng Lực + Cổng Khảo Thí và luyện đúng thứ tự sư phạm.
                     </p>
                     <Link
-                      href="/upgrade"
+                      href="/upgrade?from=skill-tree&unlock=premium"
                       className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-amber-950 font-bold px-5 py-2.5 rounded-xl transition-all text-center whitespace-nowrap shadow-lg"
                     >
                       💎 Mở khóa chương

@@ -1,7 +1,9 @@
 'use client';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useGamification } from '@/context/GamificationContext';
 import { WeeklyTrendPanel, type WeeklyTrend } from '@/components/WeeklyTrendPanel';
+import { EmptyState } from '@/components/EmptyState';
 
 /** Shape trả về từ /api/mastery (getMasterySummary). */
 interface MasterySkill {
@@ -47,6 +49,12 @@ const CONFIDENCE_LABEL: Record<ScorePrediction['confidence'], string> = {
   high: 'Tin cậy cao',
 };
 
+function practiceRouteForSkill(skillId: string, subject: string): string {
+  if (skillId.startsWith('vocab')) return '/vocab';
+  if (skillId.startsWith('rw_') || subject === 'reading') return '/literature';
+  return '/math';
+}
+
 export default function DashboardPage() {
   const { userStats } = useGamification();
   const [mastery, setMastery] = useState<MasterySummary | null>(null);
@@ -55,6 +63,10 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  // Nhập điểm mục tiêu ngay tại Dashboard (Journey link "Đặt mục tiêu" trỏ về đây).
+  const [targetInput, setTargetInput] = useState('');
+  const [targetSaving, setTargetSaving] = useState(false);
+  const [targetMsg, setTargetMsg] = useState('');
 
   // Nút "Thử lại" — event handler nên setState đồng bộ ở đây hợp lệ; bump reloadKey
   // để effect chạy lại (loader inline chỉ setState sau await, không cascading render).
@@ -119,6 +131,36 @@ export default function DashboardPage() {
   const totalAttempts = score?.totalAttempts ?? 0;
   const hasData = totalAttempts > 0;
 
+  // Lưu điểm mục tiêu (POST /api/score — setGoal đã có sẵn). Clamp phía server
+  // (400..1600, làm tròn 10). Sau khi lưu → reload để breakdown/pointsToTarget cập nhật.
+  const saveTarget = async () => {
+    const val = parseInt(targetInput, 10);
+    if (!Number.isFinite(val)) {
+      setTargetMsg('Nhập số điểm mục tiêu (400–1600).');
+      return;
+    }
+    setTargetSaving(true);
+    setTargetMsg('');
+    try {
+      const res = await fetch('/api/score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetScore: val }),
+      });
+      if (res.ok) {
+        setTargetMsg('✅ Đã lưu mục tiêu!');
+        setTargetInput('');
+        setReloadKey((k) => k + 1);
+      } else {
+        setTargetMsg('Không lưu được mục tiêu. Thử lại sau.');
+      }
+    } catch {
+      setTargetMsg('Lỗi kết nối, thử lại sau.');
+    } finally {
+      setTargetSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-700 pb-20">
       <div className="math-academy-header epic-shake-active" style={{ background: 'linear-gradient(135deg, #064e3b 0%, #022c22 100%)' }}>
@@ -166,6 +208,18 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {!loading && !hasData && (
+        <EmptyState
+          icon="🎯"
+          title="Bắt đầu tạo Nhật ký SAT của bạn"
+          message="Làm diagnostic 5 phút để app biết điểm mạnh/yếu, sau đó dashboard sẽ hiện điểm dự đoán, kỹ năng cần tập trung và kế hoạch luyện tiếp theo."
+          actionHref="/diagnostic"
+          actionLabel="Làm diagnostic ngay"
+          secondaryHref="/math"
+          secondaryLabel="Hoặc luyện Toán trước"
+        />
+      )}
+
       {/* Chi tiết điểm dự đoán */}
       <div className="bg-[#1b2533] p-6 rounded-xl border border-[#262730] shadow-lg">
         <h3 className="text-xl font-bold text-white mb-4">🎓 Dự Đoán Điểm SAT</h3>
@@ -183,7 +237,7 @@ export default function DashboardPage() {
                 <div className="flex-1 min-w-[240px] bg-[#0f172a] border border-[#334155] rounded-lg p-3">
                   <p className="text-sm text-[#e2e8f0] font-medium">🔒 Điểm chi tiết từng môn đang bị khóa</p>
                   <p className="text-xs text-gray-400 mt-1">Nâng cấp Premium để xem điểm Toán / Đọc-Viết riêng và biết chính xác cần cải thiện phần nào.</p>
-                  <a href="/upgrade" className="inline-block mt-2 text-xs font-bold bg-gradient-to-r from-yellow-300 to-amber-500 text-amber-950 px-3 py-1.5 rounded-lg hover:from-yellow-200 hover:to-amber-400">💎 Mở khóa chi tiết</a>
+                  <Link href="/upgrade?from=dashboard&unlock=premium" className="inline-block mt-2 text-xs font-bold bg-gradient-to-r from-yellow-300 to-amber-500 text-amber-950 px-3 py-1.5 rounded-lg hover:from-yellow-200 hover:to-amber-400">💎 Mở khóa chi tiết</Link>
                 </div>
               </div>
             ) : (
@@ -205,6 +259,30 @@ export default function DashboardPage() {
               </div>
             )}
             <p className="text-xs text-gray-500">Độ tin cậy: {CONFIDENCE_LABEL[score!.confidence]} — ước lượng động viên, không phải điểm chính thức.</p>
+
+            {/* Đặt/đổi điểm mục tiêu ngay tại Dashboard (Journey trỏ về đây). */}
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#262730] pt-3">
+              <label htmlFor="targetScore" className="text-sm text-gray-300 font-medium">🎯 Điểm mục tiêu:</label>
+              <input
+                id="targetScore"
+                type="number"
+                min={400}
+                max={1600}
+                step={10}
+                value={targetInput}
+                onChange={(e) => setTargetInput(e.target.value)}
+                placeholder={score!.targetScore ? String(score!.targetScore) : '1400'}
+                className="w-28 bg-[#0f172a] border border-[#334155] rounded-lg px-3 py-1.5 text-white text-sm focus:border-emerald-500 outline-none"
+              />
+              <button
+                onClick={saveTarget}
+                disabled={targetSaving}
+                className="text-sm font-bold bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-4 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50"
+              >
+                {targetSaving ? 'Đang lưu...' : 'Lưu mục tiêu'}
+              </button>
+              {targetMsg && <span className="text-xs text-gray-400">{targetMsg}</span>}
+            </div>
           </div>
         ) : (
           <div className="text-gray-500 text-sm">
@@ -256,17 +334,25 @@ export default function DashboardPage() {
                 <div className="text-4xl mb-2">🔒</div>
                 <p className="text-sm text-[#e2e8f0] font-medium">Gợi ý kỹ năng cần cải thiện đang bị khóa</p>
                 <p className="text-xs mt-1">Premium phân tích điểm yếu cụ thể và ưu tiên skill cần luyện để lên điểm nhanh nhất.</p>
-                <a href="/upgrade" className="inline-block mt-3 text-xs font-bold bg-gradient-to-r from-yellow-300 to-amber-500 text-amber-950 px-3 py-1.5 rounded-lg hover:from-yellow-200 hover:to-amber-400">💎 Mở khóa phân tích</a>
+                <Link href="/upgrade?from=dashboard&unlock=premium" className="inline-block mt-3 text-xs font-bold bg-gradient-to-r from-yellow-300 to-amber-500 text-amber-950 px-3 py-1.5 rounded-lg hover:from-yellow-200 hover:to-amber-400">💎 Mở khóa phân tích</Link>
               </div>
             ) : score && score.focusSkills.length > 0 ? (
               <ul className="space-y-4">
                 {score.focusSkills.map((s) => (
-                  <li key={s.id} className="flex justify-between items-center border-b border-[#334155] pb-2 last:border-0">
+                  <li key={s.id} className="flex justify-between items-center gap-3 border-b border-[#334155] pb-3 last:border-0">
                     <div className="pr-2">
                       <p className="text-[#e2e8f0] font-medium text-sm">{s.label}</p>
                       <p className="text-xs text-red-400">Mastery: {s.score}/100</p>
                     </div>
-                    <span className="text-xs bg-[#3b82f6] px-3 py-1 rounded text-white whitespace-nowrap">{s.subject === 'math' ? 'Toán' : 'Đọc-Viết'}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs bg-[#3b82f6] px-3 py-1 rounded text-white whitespace-nowrap">{s.subject === 'math' ? 'Toán' : 'Đọc-Viết'}</span>
+                      <Link
+                        href={practiceRouteForSkill(s.id, s.subject)}
+                        className="text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-3 py-1.5 rounded whitespace-nowrap hover:from-emerald-400 hover:to-teal-400"
+                      >
+                        Luyện →
+                      </Link>
+                    </div>
                   </li>
                 ))}
               </ul>

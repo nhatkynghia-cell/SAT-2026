@@ -156,6 +156,153 @@ export async function getGradedResult(
   return { correct: !!data.was_correct };
 }
 
+export async function countAnsweredQuestionsBySource(
+  userId: string,
+  src: string
+): Promise<number> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('issued_questions')
+    .select('context')
+    .eq('user_id', userId)
+    .eq('answered', true);
+
+  if (error) {
+    console.error('countAnsweredQuestionsBySource error:', error.message);
+    return 0;
+  }
+
+  return (data ?? []).filter((row: { context: string | null }) => decodeContext(row.context).src === src).length;
+}
+
+/**
+ * Trạng thái các câu ĐÃ PHÁT của 1 nguồn (src) theo skill_id: map skillId →
+ * { questionId, answered } của câu MỚI NHẤT cho skill đó. Dùng cho diagnostic
+ * REUSE (chống farm mastery): mỗi skill diagnostic chỉ phát 1 câu — start lại
+ * → reuse câu chưa trả lời, bỏ qua skill đã trả lời (đã đóng góp mastery 1 lần).
+ * Fail-safe: lỗi → map rỗng (route sẽ issue mới như cũ).
+ */
+export async function getIssuedSkillStateBySource(
+  userId: string,
+  src: string
+): Promise<Record<string, { questionId: string; answered: boolean }>> {
+  const out: Record<string, { questionId: string; answered: boolean }> = {};
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from('issued_questions')
+      .select('id, skill_id, answered, context, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true });
+    if (error) {
+      console.error('getIssuedSkillStateBySource error:', error.message);
+      return out;
+    }
+    for (const row of (data ?? []) as Array<{ id: string; skill_id: string | null; answered: boolean; context: string | null }>) {
+      if (decodeContext(row.context).src !== src) continue;
+      if (!row.skill_id) continue;
+      // Ghi đè theo thứ tự created_at tăng dần → cuối cùng giữ câu MỚI NHẤT/skill.
+      out[row.skill_id] = { questionId: row.id, answered: !!row.answered };
+    }
+  } catch (e) {
+    console.error('getIssuedSkillStateBySource exception:', e);
+  }
+  return out;
+}
+
+export async function countCorrectAmongIds(
+  userId: string,
+  questionIds: string[],
+  src: string
+): Promise<number> {
+  if (!Array.isArray(questionIds) || questionIds.length === 0) return 0;
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from('issued_questions')
+    .select('context, was_correct, answered, user_id')
+    .in('id', questionIds)
+    .eq('user_id', userId)
+    .eq('answered', true);
+
+  if (error) {
+    console.error('countCorrectAmongIds error:', error.message);
+    return 0;
+  }
+
+  return (data ?? []).filter(
+    (row: { context: string | null; was_correct: boolean }) =>
+      row.was_correct && decodeContext(row.context).src === src
+  ).length;
+}
+
+export async function countCorrectAnsweredQuestionsBySourceAndSkills(
+  userId: string,
+  src: string,
+  skillIds: string[],
+  limit: number
+): Promise<number> {
+  const admin = createAdminClient();
+  const allowed = new Set(skillIds);
+  const { data, error } = await admin
+    .from('issued_questions')
+    .select('context, skill_id, was_correct')
+    .eq('user_id', userId)
+    .eq('answered', true)
+    .eq('was_correct', true)
+    .in('skill_id', skillIds);
+
+  if (error) {
+    console.error('countCorrectAnsweredQuestionsBySourceAndSkills error:', error.message);
+    return 0;
+  }
+
+  return (data ?? [])
+    .filter((row: { context: string | null; skill_id: string | null }) =>
+      !!row.skill_id && allowed.has(row.skill_id) && decodeContext(row.context).src === src
+    )
+    .slice(0, limit)
+    .length;
+}
+
+/**
+ * Đếm câu ĐÚNG đã chấm của user tạo TRONG ngày `day` (YYYY-MM-DD VN, 'YYYY-MM-DD'
+ * dạng text so với cột `created_at`). Dùng cho "learning contract" quest
+ * (RPG 60/40) — server đối chiếu hoàn thành học thật thay vì tin progress client.
+ *
+ * Lọc theo cột `created_at` (Postgres timestamptz) >= day 00:00:00 VN. Vì created_at
+ * là UTC, ngày VN bắt đầu 17:00 UTC ngày trước → so created_at >= (day-1)T17:00:00Z
+ * AND < dayT17:00:00Z. Fail-safe: lỗi/scheme thiếu → trả 0 (không mở thưởng ảo).
+ */
+export async function countCorrectAnsweredOnDay(
+  userId: string,
+  day: string
+): Promise<number> {
+  // day 'YYYY-MM-DD' → [start, end) theo giờ VN (UTC+7).
+  const [y, m, d] = day.split('-').map(Number);
+  if (!y || !m || !d) return 0;
+  const startUtc = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 7 * 3600_000).toISOString();
+  const endUtc = new Date(Date.UTC(y, m - 1, d, 0, 0, 0) - 7 * 3600_000 + 86_400_000).toISOString();
+  try {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+      .from('issued_questions')
+      .select('context, was_correct, created_at')
+      .eq('user_id', userId)
+      .eq('answered', true)
+      .eq('was_correct', true)
+      .gte('created_at', startUtc)
+      .lt('created_at', endUtc);
+    if (error) {
+      console.error('countCorrectAnsweredOnDay error:', error.message);
+      return 0;
+    }
+    return (data ?? []).length;
+  } catch (e) {
+    console.error('countCorrectAnsweredOnDay exception:', e);
+    return 0;
+  }
+}
+
 /**
  * Lấy 1 GỢI Ý LOẠI TRỪ (hint cấp 2): trả về MỘT đáp án SAI + phân tích bẫy của
  * nó, KHÔNG lộ đáp án đúng. Verify quyền sở hữu; câu chưa nộp mới cho hint.

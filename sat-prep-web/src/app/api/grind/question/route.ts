@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { getMasterySummary, type Difficulty } from '@/lib/mastery';
 import { recommendNext, selectDifficulty } from '@/lib/adaptive';
+import { buildStudyQueue, pickNextSkillId } from '@/lib/study-queue';
+import { loadMistakes } from '@/lib/mistakes-store';
+import { loadVocab } from '@/lib/vocab-store';
+import { isDue, todayStr } from '@/lib/leitner';
 import { getUserTier } from '@/lib/subscription-store';
 import { isValidSkill } from '@/lib/skill-taxonomy';
 
@@ -50,14 +54,52 @@ export async function GET(request: NextRequest) {
     moduleType = s.moduleType;
     difficulty = selectDifficulty(s.score);
   } else {
+    // Không chỉ định skill → soạn hàng đợi học ưu tiên SRS due (chống quên) rồi
+    // mới đến skill yếu nhất. Lỗi/vocab đến hạn ôn có giá trị học cao nhất nên đứng
+    // trước. Fail-safe: lỗi đọc SRS → hàng đợi chỉ còn weakness (giữ hành vi cũ).
+    const today = todayStr();
+    let dueMistakes: { skill_id?: string | null }[] = [];
+    let dueVocabCount = 0;
+    try {
+      const mistakes = await loadMistakes(user.id);
+      dueMistakes = mistakes.filter((m) => isDue(m.next_review, today));
+    } catch (e) {
+      console.error('Grind: loadMistakes lỗi (fail-safe → không có due mistake):', e);
+    }
+    try {
+      const vocab = await loadVocab(user.id);
+      dueVocabCount = vocab.words.filter((w) => isDue(w.next_review, today)).length;
+    } catch (e) {
+      console.error('Grind: loadVocab lỗi (fail-safe → 0 due vocab):', e);
+    }
     const rec = recommendNext(summary);
-    if (!rec) {
+    const queue = buildStudyQueue(summary, dueMistakes, dueVocabCount, rec);
+    const picked = pickNextSkillId(queue);
+
+    if (picked && isValidSkill(picked)) {
+      const s = summary.skills.find((x) => x.id === picked);
+      if (s) {
+        skillId = s.id;
+        label = s.label;
+        moduleType = s.moduleType;
+        difficulty = selectDifficulty(s.score);
+      } else {
+        if (!rec) {
+          return NextResponse.json({ error: 'Không tìm thấy kỹ năng để khổ luyện' }, { status: 404 });
+        }
+        skillId = rec.skillId;
+        label = rec.label;
+        moduleType = rec.moduleType;
+        difficulty = rec.difficulty;
+      }
+    } else if (rec) {
+      skillId = rec.skillId;
+      label = rec.label;
+      moduleType = rec.moduleType;
+      difficulty = rec.difficulty;
+    } else {
       return NextResponse.json({ error: 'Không tìm thấy kỹ năng để khổ luyện' }, { status: 404 });
     }
-    skillId = rec.skillId;
-    label = rec.label;
-    moduleType = rec.moduleType;
-    difficulty = rec.difficulty;
   }
 
   try {

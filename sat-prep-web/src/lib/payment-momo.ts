@@ -129,6 +129,11 @@ export function isMomoSuccess(resultCode: number | string): boolean {
   return Number(resultCode) === 0;
 }
 
+/** Cổng MoMo đã cấu hình chưa (route dùng để trả 503 sớm, không ghi pending orphan). */
+export function isMomoConfigured(): boolean {
+  return !!process.env.MOMO_PARTNER_CODE && !!process.env.MOMO_ACCESS_KEY && !!process.env.MOMO_SECRET_KEY;
+}
+
 /**
  * ============================================================================
  *  I/O — gọi API create của MoMo (tách khỏi phần chữ ký thuần ở trên)
@@ -186,8 +191,8 @@ export async function createMomoPayment(args: {
   });
   const data = await res.json().catch(() => ({}));
 
-  if (data?.resultCode === 0 && typeof data?.payUrl === 'string') {
+  if (res.ok && data?.resultCode === 0 && typeof data?.payUrl === 'string') {
     return { ok: true, payUrl: data.payUrl, resultCode: 0 };
   }
-  return { ok: false, message: data?.message ?? 'MoMo tạo giao dịch thất bại.', resultCode: data?.resultCode };
+  return { ok: false, message: data?.message ?? `MoMo tạo giao dịch thất bại (HTTP ${res.status}).`, resultCode: data?.resultCode };
 }

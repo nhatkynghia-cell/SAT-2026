@@ -207,6 +207,10 @@ export async function POST(request: Request) {
     }
 
     const reply: string = data.choices?.[0]?.message?.content ?? '';
+    if (!reply.trim()) {
+      await releaseUsage(user.id, 'chat', reservation.reserved, reservation.date);
+      return NextResponse.json({ error: 'Gia sư AI trả lời rỗng. Vui lòng thử lại.' }, { status: 502 });
+    }
 
     // 5) Chốt usage: count đã reserve ở bước 2b, giờ chỉ cộng token (reserved:true).
     // Pre-migration (reserved:false) → finalizeUsage gọi recordUsage cũ (tăng count

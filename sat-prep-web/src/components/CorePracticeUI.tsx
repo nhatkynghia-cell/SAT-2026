@@ -12,7 +12,7 @@ export interface PracticeQuestion {
   practice_question: string;
   choices: string[];
   correct_choice?: string;
-  explanation: string;
+  explanation?: string;
   difficulty: string;
   trapRate: number;
   skillId?: string;
@@ -56,6 +56,8 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
   const [timeLeft, setTimeLeft] = useState(timeLimit ?? 0);
   const [hintsRevealed, setHintsRevealed] = useState(0);
   const [hintError, setHintError] = useState("");
+  const [submitError, setSubmitError] = useState("");
+  const [persistenceWarning, setPersistenceWarning] = useState("");
   const [hintTrap, setHintTrap] = useState<{ choice_letter: string; analysis: string } | null>(null);
 
   const isBookmarked = questionData ? bookmarkedQuestions.includes(questionData.practice_question) : false;
@@ -104,6 +106,8 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
     setTimeLeft(timeLimit ?? 0);
     setHintsRevealed(0);
     setHintError("");
+    setSubmitError("");
+    setPersistenceWarning("");
     setHintTrap(null);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [questionData, timeLimit]);
@@ -114,7 +118,8 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
     // nộp rỗng (hết giờ chưa chọn → answer "" → /api/grade chấm sai + lộ đáp án).
     if (isSubmitted) return;
     if (!selectedAnswer && !hasTimeLimit) return;
-    setIsSubmitted(true);
+    setSubmitError('');
+    setPersistenceWarning('');
 
     // 🔴 ROOT A: chấm + trao thưởng + ghi mastery đều ở /api/grade (server-authoritative,
     // dựa trên đáp án lưu server). correct_choice đã bị GIẤU khỏi payload nên KHÔNG còn
@@ -123,6 +128,7 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
     let correctChoice = '';
     let granted = { coins: 0, xp: 0 };
     let economyState: { coins?: number; xp?: number; lastSpinDate?: string | null } | null = null;
+    let explanationForMistake = '';
 
     if (questionData.questionId) {
       const res = await fetch("/api/grade", {
@@ -134,18 +140,31 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
           streak: practiceStreak + 1,
         }),
       });
-      if (res.ok) {
-        const grade = await res.json();
-        isAnsCorrect = grade.correct;
-        correctChoice = grade.correctChoice ?? '';
-        setRevealedCorrectChoice(grade.correctChoice);
-        if (Array.isArray(grade.choice_analysis)) setRevealedAnalysis(grade.choice_analysis);
-        if (typeof grade.explanation === 'string' && grade.explanation) setRevealedExplanation(grade.explanation);
-        granted = grade.granted ?? { coins: 0, xp: 0 };
-        economyState = grade.economy ?? null;
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setSubmitError(data?.error ?? 'Không thể chấm câu này. Vui lòng thử lại.');
+        return;
       }
+      const grade = await res.json();
+      isAnsCorrect = grade.correct;
+      correctChoice = grade.correctChoice ?? '';
+      setRevealedCorrectChoice(grade.correctChoice);
+      if (Array.isArray(grade.choice_analysis)) setRevealedAnalysis(grade.choice_analysis);
+      if (typeof grade.explanation === 'string' && grade.explanation) {
+        explanationForMistake = grade.explanation;
+        setRevealedExplanation(grade.explanation);
+      }
+      granted = grade.granted ?? { coins: 0, xp: 0 };
+      economyState = grade.economy ?? null;
+      if (typeof grade.persistenceError === 'string' && grade.persistenceError) {
+        setPersistenceWarning(grade.persistenceError);
+      }
+    } else {
+      setSubmitError('Câu hỏi thiếu mã chấm. Vui lòng đổi câu khác.');
+      return;
     }
 
+    setIsSubmitted(true);
     setIsCorrect(isAnsCorrect);
 
     // Cập nhật streak/quest/HUD (đồng bộ coins/xp từ economy grade trả về). Mastery
@@ -168,7 +187,7 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
             choices: questionData.choices,
             correct_choice: correctChoice,
             user_choice: selectedAnswer,
-            explanation: questionData.explanation,
+            explanation: explanationForMistake,
             source: "Core Practice (Next.js)",
             skill_id: questionData.skillId ?? null,
           })
@@ -297,13 +316,16 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
           }
 
           return (
-            <div 
-              key={idx} 
+            <button
+              key={idx}
+              type="button"
               onClick={() => !isSubmitted && setSelectedAnswer(choice)}
-              className={`p-4 rounded-xl border-2 cursor-pointer transition-all hover:scale-[1.01] ${choiceClass}`}
+              disabled={isSubmitted}
+              aria-pressed={isSelected}
+              className={`w-full text-left p-4 rounded-xl border-2 transition-all hover:scale-[1.01] disabled:cursor-default ${!isSubmitted ? 'cursor-pointer' : ''} ${choiceClass}`}
             >
               {choice}
-            </div>
+            </button>
           );
         })}
       </div>
@@ -353,6 +375,11 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
       {/* Feedback Section */}
       {isSubmitted && (
         <div className="mb-6 space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+          {persistenceWarning && (
+            <div className="bg-[#422006] border border-[#f59e0b] text-[#fcd34d] p-4 rounded-xl text-sm">
+              ⚠️ {persistenceWarning}
+            </div>
+          )}
           {isCorrect && rewardData ? (
             <div className="bg-[#022c22] border-2 border-[#10b981] text-[#34d399] p-4 rounded-xl flex items-center gap-4 relative overflow-hidden shadow-[0_0_15px_rgba(16,185,129,0.2)]">
               {rewardData.comboMultiplier > 1 && (
@@ -378,16 +405,15 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
             </div>
           ) : null}
 
-          {/* AI Explanation — ROOT A: câu đề thư viện KHÔNG kèm explanation trong
-              payload → lấy từ /api/grade (revealedExplanation) sau nộp. Fallback về
-              questionData.explanation (câu AI/bank cũ). Rỗng cả hai → ẩn block. */}
-          {(revealedExplanation ?? questionData.explanation) && (
+          {/* AI Explanation — ROOT A: explanation KHÔNG còn trong payload → lấy từ
+              /api/grade (revealedExplanation) sau nộp. Rỗng → ẩn block. */}
+          {revealedExplanation && (
             <div className="bg-[#0f172a] p-5 rounded-xl border border-[#334155] shadow-lg">
               <h4 className="text-[#fbbf24] font-bold mb-3 flex items-center gap-2">
                 <span>🤖 GIA SƯ AI PHÂN TÍCH ĐÁP ÁN:</span>
               </h4>
               <div className="text-[15px] text-[#e2e8f0] leading-relaxed whitespace-pre-wrap">
-                {revealedExplanation ?? questionData.explanation}
+                {revealedExplanation}
               </div>
             </div>
           )}
@@ -430,13 +456,19 @@ export function CorePracticeUI({ questionData, onNext, isLoading, onAnswer, onSu
         </div>
       )}
 
+      {submitError && (
+        <div className="mb-4 bg-[#450a0a] border border-[#ef4444] text-[#fca5a5] px-4 py-3 rounded-lg text-sm">
+          {submitError}
+        </div>
+      )}
+
       {/* Submit button */}
       {!isSubmitted && (
         <button 
           onClick={handleSubmit}
-          disabled={!selectedAnswer}
-          className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg ${selectedAnswer ? 'bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white hover:scale-[1.02]' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}>
-          🚀 CHỐT ĐÁP ÁN
+          disabled={!selectedAnswer && !hasTimeLimit}
+          className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg ${selectedAnswer || hasTimeLimit ? 'bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white hover:scale-[1.02]' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}>
+          {selectedAnswer ? '🚀 CHỐT ĐÁP ÁN' : hasTimeLimit ? '⏱️ BỎ TRỐNG & NỘP' : '🚀 CHỐT ĐÁP ÁN'}
         </button>
       )}
     </div>

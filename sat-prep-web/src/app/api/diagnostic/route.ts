@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { rateLimit } from '@/lib/rate-limit';
 import { getDiagnosticQuestions, stripQuestion } from '@/lib/diagnostic';
-import { issueQuestion } from '@/lib/issued-questions';
+import { issueQuestion, countAnsweredQuestionsBySource, getIssuedSkillStateBySource } from '@/lib/issued-questions';
 import { loadOnboarding, saveOnboardingComplete } from '@/lib/onboarding-store';
 import { setGoal, predictScore } from '@/lib/score-prediction';
 import { getUserTier } from '@/lib/subscription-store';
@@ -25,6 +25,9 @@ import { getUserTier } from '@/lib/subscription-store';
 
 export async function GET() {
   const user = await getCurrentUser();
+  if (!user.isAuthenticated) {
+    return NextResponse.json({ error: 'Bạn cần đăng nhập để làm bài test xếp lớp.' }, { status: 401 });
+  }
   const state = await loadOnboarding(user.id);
   return NextResponse.json({
     completed: state?.completed ?? false,
@@ -35,6 +38,9 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const user = await getCurrentUser();
+  if (!user.isAuthenticated) {
+    return NextResponse.json({ error: 'Bạn cần đăng nhập để làm bài test xếp lớp.' }, { status: 401 });
+  }
 
   const rl = rateLimit(`diagnostic:${user.id}`, 5, 60_000);
   if (!rl.allowed) {
@@ -51,8 +57,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ completed: true });
     }
 
+    // 🔴 CHỐNG FARM MASTERY (audit 2026-07-22): mỗi skill diagnostic CHỈ phát 1 câu.
+    // Nếu start lại (chưa complete) → REUSE questionId câu CHƯA trả lời; skill ĐÃ
+    // trả lời rồi → issue lại nhưng KHÔNG cho gieo mastery lần 2 (grade CAS answered
+    // trên questionId cũ; câu mới cùng skill vẫn chấm nhưng mastery diagnostic
+    // đã đóng góp 1 lần). Reuse tránh đẻ vô hạn câu diagnostic mới mỗi lần start.
+    const issuedState = await getIssuedSkillStateBySource(user.id, 'diagnostic');
+
     const questions = await Promise.all(
       getDiagnosticQuestions().map(async (q) => {
+        const prev = q.skillId ? issuedState[q.skillId] : undefined;
+        // Câu cùng skill đã phát và CHƯA trả lời → reuse questionId (không issue mới).
+        if (prev && !prev.answered) {
+          return { ...stripQuestion(q), questionId: prev.questionId };
+        }
+        // Skill đã trả lời rồi (prev.answered) HOẶC chưa từng phát → issue mới.
+        // (Skill đã trả lời: câu mới vẫn phát để user làm lại, nhưng mastery
+        //  diagnostic đã tính 1 lần; đây là bề mặt không thưởng xu nên vô hại.)
         const questionId = await issueQuestion(user.id, q.correct_choice, q.skillId, q.difficulty, {
           src: 'diagnostic',
           choiceAnalysis: q.choice_analysis,
@@ -72,6 +93,15 @@ export async function POST(req: Request) {
   if (action === 'complete') {
     const targetRaw = body?.targetScore;
     const targetScore = typeof targetRaw === 'number' && Number.isFinite(targetRaw) ? targetRaw : undefined;
+
+    const answeredDiagnostic = await countAnsweredQuestionsBySource(user.id, 'diagnostic');
+    const requiredAnswered = getDiagnosticQuestions().length;
+    if (answeredDiagnostic < requiredAnswered) {
+      return NextResponse.json(
+        { error: `Bạn cần hoàn thành ${requiredAnswered} câu diagnostic trước khi chốt kết quả.` },
+        { status: 409 }
+      );
+    }
 
     if (targetScore !== undefined) {
       await setGoal(user.id, targetScore); // clamp 400..1600 bên trong

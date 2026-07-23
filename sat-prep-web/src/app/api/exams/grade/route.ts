@@ -6,6 +6,7 @@ import { loadEconomy, saveEconomy, ensureEconomyRow, tryIncrementEconomyAtomic }
 import { applyExamRewardFromDifficulties, MAX_EXAM_QUESTIONS, type Difficulty, type EconomyState } from '@/lib/economy';
 import { getUserTier } from '@/lib/subscription-store';
 import { TIER_COIN_MULTIPLIER } from '@/lib/subscription';
+import { bumpDailyActivity } from '@/lib/daily-activity-store';
 
 /**
  * NỘP BÀI THI (ROOT A follow-up đường thi) — server chấm + thưởng.
@@ -88,6 +89,13 @@ export async function POST(req: Request) {
         await saveEconomy(user.id, nextEconomy);
         economyOut = nextEconomy;
       }
+    }
+
+    // Đường nộp CẢ BÀI 1 lần → đếm 1 "bài thi hoàn thành" hôm nay (quest
+    // 'exam-completed'). Chỉ đếm khi thực sự có câu được chấm (graded>0) → nộp
+    // rỗng/replay toàn bộ (graded=0) KHÔNG tính. Fire-and-forget (nuốt lỗi).
+    if (graded > 0) {
+      await bumpDailyActivity(user.id, 'exam_complete'); // await: tránh drop RPC khi serverless freeze
     }
 
     return NextResponse.json({

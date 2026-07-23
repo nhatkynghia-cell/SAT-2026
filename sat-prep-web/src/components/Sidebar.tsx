@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ChevronDown, ChevronRight, Menu, X } from 'lucide-react';
 import { useGamification } from '@/context/GamificationContext';
 import { useAuth } from '@/context/AuthContext';
 
@@ -61,11 +61,24 @@ export function Sidebar() {
   const { learningMode, setLearningMode, subject, setSubject, focusMode, incrementQuestionKey } = useGamification();
   const { isAuthenticated, signOut } = useAuth();
   const [expandedGroups, setExpandedGroups] = useState<number[]>([0]);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    closeButtonRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileOpen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [mobileOpen]);
 
   if (focusMode) return null;
 
   const handleSignOut = async () => {
     await signOut();
+    setMobileOpen(false);
     router.push('/login');
   };
 
@@ -77,15 +90,14 @@ export function Sidebar() {
     }
   };
 
-  return (
-    <aside className="w-[330px] flex-shrink-0 bg-[#0e1117] border-r border-[#262730] h-screen overflow-y-auto hidden md:flex flex-col">
-      
+  const renderContent = (isMobile = false) => (
+    <>
       {/* Signature Section - Matching Streamlit Custom HTML */}
       <div className="signature-container mx-4">
         <div className="produced-by">PRODUCED BY</div>
         <div className="guru-name">Nghia Guru</div>
       </div>
-      
+
       <div className="px-4 pb-8 space-y-6">
         {/* CHẾ ĐỘ HỌC TẬP */}
         <div className="space-y-3">
@@ -94,11 +106,11 @@ export function Sidebar() {
           </h3>
           <div className="space-y-2">
             <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-[#1b2533] rounded">
-              <input type="radio" name="learning_mode" checked={learningMode === 'ai'} onChange={() => setLearningMode('ai')} className="w-4 h-4 text-[#ff4b4b] bg-transparent border-gray-500" />
+              <input type="radio" name={isMobile ? 'learning_mode_mobile' : 'learning_mode'} checked={learningMode === 'ai'} onChange={() => setLearningMode('ai')} className="w-4 h-4 text-[#ff4b4b] bg-transparent border-gray-500" />
               <span className="text-[14px] text-[#e2e8f0]">✨ Luyện câu hỏi mới từ AI</span>
             </label>
             <label className="flex items-center gap-2 cursor-pointer p-2 hover:bg-[#1b2533] rounded">
-              <input type="radio" name="learning_mode" checked={learningMode === 'notebook'} onChange={() => setLearningMode('notebook')} className="w-4 h-4 text-[#ff4b4b] bg-transparent border-gray-500" />
+              <input type="radio" name={isMobile ? 'learning_mode_mobile' : 'learning_mode'} checked={learningMode === 'notebook'} onChange={() => setLearningMode('notebook')} className="w-4 h-4 text-[#ff4b4b] bg-transparent border-gray-500" />
               <span className="text-[14px] text-[#e2e8f0]">📂 Sổ tay ôn câu sai</span>
             </label>
           </div>
@@ -121,24 +133,24 @@ export function Sidebar() {
             </div>
           )}
         </div>
-        
+
         <hr className="border-[#262730]" />
-        
+
         <h2 className="text-[14px] font-bold text-white mb-2 px-2">🗺️ BẢN ĐỒ HUẤN LUYỆN</h2>
-        
+
         <div className="space-y-4">
           {MENU_GROUPS.map((group, idx) => {
             const isExpanded = expandedGroups.includes(idx);
             return (
               <div key={idx} className="st-expander border-[#262730]">
-                <div 
+                <div
                   className="st-expander-header hover:text-white"
                   onClick={() => toggleGroup(idx)}
                 >
                   <span>{group.title}</span>
                   {isExpanded ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
                 </div>
-                
+
                 {isExpanded && (
                   <div className="st-expander-content">
                     {group.items.map((item) => {
@@ -147,10 +159,11 @@ export function Sidebar() {
                         <Link
                           key={item.path}
                           href={item.path}
+                          onClick={() => setMobileOpen(false)}
                           className={cn(
                             "px-3 py-2 rounded-md text-[14px] transition-colors duration-200",
-                            isActive 
-                              ? "bg-[rgba(255,255,255,0.08)] text-[#fbbf24] font-semibold border border-[rgba(251,191,36,0.3)] shadow-[0_0_10px_rgba(251,191,36,0.1)]" 
+                            isActive
+                              ? "bg-[rgba(255,255,255,0.08)] text-[#fbbf24] font-semibold border border-[rgba(251,191,36,0.3)] shadow-[0_0_10px_rgba(251,191,36,0.1)]"
                               : "text-[#e2e8f0] hover:bg-[rgba(255,255,255,0.05)] hover:text-white"
                           )}
                         >
@@ -178,12 +191,58 @@ export function Sidebar() {
         ) : (
           <Link
             href="/login"
+            onClick={() => setMobileOpen(false)}
             className="block px-3 py-2 rounded-md text-[14px] text-[#e2e8f0] hover:bg-[rgba(255,255,255,0.05)] hover:text-white transition-colors"
           >
             🔑 Đăng nhập
           </Link>
         )}
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setMobileOpen(true)}
+        className="md:hidden fixed top-3 left-3 z-40 bg-[#0e1117] border border-[#334155] text-white rounded-lg p-2 shadow-lg"
+        aria-label="Mở menu điều hướng"
+        aria-expanded={mobileOpen}
+        aria-controls="mobile-training-menu"
+      >
+        <Menu size={22} />
+      </button>
+
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-50">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Đóng menu điều hướng"
+          />
+          <aside
+            id="mobile-training-menu"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu huấn luyện"
+            className="relative w-[88vw] max-w-[340px] bg-[#0e1117] border-r border-[#262730] h-screen overflow-y-auto flex flex-col shadow-2xl animate-in slide-in-from-left duration-200"
+          >
+            <div className="sticky top-0 z-10 bg-[#0e1117]/95 backdrop-blur border-b border-[#262730] flex items-center justify-between px-4 py-3">
+              <span className="text-sm font-bold text-white">Menu huấn luyện</span>
+              <button ref={closeButtonRef} type="button" onClick={() => setMobileOpen(false)} className="text-gray-300 hover:text-white" aria-label="Đóng menu">
+                <X size={22} />
+              </button>
+            </div>
+            {renderContent(true)}
+          </aside>
+        </div>
+      )}
+
+      <aside className="w-[330px] flex-shrink-0 bg-[#0e1117] border-r border-[#262730] h-screen overflow-y-auto hidden md:flex flex-col">
+        {renderContent(false)}
+      </aside>
+    </>
   );
 }

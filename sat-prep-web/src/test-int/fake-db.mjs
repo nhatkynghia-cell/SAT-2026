@@ -70,7 +70,20 @@ function nextId(prefix) {
 }
 
 function matchFilters(row, filters) {
-  return filters.every(([col, val]) => row[col] === val);
+  return filters.every(([col, val]) => {
+    // Filter IN: spec {__in: Set} → row[col] phải nằm trong tập.
+    if (val && typeof val === 'object' && val.__in instanceof Set) {
+      return val.__in.has(row[col]);
+    }
+    // Range: {__gte} / {__lt} — so sánh trực tiếp (chuỗi ISO hoặc số).
+    if (val && typeof val === 'object' && '__gte' in val) {
+      return row[col] != null && row[col] >= val.__gte;
+    }
+    if (val && typeof val === 'object' && '__lt' in val) {
+      return row[col] != null && row[col] < val.__lt;
+    }
+    return row[col] === val;
+  });
 }
 
 /**
@@ -136,6 +149,21 @@ function makeBuilder(tableName) {
     },
     eq(col, val) {
       q.filters.push([col, val]);
+      return builder;
+    },
+    in(col, vals) {
+      // Filter kiểu IN: giữ nguyên hình dạng [col, spec] nhưng spec là {__in: Set}
+      // để matchFilters phân biệt với eq. Mảng rỗng → khớp 0 dòng (như PostgREST).
+      q.filters.push([col, { __in: new Set(Array.isArray(vals) ? vals : []) }]);
+      return builder;
+    },
+    gte(col, val) {
+      // Range filter: row[col] >= val (so sánh chuỗi/số như PostgREST timestamptz text).
+      q.filters.push([col, { __gte: val }]);
+      return builder;
+    },
+    lt(col, val) {
+      q.filters.push([col, { __lt: val }]);
       return builder;
     },
     order(col, opts) {
@@ -279,6 +307,37 @@ const RPCS = {
     return { ok: true, reason: 'ok', coins: econ.coins, xp: econ.xp };
   },
 
+  // bump_answer_streak: đếm chuỗi câu ĐÚNG liên tiếp (mirror nextAnswerStreak pure).
+  // Đúng → streak+1; sai → 0. Tạo dòng nếu chưa có. Trả jsonb {streak}.
+  bump_answer_streak({ p_user_id, p_correct }) {
+    let row = table('user_answer_streak').find((r) => r.user_id === p_user_id);
+    if (!row) {
+      row = { user_id: p_user_id, streak: 0 };
+      table('user_answer_streak').push(row);
+    }
+    const cur = Number.isFinite(row.streak) && row.streak > 0 ? Math.floor(row.streak) : 0;
+    row.streak = p_correct ? cur + 1 : 0;
+    return { streak: row.streak };
+  },
+
+  // bump_daily_activity: cộng dồn counter hoạt động theo (user, date, kind).
+  // Mirror migration_daily_activity.sql. Trả jsonb {ok, count}.
+  bump_daily_activity({ p_user_id, p_date, p_kind, p_delta }) {
+    if (p_kind !== 'vocab_review' && p_kind !== 'exam_complete') {
+      return { ok: false, reason: 'bad_kind' };
+    }
+    const delta = Math.max(0, typeof p_delta === 'number' ? p_delta : 1);
+    let row = table('user_daily_activity').find(
+      (r) => r.user_id === p_user_id && r.activity_date === p_date && r.kind === p_kind
+    );
+    if (!row) {
+      row = { user_id: p_user_id, activity_date: p_date, kind: p_kind, count: 0 };
+      table('user_daily_activity').push(row);
+    }
+    row.count += delta;
+    return { ok: true, count: row.count };
+  },
+
   redeem_reward({ p_user_id, p_reward_id, p_reward_name, p_cost }) {
     if (typeof p_cost !== 'number' || p_cost <= 0) return { ok: false, reason: 'bad_cost' };
     const econ = table('user_economy').find((r) => r.user_id === p_user_id);
@@ -318,24 +377,26 @@ const RPCS = {
     txn.status = 'paid';
     txn.gateway_txn_id = p_gateway_txn_id || null;
     txn.paid_at = new Date(state.idCounter * 1000).toISOString();
-    // 🔴 A2: CẤP GÓI NGUYÊN TỬ — mô phỏng INSERT user_subscriptions CÙNG transaction
-    // với UPDATE status='paid' (SQL thật dùng now() + duration_days days). CHỈ chạy
-    // trên nhánh lật pending→paid (nhánh alreadyConfirmed đã return ở trên) → đúng
-    // 1 dòng/order dù IPN gọi nhiều lần. Đơn cũ thiếu duration_days (null) → BỎ QUA
-    // insert (giữ tương thích), khớp nhánh `if v_duration is not null` của RPC.
+    // 🔴 A3: CẤP GÓI NGUYÊN TỬ + CỘNG DỒN. Mốc bắt đầu = GREATEST(now(), max
+    // expires_at gói CÙNG TIER còn hạn). Mô phỏng INSERT user_subscriptions cùng
+    // transaction với UPDATE paid. Đơn cũ thiếu duration_days (null) → BỎ QUA.
     if (txn.duration_days != null && txn.duration_days > 0) {
-      const startedAt = new Date(state.idCounter * 1000).toISOString();
-      const expiresAt = new Date(
-        state.idCounter * 1000 + txn.duration_days * 86400 * 1000
-      ).toISOString();
+      const nowMs = state.idCounter * 1000;
+      const nowIso = new Date(nowMs).toISOString();
+      // Gói cùng tier còn hạn → lấy expires_at lớn nhất (> now) để cộng dồn.
+      const activeMax = table('user_subscriptions')
+        .filter((s) => s.user_id === txn.user_id && s.tier === txn.tier && new Date(s.expires_at).getTime() > nowMs)
+        .reduce((max, s) => Math.max(max, new Date(s.expires_at).getTime()), nowMs);
+      const baseStartMs = Math.max(nowMs, activeMax);
+      const expiresAt = new Date(baseStartMs + txn.duration_days * 86400 * 1000).toISOString();
       table('user_subscriptions').push({
         id: nextId('user_subscriptions'),
         user_id: txn.user_id,
         tier: txn.tier,
         period: txn.period,
-        started_at: startedAt,
+        started_at: nowIso,
         expires_at: expiresAt,
-        created_at: startedAt,
+        created_at: nowIso,
       });
     }
     return { ok: true, alreadyConfirmed: false, ...meta };

@@ -9,10 +9,10 @@ import type { AiTier } from './ai-quota';
  *  qua getUserTier() (fail-safe → 'free' khi lỗi/không có gói) — module này giữ
  *  logic thuần tier + gate quota, đọc từ bảng `user_subscriptions`.
  *
- *  Phạm vi ban đầu (user chốt 2026-07-04): nền tảng tier + gate AI quota. Cổng
- *  thanh toán (VNPay/MoMo) nay đã nối: việc cấp/gia hạn gói do RPC `confirm_payment`
- *  làm ATOMIC cùng lúc xác nhận đơn (migration_a2_atomic_grant.sql), KHÔNG qua hàm
- *  grant riêng. Billing: Monthly/Quarterly/Semiannual/Yearly.
+ *  Phạm vi: nền tảng tier + gate AI quota. Cổng thanh toán Stripe đã nối:
+ *  việc cấp/gia hạn gói do RPC `confirm_payment` làm ATOMIC cùng lúc xác nhận đơn
+ *  (migration_a2_atomic_grant.sql), KHÔNG qua hàm grant riêng. Billing:
+ *  Monthly/Quarterly/Semiannual/Yearly.
  *
  *  ⚠️ THUẦN (pure) — không I/O. "now" được TIÊM vào để unit-test xác định (theo
  *  mẫu economy.ts/gate-exam.ts). Tầng I/O + Supabase nằm ở subscription-store.ts.
@@ -21,12 +21,11 @@ import type { AiTier } from './ai-quota';
  *  mức "Premium-elite" — neo cao cho tệp học sinh du học có điều kiện + chừa
  *  headroom cho affiliate/KOL chiết khấu 30-40% (buyer nhập mã KOL → thực thu
  *  ~65% list, vẫn lãi vì sàn chi phí AI thấp). Giá chỉ là dữ liệu bảng, KHÔNG
- *  ảnh hưởng logic tier/quota.
+ *  ảnh hưởng logic tier/quota. Chốt giá cuối xem TODO_USER.md.
  *
- *  KHÁC BIỆT GÓI (user chốt 2026-07-06): cả Premium & Ultimate đều ∞ AI
- *  (DAILY_LIMITS KHÔNG đổi) → phân tầng bằng RPG (hệ số xu, đề độc quyền) +
- *  chương trình học (skill-tree/adaptive/thi thật) + mentor (report 90d, model
- *  AI xịn), KHÔNG bằng quota AI. Xem CLgia.md ma trận phễu.
+ *  KHÁC BIỆT GÓI: cả Premium & Ultimate đều ∞ AI (DAILY_LIMITS KHÔNG đổi) → phân
+ *  tầng bằng RPG (hệ số xu, đề độc quyền) + chương trình học (skill-tree/adaptive/
+ *  thi thật) + mentor (report 90d, model AI xịn), KHÔNG bằng quota AI.
  *
  *  ⏳ Affiliate/coupon (referral tracking + áp discount ở payment/create + payout
  *  hoa hồng) là Wave 2, cần migration DB — CHƯA xây. payment/create hiện chốt
@@ -49,6 +48,31 @@ export const TIER_COIN_MULTIPLIER: Record<AiTier, number> = {
   free: 1,
   premium: 1.5,
   ultimate: 2,
+};
+
+/**
+ * Cap PvP/trận-đấu mỗi ngày theo gói (Wave 2 — 2026-07-21). Free ít hơn để giảm
+ * farm xu lặp trên account miễn phí; premium/ultimate nhiều hơn (đã trả tiền).
+ * Route /api/economy action 'pvp' kẹp thêm cap này TRƯỚC khi tiêu suất trận,
+ * song song với PVP_MAX_FIGHTS_PER_DAY (cap tuyệt đối) — lấy MIN hai giá trị.
+ * Thuần, không I/O; route tự tra tier rồi áp.
+ */
+export const TIER_PVP_CAP_PER_DAY: Record<AiTier, number> = {
+  free: 3,
+  premium: 10,
+  ultimate: 20,
+};
+
+/**
+ * Cap số tầng Tháp Vô Tận mỗi ngày theo gói (Wave 2). Free bị giới hạn để tạo
+ * thói quen ngắn; paid leo thoải mái. Route /api/tower/question kẹp theo floor
+ * đã leo trong ngày (chưa có cột DB → tạm chỉ ghi nhận ý định; khi có cột tower_*
+ * sẽ enforce thật). Giá trị dùng cho UI hiển thị cap + route gate khi có DB.
+ */
+export const TIER_TOWER_CAP_PER_DAY: Record<AiTier, number> = {
+  free: 5,
+  premium: 20,
+  ultimate: 50,
 };
 
 /** Chu kỳ thanh toán. */

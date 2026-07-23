@@ -448,10 +448,14 @@ export function checkPvpAttempt(
   targetRank: number,
   fightsToday: number,
   lastFightDate: string,
-  today: string
+  today: string,
+  maxFights: number = PVP_MAX_FIGHTS_PER_DAY
 ): PvpAttemptCheck {
+  // Cap hiệu lực = MIN(cap tuyệt đối, cap theo gói route truyền vào). Kẹp về [0, max]
+  // để không bao giờ nới rộng quá trần tuyệt đối dù caller truyền số lớn.
+  const cap = Math.max(0, Math.min(PVP_MAX_FIGHTS_PER_DAY, Math.floor(maxFights)));
   const used = fightsTodayEffective(fightsToday, lastFightDate, today);
-  const remaining = Math.max(0, PVP_MAX_FIGHTS_PER_DAY - used);
+  const remaining = Math.max(0, cap - used);
 
   // Chỉ được đánh đối thủ KẾ TRÊN. targetRank phải >= 1 (rank 0 không có đối thủ).
   if (!Number.isInteger(targetRank) || targetRank < 1 || targetRank !== currentRank - 1) {
@@ -465,7 +469,7 @@ export function checkPvpAttempt(
   if (remaining <= 0) {
     return {
       allowed: false,
-      reason: `Hôm nay bạn đã đấu đủ ${PVP_MAX_FIGHTS_PER_DAY} trận. Quay lại vào ngày mai nhé!`,
+      reason: `Hôm nay bạn đã đấu đủ ${cap} trận. Quay lại vào ngày mai nhé!`,
       fightsRemaining: 0,
     };
   }

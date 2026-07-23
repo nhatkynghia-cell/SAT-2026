@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { promote, nextReview, isDue, BOX_INTERVALS, MAX_BOX, todayStr } from './leitner.ts';
+import { promote, nextReview, isDue, BOX_INTERVALS, MAX_BOX, todayStr, adaptiveInterval } from './leitner.ts';
 
 test('promote: nhớ thì lên 1 box', () => {
   assert.equal(promote(1, true), 2);
@@ -74,4 +74,34 @@ test('isDue: mục đặt lịch hôm nay VN → đến hạn ngay từ 00:00 VN
 
 test('BOX_INTERVALS: đúng dãy Leitner 1,2,4,7,14', () => {
   assert.deepEqual(BOX_INTERVALS, { 1: 1, 2: 2, 3: 4, 4: 7, 5: 14 });
+});
+
+// ── adaptiveInterval: nới khoảng ôn theo số lần nhớ liên tiếp ──────────────
+
+test('adaptiveInterval: 0-2 đúng liên tiếp → khoảng mặc định', () => {
+  assert.equal(adaptiveInterval(3, 0), BOX_INTERVALS[3]);
+  assert.equal(adaptiveInterval(3, 2), BOX_INTERVALS[3]);
+  assert.equal(adaptiveInterval(5, 1), BOX_INTERVALS[5]);
+});
+
+test('adaptiveInterval: 3-5 đúng liên tiếp → +1 ngày (ôm chắc → thưa)', () => {
+  assert.equal(adaptiveInterval(3, 3), BOX_INTERVALS[3] + 1);
+  assert.equal(adaptiveInterval(3, 5), BOX_INTERVALS[3] + 1);
+});
+
+test('adaptiveInterval: 6+ đúng liên tiếp → +2 ngày', () => {
+  assert.equal(adaptiveInterval(4, 6), BOX_INTERVALS[4] + 2);
+  assert.equal(adaptiveInterval(4, 99), BOX_INTERVALS[4] + 2);
+});
+
+test('nextReview: truyền consecutiveCorrect nới ngày ôn', () => {
+  const nowMs = Date.UTC(2026, 6, 11, 9, 0, 0); // ngày VN 07-11
+  // box 3 mặc định +4 → 07-15; consecutiveCorrect=6 → +6 → 07-17.
+  assert.equal(nextReview(3, nowMs, 0), '2026-07-15');
+  assert.equal(nextReview(3, nowMs, 6), '2026-07-17');
+});
+
+test('nextReview: không truyền consecutiveCorrect → giữ hành vi mặc định (tương thích)', () => {
+  const nowMs = Date.UTC(2026, 6, 11, 9, 0, 0);
+  assert.equal(nextReview(3, nowMs), '2026-07-15');
 });

@@ -33,5 +33,8 @@ export async function saveMastery(userId: string, store: MasteryStore): Promise<
       { onConflict: 'user_id' }
     );
 
-  if (error) console.error('Lỗi khi lưu mastery lên Supabase:', error);
+  if (error) {
+    console.error('Lỗi khi lưu mastery lên Supabase:', error);
+    throw new Error('Không thể lưu mastery. Vui lòng thử lại.');
+  }
 }

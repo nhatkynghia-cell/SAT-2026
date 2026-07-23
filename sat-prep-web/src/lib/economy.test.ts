@@ -311,6 +311,25 @@ test('checkPvpAttempt: bộ đếm RESET sang ngày mới (lastFightDate khác t
   assert.equal(r.fightsRemaining, PVP_MAX_FIGHTS_PER_DAY);
 });
 
+test('checkPvpAttempt: cap theo GÓI (maxFights) — free 3 chặn sớm hơn trần tuyệt đối', () => {
+  // Free cap 3: đã đánh 3 trận hôm nay → chặn dù trần tuyệt đối 10 chưa tới.
+  const freeFull = checkPvpAttempt(11, 10, 3, TODAY, TODAY, 3);
+  assert.equal(freeFull.allowed, false);
+  assert.equal(freeFull.fightsRemaining, 0);
+  assert.match(freeFull.reason!, /3 trận/);
+  // Free đánh 2 trận → còn 1 lượt.
+  const freeLeft = checkPvpAttempt(11, 10, 2, TODAY, TODAY, 3);
+  assert.equal(freeLeft.allowed, true);
+  assert.equal(freeLeft.fightsRemaining, 1);
+});
+
+test('checkPvpAttempt: maxFights vượt trần tuyệt đối bị KẸP về PVP_MAX_FIGHTS_PER_DAY', () => {
+  // Caller truyền cap 999 (vd bug) → kẹp về 10, không nới rộng faucet.
+  const r = checkPvpAttempt(11, 10, PVP_MAX_FIGHTS_PER_DAY, TODAY, TODAY, 999);
+  assert.equal(r.allowed, false);
+  assert.equal(r.fightsRemaining, 0);
+});
+
 test('bumpPvpCounter: +1 trong ngày; reset về 1 khi sang ngày mới', () => {
   assert.deepEqual(bumpPvpCounter(3, TODAY, TODAY), { fightsToday: 4, lastFightDate: TODAY });
   // Ngày khác → đếm lại từ 1.

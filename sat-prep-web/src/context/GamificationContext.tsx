@@ -127,6 +127,9 @@ type GamificationState = {
    *  (server-authoritative, từ /api/economy — bảng user_cosmetics). KHÁC inventory
    *  (skin/theme mua). Dùng mở khóa collection đúng người đã vô địch. */
   ownedCosmetics: string[];
+  /** Hydration nền của GamificationProvider đã xong; dùng để page tự skeleton cục bộ
+   *  cho gate nhạy cảm (tier/quests) mà KHÔNG cần splash toàn app. */
+  gamificationLoaded: boolean;
 
   // Actions
   // 🔴 Economy server-authoritative (§9.1): coins/xp do SERVER quyết. Các hàm
@@ -540,15 +543,36 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
       shield: prev.shield + decision.shieldDelta,
       maxPower: prev.maxPower + decision.maxPowerDelta,
     }));
-    // Gửi itemId để server tra catalog + gate giá/tier (chốt bảo mật thật).
-    postSpend(price, itemId);
-
     setInventory(prev => [...prev, itemId]);
 
-    if (itemId.includes("da_cuong_hoa")) {
-      const instanceId = nextInstanceId();
-      setInventory(prev => [...prev, { instanceId, itemId: "da_cuong_hoa", name: "Đá Cường Hóa", tier: "Đồng", level: 1, icon: "🪨", isBound: true }]);
+    const isStone = itemId.includes("da_cuong_hoa");
+    let stoneInstanceId: string | null = null;
+    if (isStone) {
+      stoneInstanceId = nextInstanceId();
+      const sid = stoneInstanceId;
+      setInventory(prev => [...prev, { instanceId: sid, itemId: "da_cuong_hoa", name: "Đá Cường Hóa", tier: "Đồng", level: 1, icon: "🪨", isBound: true }]);
     }
+
+    // Gửi itemId để server tra catalog + gate giá/tier (chốt bảo mật thật). Server
+    // TỪ CHỐI (giá lệch / tier khóa / hết xu / lỗi) → ROLLBACK optimistic: hoàn
+    // coins/shield/maxPower + gỡ item vừa thêm → UI không hiện đồ chưa thực sự mua.
+    postSpend(price, itemId, () => {
+      setUserStats(prev => ({
+        ...prev,
+        coins: prev.coins + price,
+        shield: Math.max(0, prev.shield - decision.shieldDelta),
+        maxPower: Math.max(0, prev.maxPower - decision.maxPowerDelta),
+      }));
+      setInventory(prev => {
+        // Gỡ 1 lần xuất hiện itemId (chuỗi) vừa thêm + đá cường hóa (nếu có).
+        let removedItem = false;
+        return prev.filter((i) => {
+          if (typeof i === 'string' && i === itemId && !removedItem) { removedItem = true; return false; }
+          if (stoneInstanceId && typeof i === 'object' && i.instanceId === stoneInstanceId) return false;
+          return true;
+        });
+      });
+    });
 
     return { success: true, maxPowerGained: decision.maxPowerDelta };
   };
@@ -582,7 +606,11 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
   // 🔴 Trừ xu qua server (§9.1): optimistic deduct cục bộ để UI phản hồi ngay +
   // giữ chữ ký sync (boolean), rồi POST 'spend' và đồng bộ lại coins từ server.
   // Spend KHÔNG phải vector cheat (chỉ tiêu được xu đang có) nên optimistic an toàn.
-  const postSpend = (amount: number, itemId?: string) => {
+  //
+  // `onReject` (tùy chọn): gọi khi server TỪ CHỐI spend (giá lệch / tier khóa /
+  // hết xu / lỗi mạng) → caller rollback thay đổi optimistic (coins/inventory/
+  // maxPower) để UI không hiện đồ user chưa thực sự sở hữu tới lần sync sau.
+  const postSpend = (amount: number, itemId?: string, onReject?: () => void) => {
     fetch('/api/economy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -592,15 +620,24 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.state) syncEconomy(data.state);
+          else if (onReject) onReject(); // 200 nhưng success:false (hiếm) → rollback
+        } else if (onReject) {
+          onReject(); // 4xx/5xx (giá lệch / tier khóa / hết xu) → rollback optimistic
         }
       })
-      .catch((e) => console.error('Failed to spend coins', e));
+      .catch((e) => {
+        console.error('Failed to spend coins', e);
+        if (onReject) onReject(); // lỗi mạng → rollback
+      });
   };
 
   const spendCoins = (amount: number) => {
     if (userStats.coins >= amount) {
       setUserStats(prev => ({ ...prev, coins: prev.coins - amount }));
-      postSpend(amount);
+      // Server từ chối (hết xu do lệch state / lỗi) → hoàn lại amount.
+      postSpend(amount, undefined, () => {
+        setUserStats(prev => ({ ...prev, coins: prev.coins + amount }));
+      });
       return true;
     }
     return false;
@@ -628,7 +665,11 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     }
 
     setUserStats(prev => ({ ...prev, coins: prev.coins - costCoins }));
-    postSpend(costCoins);
+    // Server TỪ CHỐI trừ xu (hết xu/lỗi) → hoàn lại costCoins (không mất xu ảo).
+    // Cấp/vật phẩm forge lưu ở save-data client nên chỉ cần rollback coins ở đây.
+    postSpend(costCoins, undefined, () => {
+      setUserStats(prev => ({ ...prev, coins: prev.coins + costCoins }));
+    });
 
     // Bùa Bảo Hộ tái dùng Khiên Bảo Vệ Streak (shield): bật + còn khiên → fail thì
     // giữ nguyên cấp, tiêu 1 khiên. Helper trả buaUsed để context trừ shield.
@@ -729,12 +770,16 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     const quest = quests.daily.find(q => q.id === questId);
     if (quest && quest.progress >= quest.target && !quest.claimed) {
       // 🔴 Server quyết phần thưởng từ QUEST_REWARD theo questId (§9.1).
-      // Đánh dấu đã nhận TRƯỚC để chống double-claim do bấm nhanh; nếu request
-      // lỗi, server không cộng nhưng claim flag chỉ là cờ UI cục bộ (sẽ đồng bộ
-      // lại từ save-data lần load sau).
+      // Đánh dấu đã nhận TRƯỚC để chống double-claim do bấm nhanh. Nếu request
+      // thật sự lỗi (network/500), rollback cờ UI để user không bị kẹt mất nút
+      // claim; nếu server trả 409 already_claimed thì giữ claimed=true (idempotent).
       setQuests(prev => ({
         ...prev,
         daily: prev.daily.map(q => q.id === questId ? { ...q, claimed: true } : q)
+      }));
+      const rollbackClaim = () => setQuests(prev => ({
+        ...prev,
+        daily: prev.daily.map(q => q.id === questId ? { ...q, claimed: false } : q)
       }));
       try {
         const res = await fetch('/api/economy', {
@@ -742,12 +787,15 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'quest', questId }),
         });
+        const data = await res.json().catch(() => ({}));
         if (res.ok) {
-          const data = await res.json();
           if (data.state) syncEconomy(data.state);
+        } else if (res.status !== 409) {
+          rollbackClaim();
         }
       } catch (e) {
         console.error('Failed to claim quest reward', e);
+        rollbackClaim();
       }
     }
   };
@@ -759,14 +807,9 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
     [userStats.level, userStats.coins, userStats.maxPower]
   );
 
-  if (!isLoaded) {
-    return (
-      <div className="fixed inset-0 bg-[#020617] flex flex-col items-center justify-center z-50 animate-pulse">
-        <div className="w-16 h-16 border-4 border-[#3b82f6] border-t-transparent rounded-full animate-spin"></div>
-        <div className="mt-8 text-2xl font-black tracking-widest text-[#94a3b8]">ĐANG TẢI DỮ LIỆU...</div>
-      </div>
-    );
-  }
+  // Không chặn toàn app bằng splash: render app ngay với default safe state, rồi
+  // hydrate HUD/quests/mastery nền khi API trả về. Mỗi trang tự chịu trách nhiệm
+  // skeleton cho dữ liệu cốt lõi của nó (dashboard, diagnostic, ...).
 
   return (
     <GamificationContext.Provider value={{
@@ -791,6 +834,7 @@ export function GamificationProvider({ children }: { children: React.ReactNode }
       bookmarkedQuestions: practiceQuestion.bookmarkedQuestions || [],
       tier,
       ownedCosmetics,
+      gamificationLoaded: isLoaded,
 
       unlockedBadges,
 

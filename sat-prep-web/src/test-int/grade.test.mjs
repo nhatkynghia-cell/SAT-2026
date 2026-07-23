@@ -98,16 +98,16 @@ test('grade: client KHÔNG gửi được số xu — payload isCorrect/granted 
   assert.equal(getRows('user_economy')[0].coins, 100);
 });
 
-test('grade: combo streak client gửi bị KẸP ở trần 1.75× — không bơm thưởng vô hạn', async () => {
+test('grade: combo streak client gửi bị bỏ qua — không bơm thưởng', async () => {
   resetDb(); setCurrentUser({ id: 'g-combo' });
   seedUser('g-combo'); seedQuestion('q', 'g-combo', 'B', { difficulty: 'Hard' });
 
-  // Kẻ tấn công gửi streak khổng lồ. comboMultiplier bậc thang cap 1.75× (streak>=15)
-  // → Hard 20/100 → 35/175. Trần TỒN TẠI (không scale theo streak) là điểm anti-cheat.
+  // Kẻ tấn công gửi streak khổng lồ. Server KHÔNG tin streak client trên đường tiền,
+  // nên vẫn trả thưởng cơ bản Hard 20/100. Combo chỉ bật lại khi có streak server-authoritative.
   const { body } = await readRes(await POST(postJson({ questionId: 'q', answer: 'B', streak: 999999 })));
   assert.equal(body.correct, true);
-  assert.deepEqual(body.granted, { coins: 35, xp: 175 }, 'trần combo 1.75× (KHÔNG scale theo streak khổng lồ)');
-  assert.equal(getRows('user_economy')[0].coins, 135);
+  assert.deepEqual(body.granted, { coins: 20, xp: 100 }, 'streak client bị bỏ qua → base Hard');
+  assert.equal(getRows('user_economy')[0].coins, 120);
 });
 
 test('grade: streak âm/không hợp lệ → coi như 0, thưởng cơ bản (không combo)', async () => {
@@ -115,6 +115,44 @@ test('grade: streak âm/không hợp lệ → coi như 0, thưởng cơ bản (k
   seedUser('g-negstreak'); seedQuestion('q', 'g-negstreak', 'B', { difficulty: 'Hard' });
   const { body } = await readRes(await POST(postJson({ questionId: 'q', answer: 'B', streak: -50 })));
   assert.deepEqual(body.granted, { coins: 20, xp: 100 }, 'streak âm → 0 → base Hard');
+});
+
+// ── COMBO SERVER-AUTHORITATIVE (bump_answer_streak) ──────────────────────────
+// streak SERVER tăng theo chuỗi đúng liên tiếp → comboMultiplier bật ở ngưỡng
+// 5/10/15. Mỗi câu 1 issued_questions riêng (CAS answered), server tự đếm streak.
+
+test('grade: combo — câu đúng thứ 5 liên tiếp → ×1.25 (Medium 10/50 → 12/62)', async () => {
+  resetDb(); setCurrentUser({ id: 'g-combo5' }); seedUser('g-combo5');
+  // 5 câu Medium đúng liên tiếp. Câu 1-4: streak 1-4 (×1.0 → 10/50). Câu 5: streak 5 (×1.25).
+  for (let i = 1; i <= 5; i++) seedQuestion(`q${i}`, 'g-combo5', 'B', { difficulty: 'Medium' });
+  let last;
+  for (let i = 1; i <= 5; i++) {
+    last = (await readRes(await POST(postJson({ questionId: `q${i}`, answer: 'B' })))).body;
+  }
+  // Câu thứ 5: streak=5 → ×1.25 → coins floor(10*1.25)=12, xp floor(50*1.25)=62.
+  assert.deepEqual(last.granted, { coins: 12, xp: 62 }, 'câu thứ 5 combo ×1.25');
+});
+
+test('grade: combo RESET khi trả lời sai giữa chừng', async () => {
+  resetDb(); setCurrentUser({ id: 'g-comboReset' }); seedUser('g-comboReset');
+  // 4 câu đúng (streak lên 4), 1 câu SAI (reset 0), rồi 1 câu đúng (streak lại 1 → ×1.0).
+  for (let i = 1; i <= 4; i++) seedQuestion(`ok${i}`, 'g-comboReset', 'B', { difficulty: 'Medium' });
+  seedQuestion('wrong', 'g-comboReset', 'B', { difficulty: 'Medium' });
+  seedQuestion('after', 'g-comboReset', 'B', { difficulty: 'Medium' });
+
+  for (let i = 1; i <= 4; i++) await readRes(await POST(postJson({ questionId: `ok${i}`, answer: 'B' })));
+  await readRes(await POST(postJson({ questionId: 'wrong', answer: 'A' }))); // SAI → reset
+  const after = (await readRes(await POST(postJson({ questionId: 'after', answer: 'B' })))).body;
+  // Sau reset, câu đúng kế tiếp streak=1 → ×1.0 → base Medium 10/50 (KHÔNG cộng dồn combo cũ).
+  assert.deepEqual(after.granted, { coins: 10, xp: 50 }, 'combo reset về base sau khi sai');
+});
+
+test('grade: combo — câu đầu tiên streak=1 → base (không combo, client streak bị bỏ qua)', async () => {
+  resetDb(); setCurrentUser({ id: 'g-first' }); seedUser('g-first');
+  seedQuestion('q', 'g-first', 'B', { difficulty: 'Hard' });
+  // Dù client gửi streak khổng lồ, server đếm streak=1 (câu đầu) → ×1.0 → base Hard.
+  const { body } = await readRes(await POST(postJson({ questionId: 'q', answer: 'B', streak: 999 })));
+  assert.deepEqual(body.granted, { coins: 20, xp: 100 }, 'câu đầu → streak server=1 → base');
 });
 
 // ── HẾT GIỜ TỰ NỘP (đề thư viện): answer rỗng chấm sai, KHÔNG có lỗ farm ──────

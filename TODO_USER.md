@@ -1,12 +1,13 @@
 # ✅ TODO USER — Việc cần bạn giải quyết (Claude không tự làm được)
 
-> Cập nhật 2026-07-17. Đánh dấu `[x]` khi xong. Gửi được creds/token cho Claude thì Claude wire vào ngay.
+> Cập nhật 2026-07-20 (sau multi-agent audit + vá 15 finding). Code-side audit blockers đã đóng; còn credential/SQL blocker.
 
-> **🖥️ BẢN LÀM VIỆC MỚI = ổ C:** (ổ F: bad sector, build gãy EIO).
-> `C:/Users/DELL/Desktop/SAT_Rescue 17.7/SAT_Rescue/0.SAT.Guru 2026/10.SAT_Prep_App 30.6/10.SAT_Prep_App 30.6/10.SAT_Prep_App/10.SAT_Prep_App/sat-prep-web`
-> Bản C: có `.git`, đã verify: tsc sạch · lint 0 · test 498/498 · build 79 pages.
+> **🖥️ BẢN LÀM VIỆC = ổ C:** `C:/Users/DELL/Desktop/SAT_Rescue 17.7/SAT_Rescue/0.SAT.Guru 2026/10.SAT_Prep_App 30.6/10.SAT_Prep_App 30.6/10.SAT_Prep_App/10.SAT_Prep_App/sat-prep-web`
+> Đã verify: tsc sạch · lint 0 · **test 513/513** · build 79 pages.
 
 > **🚀 DEPLOY:** prod https://sat-2026.vercel.app đang LIVE ở `da0b370` (BẢN CŨ, chưa có Stripe). Code Stripe đã commit local `ed982f5` nhánh `feat/stripe-payment-migration` — CHƯA push, nên prod chưa có Stripe.
+
+> **▶️ KHỞI ĐỘNG:** bấm đúp `KhoiDong-App.bat` (root) → http://localhost:3000. App chiến lược: `KhoiDong-ChienLuoc.bat`. Account test: `truongsonht.xd@gmail.com` / `Nghia@123` (có thể đã đổi → "Quên mật khẩu" trên /login).
 
 ---
 
@@ -28,6 +29,14 @@
 - [x] **Rotate OpenAI key — XONG 2026-07-14.** Đã wire prod + verify sống.
 - [x] DB password Supabase — ĐÃ đổi.
 
+## 🔴 NHÓM 1D — CAO: SQL/RLS blocker do audit 2026-07-20 nêu
+
+- [ ] **RLS `ai_chat_cache`** (bảng dùng chung, hiện `authenticated using(true)` — cần review policy production).
+- [ ] **RPC atomic spin/economy**: đã có code + fallback non-atomic, cần chạy migration SQL (`quest_claim_atomic.sql`, `migration_exam_economy_atomic.sql`) để khóa dòng tránh double-grant.
+- [ ] **Rate-limit store bền vững**: hiện in-memory, reset theo process serverless → cần Redis/edge-config/DB.
+- [ ] **ROOT E `p_user_id` guard** tường minh trong RPC (chống user A tác động economy user B).
+- [ ] **Test sandbox MoMo thật**: đối chiếu field-order chữ ký IPN MoMo với payload sample thật (điểm dễ sai nhất).
+
 ## 🔴 NHÓM 1C — CAO: hạ tầng
 
 - [ ] **chkdsk F:** `chkdsk F: /f /r` (quyền admin, dismount ổ, chạy khi khởi động, lâu). Sửa bad sector đã làm build gãy EIO. Hoặc bỏ hẳn F:, dùng C:.
@@ -40,12 +49,12 @@
 - [ ] Verify cron `settle-speed-quiz` (`vercel.json`: `7 17 * * *`) có bảo vệ + bảng `speed_quiz` đã migrate.
 - [ ] **OAuth Google** (Nhóm 3 cũ): tạo Client Google Cloud + bật Supabase Provider + Redirect URLs. Xem `OAUTH_SETUP.md`. Code sẵn, nút tự hiện khi bật.
 
-## 🟡 NHÓM 3 — TRUNG BÌNH: tính năng/conversion (Claude làm được, cần bạn chốt)
+## 🟡 NHÓM 3 — TRUNG BÌNH: tính năng/conversion (đã làm phần lớn 2026-07-19/20)
 
-- [ ] **Nhóm A** (đã QUYẾT 2026-07-07): switch model AI cao cấp theo tier (Ultimate hiện vẫn `gpt-4o-mini`) + gỡ 3 dòng hứa A2/A3/A4 ở `/upgrade`. → Claude làm ngay khi bạn OK.
-- [ ] **Nhóm B**: đóng gate Free ở tầng API `/api/generate-practice` (free đang dựng request tay luyện chương khóa).
-- [ ] **C4**: mất dữ liệu diagnostic khi khách login muộn — chốt hướng (khuyến nghị ép login trước diagnostic).
-- [ ] **Cụm CTA C5–C8**: skill-tree "mở khóa chương", real-exams redirect, AI quota "còn N lượt", empty dashboard CTA.
+- [x] **Nhóm A** switch model AI theo tier + gỡ hứa A2/A3/A4 ở /upgrade — XONG.
+- [x] **Nhóm B** gate Free tầng API /api/generate-practice — XONG (canGeneratePracticeForTier).
+- [x] **C4** mất dữ liệu diagnostic khi login muộn — XONG (auth-gate diagnostic + login_required phase).
+- [x] **Cụm CTA C5–C8** + paywall `from/unlock` — XONG.
 - [ ] **Affiliate 35%** (KOL 25% + giảm 10%): thiết kế xong, chưa code (bảng + discount + hoa hồng webhook).
 - [ ] **Giải Top-5 toàn quốc**: nghiên cứu tiêu chí chống gian lận + build.
 
@@ -65,9 +74,16 @@
 - [ ] Dọn nhánh git rác (lane-a/b/c WIP — destructive, cần bạn duyệt) + thống nhất bản C:/F:.
 - [ ] Gỡ route legacy `/api/migrate-data` + file JSON cũ trước prod.
 - [ ] Dọn comment lỗi thời (subscription.ts:8, auth.ts:8-13); ROOT E #3 `p_user_id` tường minh.
-- [ ] **Verify (có thể đã lỗi thời)**: mastery tracking luồng luyện thường · anti-cheat economy cutover (client còn tính coins?) · skill-tree/base-stats UI · click-verify UI /admin/redemptions.
+- [ ] **Test coverage / technical debt (audit 2026-07-20 nêu)**: integration test diagnostic→practice→grade→mastery delta; edge cases economy/payment gate/quota; E2E mobile navigation/paywall/real-exams gate.
 - [ ] Roadmap Phase 3/4 (mobile, social, B2B...) — sau beta.
 
 ---
 
-*Danh sách đầy đủ 33 mục + chi tiết file/dòng: xem `HANDOFF_2026-07-17.md`.*
+## ✅ ĐÃ XONG PHIÊN 2026-07-20 (multi-agent audit + vá)
+
+- 15 finding verify-true đã vá (MoMo HTTP-check, admin JSON 400, AITutoring error states, auth-session stub fail-closed, grade không tin streak client, diagnostic complete yêu cầu đủ câu, MistakeNotebook retry, generate-practice/gate src=gate + 503 khi issue fail, gate-exam ràng buộc questionIds, golden_hour giấu explanation đến sau nộp).
+- Verify: test 513/513 · lint 0 · build 79 pages · tsc sạch.
+- Tài liệu/dashboard: `docs/pre-deploy-strategy-dashboard.html`, `KhoiDong-App.bat`, `KhoiDong-ChienLuoc.bat`.
+- Chi tiết: memory Claude `full-audit-fix-2026-07-20`.
+
+*Danh sách đầy đủ + chi tiết file/dòng: xem `HANDOFF_2026-07-17.md` + block "AUDIT 2026-07-20" trong `memory.md`.*

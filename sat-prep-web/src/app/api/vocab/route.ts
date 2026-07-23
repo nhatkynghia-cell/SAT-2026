@@ -7,6 +7,7 @@ import { applyExamRewardFromDifficulties } from '@/lib/economy';
 import { getUserTier } from '@/lib/subscription-store';
 import { TIER_COIN_MULTIPLIER } from '@/lib/subscription';
 import { recordAnswer } from '@/lib/mastery';
+import { bumpDailyActivity } from '@/lib/daily-activity-store';
 
 // Sentinel bucket cho thưởng ôn từ vựng trong quest_claims (cùng cơ chế claim-once
 // atomic với dailyLogin/streak). itemId = `${wordId}:${next_review gốc}` → mỗi
@@ -131,6 +132,22 @@ export async function POST(req: Request) {
       } catch (e) {
         console.error('recordAnswer(rw.vocab) lỗi (không chặn ôn từ):', e);
       }
+    }
+
+    // 🔴 Đếm hoạt động ôn từ hôm nay (quest 'vocab-reviewed' đối chiếu server).
+    // CHỈ tăng khi claimedFresh — tức lần ĐẦU chốt thưởng cho due-instance này qua
+    // CAS tryClaimOnceAtomic (chỉ có ở nhánh remembered). Nhánh "quên"
+    // (isRemembered=false) KHÔNG có CAS → nếu bump theo wasDue thì N POST song song
+    // 1 từ due đều thấy wasDue=true → counter +N từ 1 review thật → forge được quest
+    // gate (adversarial review 2026-07-23, faucet-double-count). Gate qua claimedFresh
+    // đóng race: mỗi due-instance chỉ đếm 1 (CAS thắng đúng 1 lần). Đánh đổi: review
+    // "quên" không tính vào quest — hợp lý vì learning-contract đo từ THỰC SỰ NHỚ.
+    // AWAIT (không fire-and-forget): trên serverless, void-promise chưa await có
+    // thể bị DROP khi instance freeze sau response → counter thiếu → quest gate
+    // block nhầm claim hợp lệ (adversarial review 2026-07-23). bumpDailyActivity
+    // đã nuốt MỌI lỗi (không throw) nên await an toàn — chỉ đảm bảo RPC commit.
+    if (claimedFresh) {
+      await bumpDailyActivity(user.id, 'vocab_review');
     }
 
     // Trả full economy cho client syncServerEconomy (hợp đồng: economy đầy đủ).
