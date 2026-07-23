@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCostReport } from '@/lib/ai-cost';
-import { verifyAdminSecret } from '@/lib/admin-auth';
+import { verifyAdminAccess } from '@/lib/admin-access';
 import { rateLimit } from '@/lib/rate-limit';
 
 /**
@@ -9,14 +9,14 @@ import { rateLimit } from '@/lib/rate-limit';
  * GET → chi phí AI toàn hệ thống hôm nay: số lượt gọi, token in/out, chi phí
  *       USD ước tính, ngân sách ngày và phần còn lại.
  *
- * 🔒 BẢO VỆ bằng shared-secret (header `x-admin-secret` so timing-safe với ENV
- * ADMIN_SECRET — admin-auth.ts), cùng cơ chế /api/admin/redemptions. App chưa có
- * role system → đây là biện pháp NHẸ. FAIL-CLOSED: ENV chưa set → mọi request
- * 403 (số liệu vận hành toàn hệ thống KHÔNG lộ ra ngoài).
+ * 🔒 DUAL-AUTH (session-admin HOẶC shared-secret) qua verifyAdminAccess: vào được
+ * nếu user có role 'admin' HOẶC header x-admin-secret khớp ADMIN_SECRET. Cùng cơ
+ * chế /api/admin/redemptions. FAIL-CLOSED: không quyền → 403 (số liệu vận hành
+ * KHÔNG lộ ra ngoài).
  *
- * 🔴 Chống brute-force: CHỈ rate-limit lần thử SAI secret theo IP (10 lần/phút);
- * secret đúng không chạm limit. Middleware allow /api/admin (public) nên endpoint
- * này tự bảo vệ.
+ * 🔴 Chống brute-force: CHỈ rate-limit lần thử SAI theo IP (10 lần/phút); vào hợp
+ * lệ (secret/session) không chạm limit. Middleware allow /api/admin (public) nên
+ * endpoint này tự bảo vệ.
  */
 function clientIp(req: Request): string {
   const xff = req.headers.get('x-forwarded-for');
@@ -25,7 +25,7 @@ function clientIp(req: Request): string {
 }
 
 export async function GET(req: Request) {
-  if (!verifyAdminSecret(req.headers.get('x-admin-secret'))) {
+  if (!(await verifyAdminAccess(req))) {
     const rl = rateLimit(`admin-auth-fail:${clientIp(req)}`, 10, 60_000);
     if (!rl.allowed) {
       return NextResponse.json(

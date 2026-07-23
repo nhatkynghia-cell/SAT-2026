@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifyAdminSecret } from '@/lib/admin-auth';
+import { verifyAdminAccess } from '@/lib/admin-access';
 import { rateLimit } from '@/lib/rate-limit';
 import {
   listPendingRedemptions,
@@ -38,15 +38,15 @@ function clientIp(req: Request): string {
 }
 
 /**
- * Verify secret + chống brute-force: CHỈ rate-limit các lần thử THẤT BẠI theo IP
- * (10 lần sai / phút). Secret ĐÚNG không bao giờ chạm limit → admin hợp lệ thao
- * tác thoải mái. Trước đây rate-limit đặt SAU verify (chỉ áp khi đã có secret
- * đúng) nên đoán secret không bị chặn. Trả:
- *   • {ok:true}          — secret đúng, cho qua.
- *   • {ok:false, res}    — sai secret (403) hoặc vượt số lần thử (429).
+ * DUAL-AUTH (session-admin HOẶC secret) + chống brute-force: verifyAdminAccess
+ * cho qua nếu user có role admin HOẶC secret đúng (admin-access.ts). CHỈ rate-limit
+ * các lần thử THẤT BẠI theo IP (10 lần/phút) — vào hợp lệ (secret/session) không
+ * chạm limit. Trả:
+ *   • {ok:true}          — có quyền (secret hoặc session-admin), cho qua.
+ *   • {ok:false, res}    — không quyền (403) hoặc vượt số lần thử (429).
  */
-function verifyAdminOrLimit(req: Request): { ok: true } | { ok: false; res: NextResponse } {
-  if (verifyAdminSecret(req.headers.get('x-admin-secret'))) return { ok: true };
+async function verifyAdminOrLimit(req: Request): Promise<{ ok: true } | { ok: false; res: NextResponse }> {
+  if (await verifyAdminAccess(req)) return { ok: true };
   const rl = rateLimit(`admin-auth-fail:${clientIp(req)}`, 10, 60_000);
   if (!rl.allowed) {
     return {
@@ -61,7 +61,7 @@ function verifyAdminOrLimit(req: Request): { ok: true } | { ok: false; res: Next
 }
 
 export async function GET(req: Request) {
-  const auth = verifyAdminOrLimit(req);
+  const auth = await verifyAdminOrLimit(req);
   if (!auth.ok) return auth.res;
   const redemptions = await listPendingRedemptions();
   return NextResponse.json({ success: true, redemptions });
@@ -69,7 +69,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const auth = verifyAdminOrLimit(req);
+    const auth = await verifyAdminOrLimit(req);
     if (!auth.ok) return auth.res;
 
     // Rate-limit thêm theo hành động (chống bấm dồn khi đã có secret đúng).

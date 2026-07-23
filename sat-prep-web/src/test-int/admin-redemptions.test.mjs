@@ -11,10 +11,15 @@ import assert from 'node:assert/strict';
 // Route đọc process.env.ADMIN_SECRET mỗi lần verify → set TRƯỚC khi import route.
 process.env.ADMIN_SECRET = 'test-admin-secret-xyz';
 
-const { resetDb, disableRpc, seed, getRows } = await import('./harness.mjs');
+const { resetDb, disableRpc, seed, getRows, setCurrentUser } = await import('./harness.mjs');
 const { GET, POST } = await import('@/app/api/admin/redemptions/route.ts');
 
 const SECRET = 'test-admin-secret-xyz';
+
+/** Gán role admin cho 1 user trong bảng user_roles (dual-auth session path). */
+function seedAdminRole(userId) {
+  seed('user_roles', { user_id: userId, role: 'admin' });
+}
 
 function req(method, { secret, body, ip } = {}) {
   const headers = { 'content-type': 'application/json' };
@@ -55,8 +60,45 @@ test('admin: GET KHÔNG secret → 403 (fail-closed)', async () => {
 
 test('admin: GET sai secret → 403', async () => {
   resetDb();
+  setCurrentUser(null); // không đăng nhập → không có đường session-admin
   const { status } = await readRes(await GET(req('GET', { secret: 'wrong' })));
   assert.equal(status, 403);
+});
+
+// ── DUAL-AUTH: session-admin (role) vào được KHÔNG cần secret ─────────────────
+test('admin: session user có role admin → GET 200 (không cần secret)', async () => {
+  resetDb();
+  setCurrentUser({ id: 'u-admin' });
+  seedAdminRole('u-admin'); // bảng user_roles có dòng admin
+  const { status, body } = await readRes(await GET(req('GET'))); // KHÔNG gửi secret
+  assert.equal(status, 200, 'session-admin vào được');
+  assert.equal(body.success, true);
+});
+
+test('admin: session user THƯỜNG (không role) + không secret → 403', async () => {
+  resetDb();
+  setCurrentUser({ id: 'u-normal' }); // đăng nhập nhưng KHÔNG có role admin
+  const { status } = await readRes(await GET(req('GET')));
+  assert.equal(status, 403, 'user thường không vào được admin');
+});
+
+test('admin: session-admin POST fulfill được (dual-auth cho đường ghi)', async () => {
+  resetDb();
+  setCurrentUser({ id: 'u-admin' });
+  seedAdminRole('u-admin');
+  seedPending('red-sess', 'owner-x', 50000);
+  const { status, body } = await readRes(
+    await POST(req('POST', { body: { redemptionId: 'red-sess', action: 'fulfill' } }))
+  );
+  assert.equal(status, 200, 'session-admin fulfill được');
+  assert.equal(body.success, true);
+});
+
+test('admin: secret ĐÚNG vẫn vào dù session không phải admin (đường dự phòng)', async () => {
+  resetDb();
+  setCurrentUser({ id: 'u-normal' }); // session thường
+  const { status } = await readRes(await GET(req('GET', { secret: SECRET })));
+  assert.equal(status, 200, 'secret vẫn là đường dự phòng chống tự khóa');
 });
 
 test('admin: GET đúng secret → 200, thấy phiếu pending TOÀN hệ thống, FIFO cũ trước', async () => {
